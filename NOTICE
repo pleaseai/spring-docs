@@ -1,0 +1,56 @@
+@pleaseai/spring-docs
+Copyright 2026 Passion Factory
+
+This product includes software developed by Passion Factory (https://passionfactory.ai).
+
+================================================================================
+Redistributed Documentation Content
+================================================================================
+
+This repository redistributes documentation generated from the following
+upstream projects. All redistributed content retains its original copyright
+and is licensed under the Apache License, Version 2.0.
+
+The Markdown files in this repository (and in the GitHub Release archives it
+publishes) are mechanical conversions from the original sources. Content
+meaning is unchanged; only the file format differs.
+
+--------------------------------------------------------------------------------
+Spring Framework
+  Copyright (c) 2002-present, the Spring Framework authors.
+  Source:    https://github.com/spring-projects/spring-framework
+  License:   Apache License, Version 2.0
+  Notice:    https://github.com/spring-projects/spring-framework/blob/main/NOTICE.txt
+
+Spring Boot
+  Copyright (c) 2012-present, the Spring Boot authors.
+  Source:    https://github.com/spring-projects/spring-boot
+  License:   Apache License, Version 2.0
+  Notice:    https://github.com/spring-projects/spring-boot/blob/main/NOTICE.txt
+
+Spring Security
+  Copyright (c) 2002-present, the Spring Security authors.
+  Source:    https://github.com/spring-projects/spring-security
+  License:   Apache License, Version 2.0
+  Notice:    https://github.com/spring-projects/spring-security/blob/main/NOTICE.txt
+
+Spring Data (and its sub-projects: JPA, JDBC, MongoDB, Redis, etc.)
+  Copyright (c) 2008-present, the Spring Data authors.
+  Source:    https://github.com/spring-projects/spring-data-*
+  License:   Apache License, Version 2.0
+
+Spring Cloud (and its sub-projects)
+  Copyright (c) 2013-present, the Spring Cloud authors.
+  Source:    https://github.com/spring-cloud/*
+  License:   Apache License, Version 2.0
+--------------------------------------------------------------------------------
+
+Per-release attribution:
+  Each GitHub Release archive published from this repository includes a
+  NOTICE file pinned to the exact upstream commit/tag from which the
+  documentation was generated. Consult the archive's NOTICE for the
+  authoritative attribution applicable to that release.
+
+If you are a maintainer of any upstream project listed above and have
+concerns about how this documentation is redistributed, please open an
+issue at https://github.com/pleaseai/spring-docs/issues.
