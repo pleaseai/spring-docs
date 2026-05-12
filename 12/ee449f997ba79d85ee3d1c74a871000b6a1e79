@@ -1,0 +1,37 @@
+.please/config.yml
+  s_c72ccf37162647::t_ac62b97d2643c2 30-38
+  s_c72ccf37162647::t_4605c83161fdc2 1-4,20-29
+  s_c72ccf37162647::t_98bcfc973ae8f7 5-19
+.please/docs/tracks/tech-debt-tracker.md
+  s_c72ccf37162647::t_f6cd58f6a0ae86 1-13
+.please/docs/knowledge/workflow.md
+  s_c72ccf37162647::t_5a5038c7b2ebd5 1-163
+.please/docs/knowledge/tech-stack.md
+  s_c72ccf37162647::t_ff63067dce0788 1-194
+.please/docs/knowledge/product-guidelines.md
+  s_c72ccf37162647::t_85cc701d42f7c4 1-114
+.please/docs/knowledge/product.md
+  s_c72ccf37162647::t_61ca6197cbafec 1-70
+.please/docs/decisions/index.md
+  s_c72ccf37162647::t_8dbca79fbc9ee7 1-6
+.please/INDEX.md
+  s_c72ccf37162647::t_a7acc1cfd5d26c 1-35
+.please/docs/product-specs/index.md
+  s_c72ccf37162647::t_b8bd907fb18fdc 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "12ee449f997ba79d85ee3d1c74a871000b6a1e79",
+  "prompts": {},
+  "sessions": {
+    "s_c72ccf37162647": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1adf908-27b5-48e5-9709-adb7ef624e3b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
