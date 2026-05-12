@@ -1,0 +1,19 @@
+.gemini/settings.json
+  s_c72ccf37162647::t_dcd7c71df0d6a3 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "6e096568d1612afa52a39f130cc5aa64dffb5f14",
+  "prompts": {},
+  "sessions": {
+    "s_c72ccf37162647": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f1adf908-27b5-48e5-9709-adb7ef624e3b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
