@@ -1,0 +1,25 @@
+catalog.json
+  s_0d52565fc49fb4::t_66650ba1ab2742 1-6
+LICENSE
+  s_0d52565fc49fb4::t_ebc43d526f5425 1-201
+.gitignore
+  s_0d52565fc49fb4::t_eee8b189cfbbd2 1-50
+NOTICE
+  s_0d52565fc49fb4::t_b7efc192a2dd40 1-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "2e52a67e91e2b1222da3ab2c6db52c15ef3002ca",
+  "prompts": {},
+  "sessions": {
+    "s_0d52565fc49fb4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f4f69926-b0ed-4b5e-a210-aa35f1c2b3b9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
