@@ -1,0 +1,19 @@
+ARCHITECTURE.md
+  s_2ccdd0344ff7da::t_099fb8a9bbc579 1-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "1ba6b1f16288b553977e181cb5dbabafe56b2487",
+  "prompts": {},
+  "sessions": {
+    "s_2ccdd0344ff7da": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c806f267-6248-4ea6-9a3e-81f4613023ee",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
