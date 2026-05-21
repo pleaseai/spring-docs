@@ -1,0 +1,29 @@
+.please/docs/tracks/active/project-bootstrap-20260521/spec.md
+  s_09fa52329faae4::t_77373177dcccfa 1-61
+.please/docs/tracks.jsonl
+  s_09fa52329faae4::t_73f93a97ea3e4f 1
+.please/docs/tracks/active/project-bootstrap-20260521/plan.md
+  s_09fa52329faae4::t_e8467398718233 2,5,7,13,15,17,19,21,23,25,27,29,37,39,238-239
+  s_09fa52329faae4::t_1afd3d48afcc5e 1,3-4,6,8-12,14,16,18,20,22,24,26,28,30-36,38,40-237,240-243
+.please/config.yml
+  s_09fa52329faae4::t_097c3390dc0eca 1
+.please/docs/tracks/active/project-bootstrap-20260521/metadata.json
+  s_09fa52329faae4::t_fc65d0126b2ab0 4,6-7
+  s_09fa52329faae4::t_fd9e7380706ed1 1-3,5,8-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "2ea60b5aeb59f32d8a856d332e85cd980ce7f1bc",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
