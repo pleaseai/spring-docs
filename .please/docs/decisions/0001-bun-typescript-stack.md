@@ -49,7 +49,7 @@ Concrete configuration lives in `package.json`, `tsconfig.json`, `eslint.config.
 
 ### Negative
 
-- **Bun is younger than Node** — the runtime occasionally ships breaking changes (mitigated by pinning `packageManager` and using `bun install --frozen-lockfile` in CI).
+- **Bun is younger than Node** — the runtime occasionally ships breaking changes (mitigated by pinning `package.json#packageManager` *and* `bun-version` in `ci.yml` to the same release, and using `bun install --frozen-lockfile` in CI). Upgrading Bun requires bumping both pins in the same commit.
 - **Some npm packages assume Node** — minor incompatibilities possible; mitigated by preferring `node:*` builtins (`node:fs/promises`, `node:path`) over Bun-only APIs in code that might run inside third-party Actions.
 - **Bun test runner is less mature** than Vitest or Jest — fewer plugins, smaller ecosystem. Acceptable for the rule-shaped test surface we expect.
 
