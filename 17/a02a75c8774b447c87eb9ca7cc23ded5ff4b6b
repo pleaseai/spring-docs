@@ -1,0 +1,21 @@
+.please/docs/tracks/active/project-bootstrap-20260521/metadata.json
+  ai_agent 8
+.please/docs/tracks/active/project-bootstrap-20260521/plan.md
+  s_09fa52329faae4::t_a2986316f2dce8 219-246,250-255
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "17a02a75c8774b447c87eb9ca7cc23ded5ff4b6b",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
