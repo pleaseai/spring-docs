@@ -1,0 +1,19 @@
+.please/docs/knowledge/gotchas.md
+  s_73bf32b2a6494c::t_ce38f95b8d6a91 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "f6e1afc6d39b9d87d4ee7b661dd1c49a24f75f82",
+  "prompts": {},
+  "sessions": {
+    "s_73bf32b2a6494c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "36a79f17-5a6c-47b2-a2fa-8eba1db5e1fa",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
