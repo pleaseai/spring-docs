@@ -1,0 +1,21 @@
+.github/workflows/ci.yml
+  s_09fa52329faae4::t_ce0e4b7f83a8b2 27
+.please/docs/decisions/0001-bun-typescript-stack.md
+  s_09fa52329faae4::t_2fd81cd382f3a6 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "ba27dab6b5fb8f8756d1c7a7fa4b27530084a0e9",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
