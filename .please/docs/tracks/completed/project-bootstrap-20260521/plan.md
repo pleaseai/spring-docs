@@ -253,6 +253,40 @@ graph LR
   Evidence: First `bun run lint` reported 19 errors against `.please/config.yml`, `package.json`, and `tsconfig.json`. Resolution: (a) extend `ignores` to cover the full `.please/` directory (workspace meta, not source), and (b) accept `--fix` reordering of `package.json` and `tsconfig.json` keys. The key reorderings are semantic no-ops; the values are identical. Captured: future tracks adding YAML configs under `.please/` will not be linted, but YAML configs elsewhere (e.g., `.github/workflows/`) will be.
 - Observation: ESLint requires `process` to be imported from `node:process`, not used as a global
   Evidence: `scripts/validate-catalog.ts` initially used the global `process` and failed lint (4 occurrences). Resolution: `import process from 'node:process'`. Captured for future scripts: prefer explicit `node:*` imports for `process`, `fs`, `path`, etc.
+- Observation: ESLint's `#!/usr/bin/env node` shebang hijacks runtime from Bun in CI
+  Evidence: CI failed with `TypeError: Object.groupBy is not a function` because GitHub Actions' default Node is < 21. `bun run lint` was respecting the shebang and switching to Node. Resolution: change `package.json` lint scripts to `bun --bun x eslint`, forcing Bun's JavaScriptCore runtime which supports ES2024. Also update `lint-staged` config so the pre-commit hook uses the same runtime — otherwise Node and Bun's `eslint --fix` disagree on `perfectionist/sort-imports` ordering (Node groups `node:*` first, Bun puts `bun:test` first alphabetically) and ping-pong each other. Captured for future Bun + ESLint projects.
+- Observation: `bun-version: latest` in CI silently undermined the `packageManager` pin
+  Evidence: Security review (confidence 82) flagged the floating runtime; ADR-0001 originally claimed `packageManager` pinning mitigated CI risk but `oven-sh/setup-bun` doesn't honor that field. Resolution: pin `bun-version: 1.3.14` to match `package.json#packageManager`; ADR-0001 updated to describe the dual-pin discipline. Captured for future toolchain Tracks: any pin in `package.json` that CI ignores by default needs its own CI-side pin to actually be load-bearing.
+
+## Outcomes & Retrospective
+
+### What Was Shipped
+
+- Bun 1.3.14 + TypeScript 5.x (strict + `noUncheckedIndexedAccess` + `noEmit`) baseline with `package.json`, `tsconfig.json`, lockfile
+- ESLint via `@pleaseai/eslint-config` flat config, zero-warnings policy, `bun --bun x` runtime for CI parity
+- Husky v9 + lint-staged pre-commit hook (verified end-to-end with malformed `.ts` staging)
+- Bun test runner wired with a sanity test plus 8 unit tests + 6 CLI integration tests for `validate-catalog.ts`
+- `scripts/lib/catalog-schema.ts` zod schema for `catalog.json` + `scripts/validate-catalog.ts` CLI validator
+- `.github/workflows/ci.yml` with SHA-pinned actions running typecheck + lint + validate-catalog + test (with coverage + JUnit + optional Codecov)
+- `ARCHITECTURE.md` synced to on-disk reality (`_(Planned)_` removed from bootstrap-completed sections, retained on still-future conversion code)
+- ADR-0001 capturing the Bun + TypeScript + Bun-test stack decision
+
+### What Went Well
+
+- Single-PR (Pragmatic) approach kept the bootstrap coherent and atomically rollback-able. Splitting would have inflated workspace overhead without reducing risk.
+- TDD discipline on the catalog schema caught the regex/datetime invariants early; the 8 unit tests + 6 integration tests gave high confidence on a 100-LOC code surface.
+- Sibling `@pleaseai/ask` repo provided concrete reference patterns for CI structure (SHA-pinned actions, Codecov continue-on-error idiom) — saved hours of trial and error.
+- Spec-compliance check returned 100% on the first run; the spec was actionable.
+
+### What Could Improve
+
+- The TS18003 / first-`.ts`-file ordering discovery should have been caught at plan time. Future bootstrap tracks should sequence the first concrete `.ts` file (sanity test) into the same task as the tsconfig verification step.
+- CI surface ran twice in a fix loop (Bun runtime issue, then lint-staged/CI disagreement) before settling. A lighter pre-push `act` or local CI emulation might have caught these earlier — worth evaluating in a future Tooling track.
+- The PR body got accidentally overwritten with a stale `/tmp/pr-body.md` due to zsh `noclobber`. Avoid generic `/tmp/<name>.md` filenames in interactive automation; prefer `mktemp` or repo-scoped unique names.
+
+### Tech Debt Created
+
+None. All scope deferrals are deliberate per the spec's Out-of-Scope section (conversion logic, additional workflows, Renovate/Dependabot, release-please strategy) and tracked in future Tracks — no implicit debt was introduced.
 
 ## Notes
 
