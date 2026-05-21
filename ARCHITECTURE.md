@@ -38,6 +38,8 @@ When reading the code or the spec for the first time, start here:
 | [`catalog.json`](./catalog.json)                         | The public index `(project, version) → release tag`. Read this to understand the API consumers see  |
 | `.please/docs/knowledge/product.md`                      | Product vision, scope, success criteria                                                             |
 | `.please/docs/knowledge/tech-stack.md`                   | Runtime, language, conversion library choices with rationale                                        |
+| [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) | CI entry — typecheck + lint + `validate-catalog` + test on every PR and push to main                |
+| [`scripts/validate-catalog.ts`](./scripts/validate-catalog.ts) | Tooling entry — runs the catalog zod schema; CI gate that guards `catalog.json` shape              |
 | `scripts/fetch-upstream.ts` _(Planned)_                  | Pipeline entry — sparse-checkout one upstream `(project, tag)` pair                                 |
 | `scripts/convert.ts` _(Planned)_                         | Pipeline entry — AsciiDoc/Antora → Markdown conversion                                              |
 | `scripts/package-release.ts` _(Planned)_                 | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum                              |
@@ -47,34 +49,36 @@ When reading the code or the spec for the first time, start here:
 
 Top-level layout, in implementation order (top to bottom = fetch → convert → publish):
 
-### `scripts/` _(Planned)_
+### `scripts/`
 
 Conversion pipeline. Each top-level file is an executable Bun/TypeScript script with a clearly defined input → output. Pure logic lives in `scripts/lib/`.
 
-| File                       | Role                                                                                                                                |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `fetch-upstream.ts`        | Sparse-checkout one upstream Spring repo at a given tag. Writes only the docs subtree to `--out`. No submodules.                    |
-| `convert.ts`               | AsciiDoc/Antora → Markdown. Reads a fetched upstream tree, applies conversion rules, writes a versioned Markdown tree.              |
-| `package-release.ts`       | Tar+gzip a Markdown tree, generate `manifest.json`, produce SHA-256 checksum.                                                       |
-| `lib/antora-rules.ts`      | Centralized conversion rules (xref, include, admonitions, tab blocks, attribute substitution). **All conversion logic lives here.** |
-| `lib/manifest.ts`          | `manifest.json` schema + builder. Owns the public schema; changes require an ADR.                                                   |
+| File                                  | Role                                                                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `validate-catalog.ts`                 | Validate `catalog.json` against the canonical zod schema. CI gate.                                                                  |
+| `fetch-upstream.ts` _(Planned)_       | Pipeline entry — sparse-checkout one upstream `(project, tag)` pair. Writes only the docs subtree to `--out`. No submodules.        |
+| `convert.ts` _(Planned)_              | Pipeline entry — AsciiDoc/Antora → Markdown. Reads a fetched upstream tree, applies conversion rules, writes a versioned tree.      |
+| `package-release.ts` _(Planned)_      | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
+| `lib/catalog-schema.ts`               | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                               |
+| `lib/antora-rules.ts` _(Planned)_     | Centralized conversion rules (xref, include, admonitions, tab blocks, attribute substitution). **All conversion logic lives here.** |
+| `lib/manifest.ts` _(Planned)_         | `manifest.json` schema + builder. Owns the public schema; changes require an ADR.                                                   |
 
 **Architecture rule**: Conversion rules in `lib/` are pure functions over an AST or token stream. They do not perform I/O. I/O lives only in the top-level script entry points.
 
-### `markdown/` _(Planned, generated, committed)_
+### `markdown/` _(scaffolded; content Planned)_
 
 Output tree, organized as `markdown/<project>/<version>/`. Committed for diff-ability and direct GitHub browsing. **Not** the primary consumption surface — consumers fetch GitHub Release archives, not this directory.
 
-### `.github/workflows/` _(Planned)_
+### `.github/workflows/`
 
 CI/CD. GitHub Actions only; no other CI vendor.
 
-| Workflow             | Trigger             | Role                                                                                            |
-| -------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
-| `ci.yml`             | PR / push           | typecheck + lint + test                                                                         |
-| `matrix-build.yml`   | manual / scheduled  | Build N projects × M versions in parallel                                                       |
-| `nightly-detect.yml` | cron (daily)        | Poll upstream for new tags; open issues for new GA releases                                     |
-| `release.yml`        | tag push            | Publish archive + checksum + manifest to GitHub Releases, update `catalog.json` via PR          |
+| Workflow                          | Trigger             | Role                                                                                            |
+| --------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
+| `ci.yml`                          | PR / push           | typecheck + lint + `validate-catalog` + test (with coverage + JUnit + optional Codecov)         |
+| `matrix-build.yml` _(Planned)_    | manual / scheduled  | Build N projects × M versions in parallel                                                       |
+| `nightly-detect.yml` _(Planned)_  | cron (daily)        | Poll upstream for new tags; open issues for new GA releases                                     |
+| `release.yml` _(Planned)_         | tag push            | Publish archive + checksum + manifest to GitHub Releases, update `catalog.json` via PR          |
 
 ### `catalog.json`
 
@@ -94,15 +98,16 @@ Committed JSON index. Schema-versioned (`"version": "1"`). Updated by `release.y
 
 Consumers MUST resolve `(project, version) → tag` through this file, not by scraping the Releases page.
 
-### `tests/` _(Planned)_
+### `tests/`
 
 Bun test suite.
 
-| Path                  | Scope                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------ |
-| `tests/unit/`         | Per-rule tests for `scripts/lib/antora-rules.ts` (input AsciiDoc → expected Markdown) |
-| `tests/integration/`  | Fixture upstream tree → full archive → checksum verification                          |
-| `tests/fixtures/`     | Minimal upstream-shaped trees for deterministic tests                                 |
+| Path                          | Scope                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------ |
+| `tests/sanity.test.ts`        | Harness smoke test (proves Bun test + TypeScript strict mode are wired)              |
+| `tests/unit/`                 | Per-rule tests for `scripts/lib/*` (e.g., `catalog-schema.test.ts`; antora rules planned)   |
+| `tests/integration/` _(Planned)_ | Fixture upstream tree → full archive → checksum verification                          |
+| `tests/fixtures/` _(Planned)_    | Minimal upstream-shaped trees for deterministic tests                                 |
 
 ### `.please/`
 
