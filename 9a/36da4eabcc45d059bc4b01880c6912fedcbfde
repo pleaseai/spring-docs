@@ -1,0 +1,22 @@
+scripts/validate-catalog.ts
+  s_09fa52329faae4::t_910ed2647cf4ce 7
+tests/integration/validate-catalog.test.ts
+  ai_agent 4
+  s_09fa52329faae4::t_e18d0f1fe34f81 1-3,5-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "9a36da4eabcc45d059bc4b01880c6912fedcbfde",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
