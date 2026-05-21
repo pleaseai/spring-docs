@@ -4,7 +4,7 @@
  *
  * Exit codes:
  *   0 — catalog.json parses cleanly
- *   1 — schema violation (errors printed to stderr)
+ *   1 — invalid JSON or schema violation (errors printed to stderr)
  *   2 — file not found or unreadable
  */
 
