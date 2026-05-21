@@ -1,0 +1,20 @@
+.please/docs/knowledge/workflow.md
+  s_09fa52329faae4::t_54402f7eb3f774 56
+  s_09fa52329faae4::t_44e2cce9e62790 91-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "c2843df231e2f5d14c8c90ae5347de492185de97",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
