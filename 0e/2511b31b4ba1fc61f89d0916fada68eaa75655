@@ -1,0 +1,27 @@
+.please/docs/product-specs/project-bootstrap/spec.md
+  s_09fa52329faae4::t_fac1eaefe3a0c2 1-110
+.please/docs/product-specs/index.md
+  s_09fa52329faae4::t_de58a14769a4df 3,5-7
+AGENTS.md
+  ai_agent 1
+.please/docs/tracks/completed/project-bootstrap-20260521/metadata.json
+  s_09fa52329faae4::t_48ed4bdbbb9411 4,6
+.please/docs/tracks.jsonl
+  s_09fa52329faae4::t_171131530144f6 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "0e2511b31b4ba1fc61f89d0916fada68eaa75655",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
