@@ -216,24 +216,43 @@ graph LR
 
 ## Progress
 
-- [ ] T001 Initialize package.json with Bun + TypeScript scripts
-- [ ] T002 Add tsconfig.json matching tech-stack.md exactly
-- [ ] T003 Verify .gitignore covers bootstrap artifacts
-- [ ] T004 Add eslint.config.ts using @pleaseai/eslint-config
-- [ ] T005 Configure Husky + lint-staged for pre-commit
-- [ ] T006 Add sanity test to prove Bun test harness works
-- [ ] T007 Create directory skeleton with .gitkeep markers
-- [ ] T008 Define catalog.json zod schema
-- [ ] T009 Add catalog.json validation script
-- [ ] T010 Add tests for catalog schema
-- [ ] T011 Author .github/workflows/ci.yml
-- [ ] T012 Write ADR-0001 capturing Bun + TypeScript + Bun test stack decision
-- [ ] T013 Update ARCHITECTURE.md to reflect newly created paths
-- [ ] T014 Update decisions/index.md with ADR-0001 entry
+- [x] (2026-05-21 17:28 KST) T001 Initialize package.json with Bun + TypeScript scripts
+  Evidence: `bun install` → 378 packages installed; `bun --version` → 1.3.14
+- [x] (2026-05-21 17:31 KST) T002 Add tsconfig.json matching tech-stack.md exactly
+  Evidence: `bun run typecheck` → exit 0 (after T006 added the first `.ts` file; see Surprises)
+- [x] (2026-05-21 17:33 KST) T003 Verify .gitignore covers bootstrap artifacts
+  Evidence: Added `*.tsbuildinfo`; all other patterns already present
+- [x] (2026-05-21 17:39 KST) T004 Add eslint.config.ts using @pleaseai/eslint-config
+  Evidence: `bun run lint` → exit 0 (after `--fix` reordered package.json + tsconfig.json keys)
+- [x] (2026-05-21 17:41 KST) T005 Configure Husky + lint-staged for pre-commit
+  Evidence: staged `const   x  =   42  ;` → hook rewrote to `const x = 42`
+- [x] (2026-05-21 17:32 KST) T006 Add sanity test to prove Bun test harness works
+  Evidence: `bun test tests/sanity.test.ts` → 2 pass, 0 fail
+- [x] (2026-05-21 17:32 KST) T007 Create directory skeleton with .gitkeep markers
+  Evidence: scripts/, scripts/lib/, tests/{unit,integration,fixtures}/, markdown/ — all with .gitkeep
+- [x] (2026-05-21 17:42 KST) T008 Define catalog.json zod schema
+  Evidence: `scripts/lib/catalog-schema.ts` exports `CatalogSchema` + `CATALOG_VERSION`
+- [x] (2026-05-21 17:42 KST) T009 Add catalog.json validation script
+  Evidence: `bun run validate-catalog` → ✓ valid; corrupt version='2' → exit 1 with clear message
+- [x] (2026-05-21 17:43 KST) T010 Add tests for catalog schema
+  Evidence: 8 cases (placeholder, populated, wrong version, missing projects/tag, bad/null released_at, bad tag) — all pass
+- [x] (2026-05-21 17:43 KST) T011 Author .github/workflows/ci.yml
+  Evidence: SHA-pinned checkout/setup-bun/codecov; jobs: install + typecheck + lint + validate-catalog + test (coverage + JUnit)
+- [x] (2026-05-21 17:45 KST) T012 Write ADR-0001 capturing Bun + TypeScript + Bun test stack decision
+  Evidence: `.please/docs/decisions/0001-bun-typescript-stack.md` (Accepted, dated 2026-05-21)
+- [x] (2026-05-21 17:46 KST) T013 Update ARCHITECTURE.md to reflect newly created paths
+  Evidence: removed _(Planned)_ from scripts/, .github/workflows/, tests/, markdown/ headings; added file rows for ci.yml + validate-catalog.ts + catalog-schema.ts; retained _(Planned)_ on still-future conversion code
+- [x] (2026-05-21 17:45 KST) T014 Update decisions/index.md with ADR-0001 entry
+  Evidence: Index row added; status "Accepted"
 
 ## Surprises & Discoveries
 
-_(Populated during implementation)_
+- Observation: `tsc --noEmit` against an empty `include: ["scripts/**/*", "tests/**/*"]` fails with `TS18003: No inputs were found`
+  Evidence: Initial T002 verification failed; `tsc` requires at least one matching `.ts` file (`.gitkeep` does not satisfy). Resolution: implement T007 (directory skeleton) and T006 (sanity test) before re-verifying T002. Plan dependencies allow this reordering (T002, T006, T007 all depend only on T001). Captured for future tracks: when `tsconfig.json` `include` is non-default, the first `.ts` file must land before typecheck verification can succeed.
+- Observation: `@pleaseai/eslint-config` lints YAML + JSONC by default and enforces `jsonc/sort-keys`
+  Evidence: First `bun run lint` reported 19 errors against `.please/config.yml`, `package.json`, and `tsconfig.json`. Resolution: (a) extend `ignores` to cover the full `.please/` directory (workspace meta, not source), and (b) accept `--fix` reordering of `package.json` and `tsconfig.json` keys. The key reorderings are semantic no-ops; the values are identical. Captured: future tracks adding YAML configs under `.please/` will not be linted, but YAML configs elsewhere (e.g., `.github/workflows/`) will be.
+- Observation: ESLint requires `process` to be imported from `node:process`, not used as a global
+  Evidence: `scripts/validate-catalog.ts` initially used the global `process` and failed lint (4 occurrences). Resolution: `import process from 'node:process'`. Captured for future scripts: prefer explicit `node:*` imports for `process`, `fs`, `path`, etc.
 
 ## Notes
 
