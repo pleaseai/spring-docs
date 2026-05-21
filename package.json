@@ -14,8 +14,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "eslint --max-warnings 0",
-    "lint:fix": "eslint --fix",
+    "lint": "bun --bun x eslint --max-warnings 0",
+    "lint:fix": "bun --bun x eslint --fix",
     "test": "bun test",
     "test:coverage": "bun test --coverage",
     "validate-catalog": "bun run scripts/validate-catalog.ts",
