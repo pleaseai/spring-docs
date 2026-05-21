@@ -1,0 +1,21 @@
+.please/docs/decisions/0001-bun-typescript-stack.md
+  s_09fa52329faae4::t_b44ef13dfc8561 1-80
+.please/docs/decisions/index.md
+  s_09fa52329faae4::t_e0c5ab072dd5f0 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "15f23433f6b79b4893c4657831de5550d5acc8d1",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
