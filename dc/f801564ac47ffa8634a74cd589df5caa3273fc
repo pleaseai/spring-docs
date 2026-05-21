@@ -1,0 +1,24 @@
+eslint.config.ts
+  s_09fa52329faae4::t_7c8f5680313442 1-10,13-14
+  s_09fa52329faae4::t_769b6ce875bc51 11-12
+package.json
+  s_09fa52329faae4::t_8a84fe13f57c50 4-5
+tsconfig.json
+  s_09fa52329faae4::t_8a84fe13f57c50 5-7,9-11,15-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "dcf801564ac47ffa8634a74cd589df5caa3273fc",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
