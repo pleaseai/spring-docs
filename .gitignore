@@ -12,6 +12,7 @@ build/
 out/
 *.tar.gz
 *.tar.gz.sha256
+*.tsbuildinfo
 
 # Local upstream checkouts (pipeline scratch)
 upstream/

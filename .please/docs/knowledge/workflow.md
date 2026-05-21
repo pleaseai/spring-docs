@@ -53,6 +53,7 @@ Before marking any task complete:
 - [ ] Code coverage meets requirements (>80%)
 - [ ] Type check passes (`bun run typecheck`)
 - [ ] No lint warnings (`bun run lint` — zero warnings policy)
+- [ ] Catalog schema valid (`bun run validate-catalog`)
 - [ ] Conversion output validates (link check, schema check, size sanity)
 - [ ] No security vulnerabilities introduced
 - [ ] Documentation updated if needed
@@ -87,9 +88,10 @@ bun test scripts/lib/          # Run a specific suite
 ### Before Committing
 
 ```bash
-bun run typecheck   # tsc --noEmit
-bun run lint        # eslint --max-warnings 0
-bun test            # Bun test runner
+bun run typecheck         # tsc --noEmit
+bun run lint              # eslint --max-warnings 0
+bun test                  # Bun test runner
+bun run validate-catalog  # zod schema check on catalog.json (CI gate)
 ```
 
 Pre-commit hook (Husky + lint-staged) runs `eslint --fix` on staged files automatically.
