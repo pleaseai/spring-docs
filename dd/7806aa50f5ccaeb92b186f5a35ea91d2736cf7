@@ -1,0 +1,21 @@
+package.json
+  s_09fa52329faae4::t_efff2f6dd080f6 36
+tests/integration/validate-catalog.test.ts
+  s_09fa52329faae4::t_6ff6d6a232e884 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "dd7806aa50f5ccaeb92b186f5a35ea91d2736cf7",
+  "prompts": {},
+  "sessions": {
+    "s_09fa52329faae4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d44fa5d1-d1f5-4e56-bf16-1fa4d97c2a05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Minsu Lee <amond@amond.net>"
+    }
+  }
+}
