@@ -20,6 +20,8 @@ public record Fixture(String name) {
 * first item
 * second item
 
+include-code::FixtureInclude[]
+
 |===
 | Column A | Column B
 

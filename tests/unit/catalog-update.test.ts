@@ -116,6 +116,20 @@ describe('serializeCatalog', () => {
     expect(text.endsWith('}\n')).toBe(true)
     expect(text.endsWith('\n\n')).toBe(false)
   })
+
+  test('serializes a non-GA version key instead of throwing', () => {
+    // catalog-schema.ts types version keys as any non-empty string, and a
+    // pre-release key passes validate-catalog.ts, so serialization must stay
+    // total even though compareGaVersions itself refuses non-GA input.
+    const catalog = applyEntry(
+      emptyCatalog(),
+      { project: 'boot', version: '4.2.0-RC1', tag: 'boot-4.2.0-RC1', releasedAt: null },
+      NOW,
+    )
+
+    expect(() => serializeCatalog(catalog)).not.toThrow()
+    expect(serializeCatalog(catalog)).toContain('"4.2.0-RC1"')
+  })
 })
 
 describe('applyEntry rebuilds', () => {

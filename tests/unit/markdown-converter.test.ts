@@ -70,6 +70,24 @@ describe('headings', () => {
     expect(markdown).not.toContain('<a id=')
     expect(markdown).toContain('## Level One')
   })
+
+  test('renders exactly one anchor for a section with an explicit id', () => {
+    // renderBlock's generic anchor prepend must not duplicate the one
+    // renderBlockContent already emits inline for the section case.
+    const { markdown } = convert('= T\n\n[[my.section.id]]\n== Level One')
+
+    expect(markdown.match(/<a id="my\.section\.id">/g)).toHaveLength(1)
+  })
+})
+
+describe('non-section anchors', () => {
+  test('renders an anchor before a table with an explicit id', () => {
+    // A minority of explicit anchors (~7 of 1,150 on the real upstream tree)
+    // sit on something other than a heading; an xref into one must not dangle.
+    const { markdown } = convert('= T\n\n[[my.table.id]]\n|===\n| A | B\n|===')
+
+    expect(markdown).toContain('<a id="my.table.id"></a>\n\n|  |  |')
+  })
 })
 
 describe('admonitions', () => {

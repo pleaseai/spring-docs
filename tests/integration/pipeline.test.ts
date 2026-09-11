@@ -92,6 +92,21 @@ async function packageRelease(outDir: string) {
   )
 }
 
+async function packageReleaseDryRun(outDir: string) {
+  return run(
+    [
+      'bun',
+      'run',
+      join(REPO_ROOT, 'scripts', 'package-release.ts'),
+      converted,
+      '--out',
+      outDir,
+      '--dry-run',
+    ],
+    REPO_ROOT,
+  )
+}
+
 beforeAll(async () => {
   work = await mkdtemp(join(tmpdir(), 'spring-docs-pipeline-'))
   await cp(FIXTURE, join(work, 'src'), { recursive: true })
@@ -159,6 +174,19 @@ describe('convert.ts over a fixture component', () => {
     expect(page).toContain('#### A titled listing\n\n```java\n')
     expect(page).toContain('- first item\n- second item')
     expect(page).toContain('| Column A | Column B |\n| --- | --- |\n| a1 | b1 |')
+  })
+
+  test('include-code:: resolves the example source and labels its language', async () => {
+    // include-code:: is registered by @springio/asciidoctor-extensions itself
+    // (not something this pipeline wires up), and it is load-bearing: 326
+    // occurrences in the real upstream 4.1.1 tree (ADR-0002). It resolves the
+    // target through the enclosing section id ("a-section" here, stripped of
+    // "-" per the extension's own rule) against the `include-java` attribute,
+    // not through the page path, so a regression there would silently drop
+    // every code sample in the real docs.
+    const page = await readFile(join(converted, 'index.md'), 'utf8')
+    expect(page).toContain('```java\n')
+    expect(page).toContain('fixture include-code sample')
   })
 
   test('the same source converts to byte-identical Markdown', async () => {
@@ -241,5 +269,39 @@ describe('package-release.ts over a converted tree', () => {
     expect(result.exitCode).toBe(0)
 
     expect(await readFile(join(second, `${NAME}.tar.gz`))).toEqual(await readFile(archive))
+  }, TIMEOUT)
+
+  test('the archive ships LICENSE, and the dry-run entry set agrees with the real run', async () => {
+    // LICENSE names the terms; NOTICE only names the license. Without LICENSE
+    // an archive-only recipient gets no license text at all.
+    const listed = await run(['tar', '-tzf', archive], work)
+    const entries = listed.stdout.trim().split('\n')
+    expect(entries).toContain(`${NAME}/LICENSE`)
+
+    const manifest = ManifestSchema.parse(
+      JSON.parse(await readFile(join(out, 'manifest.json'), 'utf8')),
+    )
+
+    const dryRun = await packageReleaseDryRun(join(work, 'releases-dry-run'))
+    expect(dryRun.exitCode).toBe(0)
+    const match = dryRun.stdout.match(/\[dry-run\] (\d+) files, content_sha256=([0-9a-f]{64})/)
+    expect(match).not.toBeNull()
+    expect(Number(match?.[1])).toBe(manifest.file_count)
+    expect(match?.[2]).toBe(manifest.content_sha256)
+  }, TIMEOUT)
+
+  test('a dry run over a tree the real run already packaged does not double-count NOTICE', async () => {
+    // `converted` already carries NOTICE and LICENSE on disk, written by the
+    // real run in beforeAll above. A dry run must still report the same
+    // file_count as that real run's manifest — one entry per generated file,
+    // not two.
+    const manifest = ManifestSchema.parse(
+      JSON.parse(await readFile(join(out, 'manifest.json'), 'utf8')),
+    )
+
+    const dryRun = await packageReleaseDryRun(join(work, 'releases-dry-run-repeat'))
+    expect(dryRun.exitCode).toBe(0)
+    const match = dryRun.stdout.match(/\[dry-run\] (\d+) files/)
+    expect(Number(match?.[1])).toBe(manifest.file_count)
   }, TIMEOUT)
 })

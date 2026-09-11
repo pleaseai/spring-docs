@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   cloneUrlFor,
   compareGaVersions,
+  compareVersionKeys,
   isGaVersion,
   mavenArchiveUrl,
   resolveUpstream,
@@ -92,6 +93,29 @@ describe('compareGaVersions', () => {
 
   test('refuses non-GA versions instead of ordering them arbitrarily', () => {
     expect(() => compareGaVersions('4.2.0-M1', '4.1.1')).toThrow(/Not GA versions/)
+  })
+
+  test('treats a leading-zero segment as distinct from its bare form', () => {
+    // Number("04") === Number("4"), so a Number-based comparator would wrongly
+    // report these as equal even though they are distinct catalog keys.
+    expect(compareGaVersions('4.01.1', '4.1.1')).not.toBe(0)
+  })
+
+  test('stays a finite comparison past Number.MAX_SAFE_INTEGER', () => {
+    // A segment this long overflows Number to Infinity, and Infinity - Infinity
+    // is NaN — an invalid Array#sort comparator result, not just an odd order.
+    const huge = '9'.repeat(400)
+    expect(compareGaVersions(`${huge}.0.0`, '4.1.1')).toBeGreaterThan(0)
+  })
+})
+
+describe('compareVersionKeys', () => {
+  test('orders GA keys numerically, same as compareGaVersions', () => {
+    expect(compareVersionKeys('4.10.0', '4.9.0')).toBeGreaterThan(0)
+  })
+
+  test('never throws on a non-GA key, unlike compareGaVersions', () => {
+    expect(() => compareVersionKeys('4.2.0-RC1', '4.1.1')).not.toThrow()
   })
 })
 

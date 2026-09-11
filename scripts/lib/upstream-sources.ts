@@ -208,11 +208,33 @@ export function cloneUrlFor(project: string): string {
 }
 
 /**
+ * Compare two GA version segments (each a run of digits, per `GA_VERSION`)
+ * without going through `Number`.
+ *
+ * `GA_VERSION` places no bound on segment length and allows leading zeroes,
+ * and `Number` mishandles both: `Number("04") === Number("4")`, so two
+ * distinct segments compare equal, and a segment long enough overflows to
+ * `Infinity` — `Infinity - Infinity` is `NaN`, an invalid `Array#sort`
+ * comparator result. Comparing the digit strings directly avoids both: same
+ * length compares lexicographically (exact, since every character is a
+ * digit), and a longer run of digits is always the larger number, so length
+ * decides first. This does not collapse a leading-zero segment onto its
+ * bare form — "04" and "4" get a defined, stable order rather than falsely
+ * comparing equal — which is exactly what a distinct-keys ordering needs.
+ */
+function compareGaSegment(a: string, b: string): number {
+  if (a.length !== b.length)
+    return a.length - b.length
+  return a < b ? -1 : a > b ? 1 : 0
+}
+
+/**
  * Order two GA versions numerically.
  *
  * Returns a negative number when `a` precedes `b`, as `Array#sort` expects.
  * String comparison would place `4.10.0` before `4.9.0`, so each segment is
- * compared as a number.
+ * compared with {@link compareGaSegment} instead of lexically as a whole
+ * string.
  *
  * @throws if either argument is not a GA version.
  */
@@ -220,14 +242,40 @@ export function compareGaVersions(a: string, b: string): number {
   if (!isGaVersion(a) || !isGaVersion(b))
     throw new Error(`Not GA versions: "${a}", "${b}"`)
 
-  const left = a.split('.').map(Number)
-  const right = b.split('.').map(Number)
+  const left = a.split('.')
+  const right = b.split('.')
   for (let i = 0; i < 3; i++) {
-    const diff = (left[i] ?? 0) - (right[i] ?? 0)
+    const diff = compareGaSegment(left[i] ?? '0', right[i] ?? '0')
     if (diff !== 0)
       return diff
   }
   return 0
+}
+
+/**
+ * Order two catalog version keys, without ever throwing.
+ *
+ * `catalog.json` version keys are typed as any non-empty string
+ * (`catalog-schema.ts`) and `validate-catalog.ts` accepts a pre-release one
+ * (e.g. `4.2.0-RC1`) even though {@link resolveUpstream} refuses to build it —
+ * a catalog can legitimately hold a non-GA key. `compareGaVersions` documents
+ * `@throws` for a non-GA argument, by design: {@link resolveUpstream} depends
+ * on that throw. So `serializeCatalog` cannot sort with `compareGaVersions`
+ * directly without turning from a total function into a partial one.
+ *
+ * The rule here: GA keys sort numerically among themselves and precede every
+ * non-GA key; non-GA keys sort lexicographically among themselves. That keeps
+ * the common case (all-GA) numerically ordered exactly as before, gives a
+ * stable place for the rare non-GA key, and never throws regardless of input.
+ */
+export function compareVersionKeys(a: string, b: string): number {
+  const aIsGa = isGaVersion(a)
+  const bIsGa = isGaVersion(b)
+  if (aIsGa && bIsGa)
+    return compareGaVersions(a, b)
+  if (aIsGa !== bIsGa)
+    return aIsGa ? -1 : 1
+  return a < b ? -1 : a > b ? 1 : 0
 }
 
 /**

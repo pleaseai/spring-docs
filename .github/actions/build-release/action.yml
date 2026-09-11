@@ -25,25 +25,34 @@ runs:
   steps:
     - name: Fetch upstream
       shell: bash
-      run: bun run scripts/fetch-upstream.ts "${{ inputs.project }}" "${{ inputs.version }}" --out dist/upstream
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
+      run: bun run scripts/fetch-upstream.ts "$PROJECT" "$VERSION" --out dist/upstream
 
     - name: Convert to Markdown
       shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
       # --strict: an unhandled AsciiDoc construct is a pipeline bug, not a warning
       # to page past (ARCHITECTURE: no silent fallbacks).
       run: |
-        bun run scripts/convert.ts "dist/upstream/${{ inputs.project }}-${{ inputs.version }}" \
-          --project "${{ inputs.project }}" \
-          --version "${{ inputs.version }}" \
+        bun run scripts/convert.ts "dist/upstream/$PROJECT-$VERSION" \
+          --project "$PROJECT" \
+          --version "$VERSION" \
           --out dist \
           --strict
 
     - name: Package
       id: package
       shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
-        name="${{ inputs.project }}-${{ inputs.version }}"
+        name="$PROJECT-$VERSION"
         bun run scripts/package-release.ts "dist/$name" --out releases
         echo "archive=releases/$name.tar.gz" >> "$GITHUB_OUTPUT"
         echo "sha256=$(cut -d' ' -f1 < "releases/$name.tar.gz.sha256")" >> "$GITHUB_OUTPUT"
@@ -51,4 +60,7 @@ runs:
     - name: Verify the checksum the archive ships with
       shell: bash
       working-directory: releases
-      run: sha256sum --check "${{ inputs.project }}-${{ inputs.version }}.tar.gz.sha256"
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
+      run: sha256sum --check "$PROJECT-$VERSION.tar.gz.sha256"

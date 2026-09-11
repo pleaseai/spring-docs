@@ -4,3 +4,4 @@ title: Fixture Component
 asciidoc:
   attributes:
     fixture-dependency-version: 1.2.3
+    include-java: ROOT:example$java

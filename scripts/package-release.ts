@@ -24,6 +24,7 @@ import type { ContentEntry, ManifestUpstream } from './lib/manifest.ts'
 import { chmod, mkdir, readdir, readFile, rm, utimes, writeFile } from 'node:fs/promises'
 import { basename, join, relative, resolve } from 'node:path'
 import process from 'node:process'
+import { assertGeneratedTargetsWritable } from './lib/generated-file-targets.ts'
 import {
   buildManifest,
 
@@ -193,22 +194,28 @@ async function fileChecksum(path: string): Promise<string> {
   return hex(await crypto.subtle.digest('SHA-256', await Bun.file(path).arrayBuffer()))
 }
 
-/** SHA-256 of the NOTICE content, computed in memory rather than from disk. */
-function noticeChecksum(notice: string): Promise<string> {
-  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(notice)).then(hex)
+/** SHA-256 of in-memory text content, computed without touching disk. */
+function textChecksum(text: string): Promise<string> {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(hex)
 }
 
 /**
  * Insert an entry into an already-sorted entry list, keeping it sorted.
  *
- * Used only for the dry-run NOTICE entry: the real write path gets NOTICE for
- * free from `listFiles`, already in position.
+ * Used only for a dry run's generated-file entries: the real write path gets
+ * them for free from `listFiles`, already in position.
  */
 function insertSorted(entries: readonly ContentEntry[], entry: ContentEntry): ContentEntry[] {
   const index = entries.findIndex(existing => existing.path > entry.path)
   const result = [...entries]
   result.splice(index === -1 ? result.length : index, 0, entry)
   return result
+}
+
+/** A file whose bytes are generated at packaging time rather than converted. */
+interface GeneratedFile {
+  readonly path: string
+  readonly content: string
 }
 
 /** Read one required, non-empty string field of a provenance sidecar. */
@@ -289,21 +296,43 @@ async function main(): Promise<void> {
     const tar = await findTar(cwd)
     const upstream = await readUpstream(source, project, version)
 
-    // NOTICE is content, so it must exist before the tree is checksummed. A
-    // dry run never writes it, so its entry is computed from the in-memory
-    // bytes instead and spliced in — otherwise dry-run's file_count and
-    // content_sha256 would not match what the same invocation actually packages.
+    // NOTICE and LICENSE are content, so they must exist before the tree is
+    // checksummed. A dry run never writes them, so their entries are computed
+    // from these in-memory bytes instead and spliced in — otherwise dry-run's
+    // file_count and content_sha256 would not match what the same invocation
+    // actually packages. LICENSE ships Apache-2.0's text; NOTICE only names the
+    // license, so without it an archive-only recipient gets no license copy.
     const notice = buildNotice(await readFile(join(cwd, 'NOTICE'), 'utf8'), upstream, project, version)
-    if (!args.dryRun)
-      await writeFile(join(source, 'NOTICE'), notice)
+    const license = await readFile(join(cwd, 'LICENSE'), 'utf8')
+    const generated: readonly GeneratedFile[] = [
+      { path: 'NOTICE', content: notice },
+      { path: 'LICENSE', content: license },
+    ]
+    // Both modes, not just the real one: a dry run that succeeds where the
+    // real run would throw is exactly the divergence this mechanism exists
+    // to remove (see generated-file-targets.ts).
+    await assertGeneratedTargetsWritable(source, generated.map(file => file.path))
+    if (!args.dryRun) {
+      for (const file of generated)
+        await writeFile(join(source, file.path), file.content)
+    }
 
     const files = await listFiles(source)
+    // A generated file already on disk under `source` — e.g. a dry run
+    // against a tree an earlier real run already packaged — must not be
+    // entered twice: once from `listFiles` and once from the in-memory splice
+    // below. Skipping it here on a dry run keeps that to exactly one entry.
+    const generatedPaths = new Set(generated.map(file => file.path))
     let entries: ContentEntry[] = []
     for (const path of files) {
+      if (args.dryRun && generatedPaths.has(path))
+        continue
       entries.push({ path, sha256: await fileChecksum(join(source, path)) })
     }
-    if (args.dryRun)
-      entries = insertSorted(entries, { path: 'NOTICE', sha256: await noticeChecksum(notice) })
+    if (args.dryRun) {
+      for (const file of generated)
+        entries = insertSorted(entries, { path: file.path, sha256: await textChecksum(file.content) })
+    }
 
     const manifest = await buildManifest({
       project,
