@@ -23,6 +23,7 @@ import { cp, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
+import { assertNoSymlinks } from './lib/reject-symlinks.ts'
 import { resolveUpstream } from './lib/upstream-sources.ts'
 
 interface Args {
@@ -107,6 +108,9 @@ async function mergeArchive(url: string, componentRoot: string, workDir: string)
   const expanded = join(workDir, 'expanded')
   await rm(expanded, { recursive: true, force: true })
   await run(['unzip', '-o', '-q', zipPath, '-d', expanded], workDir)
+  // Reject before merging: a symlink in the archive would otherwise be
+  // preserved into the committed content source (see reject-symlinks.ts).
+  await assertNoSymlinks(expanded)
   await cp(expanded, componentRoot, { recursive: true, force: true })
   await rm(zipPath, { force: true })
 }
