@@ -189,7 +189,7 @@ The pipeline is matrix-parallelized: typical full ecosystem rebuild (~10 project
 |---|---|
 | **Tag immutability** | Once a `<project>-<version>` tag is published, it is not deleted. Re-generation creates a new tag suffix (`framework-6.2.0+rebuild.1`) and updates `catalog.json` to point at the latest |
 | **Pre-release versions** | Not built. Only GA versions of upstream projects |
-| **EOL versions** | Built as long as upstream sources remain reachable and are above the project's supported floor — Boot 4.0.0, below which the docs live at a different path and publish different archives |
+| **EOL versions** | Buildable only while upstream still publishes that version's documentation archive to Maven Central. For Spring Boot that is 4.0.8 onwards: the `spring-boot-docs` artifact was published for 2.2.x-2.4.2, then not again until 4.0.8, so 4.0.0-4.0.7 and 4.1.0 cannot be built at all |
 | **Coverage window** | The newest N missing GA versions per project, N being the `limit` input of `matrix-build.yml` (default 3) |
 | **Backfill** | Older versions can be requested via issue and built on-demand |
 

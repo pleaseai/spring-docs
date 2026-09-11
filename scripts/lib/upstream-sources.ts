@@ -72,11 +72,11 @@ interface ProjectDefinition {
   /** Prefix the upstream repository puts in front of a version to form a tag. */
   readonly tagPrefix: string
   /**
-   * Oldest version this pipeline is known to handle.
+   * Oldest version this pipeline can build.
    *
-   * Older lines are not merely untested: the component path and the published
-   * archive classifiers both changed across major versions, so a build below
-   * this floor would fetch the wrong tree rather than fail.
+   * A cheap pre-filter over what upstream actually publishes — the authority is
+   * whether the content archives exist, which `detect-upstream-versions.ts`
+   * checks per candidate version.
    */
   readonly minimumVersion: string
   /** Maps a catalog version to its published aggregated javadoc base URL. */
@@ -104,9 +104,11 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
       'maven-plugin': `${SPRING_BOOT_DOCS}/${version}/maven-plugin`,
     }),
     tagPrefix: 'v',
-    // 4.0.0 moved the docs to `documentation/spring-boot-docs` and is the first
-    // line whose `root-aggregate-content` archive this pipeline was built against.
-    minimumVersion: '4.0.0',
+    // Not a compatibility guess: `spring-boot-docs` is published to Maven Central
+    // only for 2.2.x-2.4.2 and then again from 4.0.8, and this pipeline needs that
+    // artifact's `root-aggregate-content` archive. 4.0.0-4.0.7 and 4.1.0 have no
+    // archive at all, so they cannot be built however the converter behaves.
+    minimumVersion: '4.0.8',
     javadocLocationFor: version => `${SPRING_BOOT_DOCS}/${version}/api/java`,
   },
 }

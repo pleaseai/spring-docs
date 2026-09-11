@@ -19,7 +19,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { CatalogSchema } from './lib/catalog-schema.ts'
-import { cloneUrlFor, supportedProjects } from './lib/upstream-sources.ts'
+import { cloneUrlFor, resolveUpstream, supportedProjects } from './lib/upstream-sources.ts'
 import { missingVersions, parseTagRefs } from './lib/version-detect.ts'
 
 interface Args {
@@ -76,6 +76,29 @@ function parseArgs(argv: readonly string[]): Args {
   }
 }
 
+/**
+ * Whether every content archive a version needs has been published.
+ *
+ * Upstream tags a release long before — and sometimes without ever — publishing
+ * the `spring-boot-docs` archives this pipeline reads: 4.0.0-4.0.7 and 4.1.0 are
+ * tagged but have no archive at all. Filing an issue for a version that cannot be
+ * built wastes a human's time, so availability is checked here rather than left
+ * for `fetch-upstream.ts` to hit as a 404.
+ *
+ * @throws if a URL cannot be reached, so a network fault is never mistaken for
+ * an unpublished version.
+ */
+async function archivesPublished(project: string, version: string): Promise<boolean> {
+  for (const archive of resolveUpstream(project, version).archives) {
+    const response = await fetch(archive.url, { method: 'HEAD' })
+    if (response.status === 404)
+      return false
+    if (!response.ok)
+      throw new Error(`HEAD ${archive.url} → ${response.status} ${response.statusText}`)
+  }
+  return true
+}
+
 /** Tag names on a remote, without cloning it. */
 async function listRemoteTags(cloneUrl: string): Promise<readonly string[]> {
   const proc = Bun.spawn(['git', 'ls-remote', '--tags', cloneUrl], {
@@ -110,8 +133,25 @@ async function main(): Promise<void> {
     for (const project of args.projects) {
       const tags = await listRemoteTags(cloneUrlFor(project))
       const missing = missingVersions(catalog, project, tags)
-      const selected = args.limit === null ? missing : missing.slice(-args.limit)
+
+      const buildable: string[] = []
+      const unpublished: string[] = []
+      for (const version of missing) {
+        if (await archivesPublished(project, version))
+          buildable.push(version)
+        else
+          unpublished.push(version)
+      }
+
+      const selected = args.limit === null ? buildable : buildable.slice(-args.limit)
       for (const version of selected) include.push({ project, version })
+
+      // stderr, so `--json` output stays machine-readable.
+      if (unpublished.length > 0) {
+        console.error(
+          `${project}: skipping ${unpublished.length} version(s) with no published content archive: ${unpublished.join(', ')}`,
+        )
+      }
 
       if (!args.json) {
         console.log(

@@ -97,6 +97,12 @@ Two facts, both verified during the prototype, make delegating to the real toolc
 
 ### Negative
 
+- **Buildable versions are whatever Spring chose to publish.** The pipeline needs the
+  `spring-boot-docs` content archive, and Maven Central has it for 2.2.x-2.4.2 and then
+  only from 4.0.8 — 4.0.0-4.0.7 and 4.1.0 are tagged but unbuildable. Measured after the
+  fact, not anticipated: the original assumption was that a supported *range* existed.
+  Detection now verifies archive availability per version instead of trusting a floor.
+
 - **Dependency surface grows** from "Bun + a parser" to ~8 direct packages and their
   transitive trees. This is the cost the ADR exception exists to authorize.
 - **Pinned to `@asciidoctor/core@~2.2` (Opal-based)** until `spring-io/antora-extensions`

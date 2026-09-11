@@ -207,6 +207,8 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
 
 Both upstream halves are required. The checked-out `antora.yml` is a build-time stub; only the published archive carries the resolved attributes (dependency versions, javadoc locations) and the sample sources that `include-code::` reads, so fetching without it produces pages that convert cleanly while silently losing every included snippet.
 
+**This makes buildability a property of upstream's publishing, not of the converter.** Spring publishes `spring-boot-docs` to Maven Central for 2.2.x-2.4.2 and then not again until 4.0.8, so 4.0.0-4.0.7 and 4.1.0 are tagged releases that can never be built here. `detect-upstream-versions.ts` checks each candidate's archives before reporting it, so the nightly workflow does not file issues for versions nobody can build.
+
 
 **Determinism guarantee**: Same upstream commit + same `scripts/` SHA = byte-identical Markdown output and identical archive checksum. This is the load-bearing property of the entire system.
 

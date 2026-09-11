@@ -30,24 +30,24 @@ describe('parseTagRefs', () => {
 })
 
 describe('missingVersions', () => {
-  const tags = ['v4.0.0', 'v4.1.0', 'v4.1.1']
+  const tags = ['v4.0.8', 'v4.1.0', 'v4.1.1']
 
   test('reports every supported version when the catalog is empty', () => {
-    expect(missingVersions(catalog({}), 'boot', tags)).toEqual(['4.0.0', '4.1.0', '4.1.1'])
+    expect(missingVersions(catalog({}), 'boot', tags)).toEqual(['4.0.8', '4.1.0', '4.1.1'])
   })
 
   test('omits versions the catalog already carries', () => {
     const known = catalog({ boot: { '4.1.0': { tag: 'boot-4.1.0', released_at: null } } })
-    expect(missingVersions(known, 'boot', tags)).toEqual(['4.0.0', '4.1.1'])
+    expect(missingVersions(known, 'boot', tags)).toEqual(['4.0.8', '4.1.1'])
   })
 
   test('ignores other projects in the catalog', () => {
     const other = catalog({ framework: { '4.1.1': { tag: 'framework-4.1.1', released_at: null } } })
-    expect(missingVersions(other, 'boot', tags)).toEqual(['4.0.0', '4.1.0', '4.1.1'])
+    expect(missingVersions(other, 'boot', tags)).toEqual(['4.0.8', '4.1.0', '4.1.1'])
   })
 
   test('drops pre-releases and versions below the supported floor', () => {
-    const noisy = ['v3.5.0', 'v4.1.0', 'v4.2.0-M1', 'v4.2.0-RC1', 'not-a-tag']
+    const noisy = ['v3.5.0', 'v4.0.7', 'v4.1.0', 'v4.2.0-M1', 'v4.2.0-RC1', 'not-a-tag']
     expect(missingVersions(catalog({}), 'boot', noisy)).toEqual(['4.1.0'])
   })
 

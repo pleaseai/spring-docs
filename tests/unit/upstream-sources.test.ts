@@ -97,11 +97,11 @@ describe('compareGaVersions', () => {
 
 describe('supportedVersionsFromTags', () => {
   test('maps release tags to versions, oldest first', () => {
-    expect(supportedVersionsFromTags('boot', ['v4.1.1', 'v4.0.0'])).toEqual(['4.0.0', '4.1.1'])
+    expect(supportedVersionsFromTags('boot', ['v4.1.1', 'v4.0.8'])).toEqual(['4.0.8', '4.1.1'])
   })
 
   test('drops tags below the supported floor', () => {
-    expect(supportedVersionsFromTags('boot', ['v3.5.8', 'v4.0.0'])).toEqual(['4.0.0'])
+    expect(supportedVersionsFromTags('boot', ['v4.0.7', 'v3.5.8', 'v4.0.8'])).toEqual(['4.0.8'])
   })
 
   test('drops pre-releases and unrelated tag names', () => {
@@ -122,10 +122,10 @@ describe('cloneUrlFor', () => {
 
 describe('resolveUpstream version floor', () => {
   test('refuses a GA version below the project floor', () => {
-    expect(() => resolveUpstream('boot', '3.5.8')).toThrow(/below the supported floor 4\.0\.0/)
+    expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/below the supported floor 4\.0\.8/)
   })
 
   test('accepts the floor itself', () => {
-    expect(resolveUpstream('boot', '4.0.0').tag).toBe('v4.0.0')
+    expect(resolveUpstream('boot', '4.0.8').tag).toBe('v4.0.8')
   })
 })
