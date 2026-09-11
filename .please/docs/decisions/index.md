@@ -6,3 +6,4 @@
 |-----|-------|------|--------|
 | [0001](./0001-bun-typescript-stack.md) | Use Bun + TypeScript (strict) + Bun Test for the Conversion Pipeline | 2026-05-21 | Accepted |
 | [0002](./0002-antora-as-a-library.md) | Drive Antora as a Library and Emit Markdown from the Asciidoctor AST | 2026-09-11 | Accepted |
+| [0003](./0003-idempotent-release-recovery.md) | Recover a Published-but-Unregistered Release by Re-running the Tag | 2026-09-12 | Accepted |

@@ -6,6 +6,10 @@ name: Release
 #
 # The archive is rebuilt here from the upstream commit rather than promoted from
 # a matrix-build artifact, so what ships is produced by the release run itself.
+#
+# Re-running a tag is the recovery path, not an error: the run works out which
+# of its two phases — publish, then register in `catalog.json` — are still
+# outstanding, and completes only those. See ADR-0003.
 
 on:
   push:
@@ -31,6 +35,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Full history, for the default branch rather than for the tag. Two
+          # steps below need `origin/<default>`: the one that decides what this
+          # run still owes, and the one that branches the catalog commit off it.
+          # A shallow clone has neither the ref nor a history GitHub will accept
+          # a push from.
+          fetch-depth: 0
 
       - name: Parse the tag
         id: tag
@@ -64,16 +75,6 @@ jobs:
           echo "project=$project" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - name: Refuse to overwrite an existing release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "::error::Release $TAG already exists; tags are immutable. Publish a +rebuild.N tag." >&2
-            exit 1
-          fi
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -82,13 +83,51 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Publication and catalog registration are two phases of one release, and
+      # only the first is protected by tag immutability. A run that published
+      # and then failed before the catalog pull request existed left a version
+      # consumers cannot discover, so a re-run has to tell "nothing happened
+      # yet" from "publication succeeded, registration did not" instead of
+      # refusing outright. See ADR-0003.
+      - name: Determine what this run still owes
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PROJECT: ${{ steps.tag.outputs.project }}
+          VERSION: ${{ steps.tag.outputs.version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            exists=true
+          else
+            exists=false
+          fi
+          # The catalog that decides this is the one on the default branch. The
+          # checked-out tag's copy predates its own registration commit by
+          # construction, so reading it would answer "unregistered" every time.
+          git show "origin/$DEFAULT_BRANCH:catalog.json" > "$RUNNER_TEMP/catalog.json"
+          mode="$(bun run scripts/release-mode.ts \
+            --project "$PROJECT" --version "$VERSION" --tag "$TAG" \
+            --catalog "$RUNNER_TEMP/catalog.json" --release-exists "$exists")"
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          case "$mode" in
+            complete)
+              echo "::notice::$TAG is published and recorded in catalog.json; nothing to do. Correcting its archive needs a +rebuild.N tag." ;;
+            register)
+              echo "::notice::$TAG is published but catalog.json does not record it; completing registration only." ;;
+          esac
+
       - name: Build
+        if: steps.state.outputs.mode != 'complete'
         uses: ./.github/actions/build-release
         with:
           project: ${{ steps.tag.outputs.project }}
           version: ${{ steps.tag.outputs.version }}
 
       - name: Check the manifest against the tag
+        if: steps.state.outputs.mode != 'complete'
         env:
           PROJECT: ${{ steps.tag.outputs.project }}
           VERSION: ${{ steps.tag.outputs.version }}
@@ -97,7 +136,36 @@ jobs:
           jq -e --arg p "$PROJECT" --arg v "$VERSION" \
             '.project == $p and .version == $v' releases/manifest.json > /dev/null
 
+      # Registering a tag means telling consumers those exact bytes are the
+      # release. This run did not publish them, so it proves they are the bytes
+      # it would have published: the archive is reproducible by construction
+      # (sorted entries, pinned timestamps, `gzip -n`), so a rebuild that
+      # disagrees means the published archive came from different input and no
+      # one has verified what the index would be pointing at. The archive, not
+      # the `.sha256` sidecar, is what gets hashed — a sidecar only restates
+      # whatever produced it. `manifest.json` is deliberately excluded: its
+      # `generated_at` is the one non-deterministic field in the release.
+      - name: Verify the published archive matches this build
+        if: steps.state.outputs.mode == 'register'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          PROJECT: ${{ steps.tag.outputs.project }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          set -euo pipefail
+          name="$PROJECT-$VERSION"
+          gh release download "$TAG" --pattern "$name.tar.gz" --dir "$RUNNER_TEMP/published"
+          published="$(sha256sum "$RUNNER_TEMP/published/$name.tar.gz" | cut -d' ' -f1)"
+          rebuilt="$(cut -d' ' -f1 < "releases/$name.tar.gz.sha256")"
+          if [ "$published" != "$rebuilt" ]; then
+            echo "::error::Published $TAG does not match a rebuild ($published != $rebuilt). Publish a +rebuild.N tag rather than indexing bytes this pipeline cannot reproduce." >&2
+            exit 1
+          fi
+          echo "Published archive matches this build (sha256 ${published:0:12})."
+
       - name: Publish the release
+        if: steps.state.outputs.mode == 'publish'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
@@ -114,12 +182,17 @@ jobs:
             "releases/manifest.json"
 
       # Only after the release exists: a failed release must not update the catalog.
+      # Every step here is re-runnable, because this is the phase that gets
+      # resumed — a run reaching it for the second time may find its own branch
+      # and pull request already there from the attempt that failed.
       - name: Record the release in catalog.json
+        if: steps.state.outputs.mode != 'complete'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           PROJECT: ${{ steps.tag.outputs.project }}
           VERSION: ${{ steps.tag.outputs.version }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
           released_at="$(gh release view "$TAG" --json publishedAt --jq .publishedAt)"
@@ -127,7 +200,12 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git checkout -b "$branch"
+          # Branch off the default branch, not the tag. The tag's tree carries
+          # the catalog as it stood when the tag was cut, so a pull request
+          # based on it would delete every entry recorded since — a window that
+          # a recovery run, arriving long after publication, sits squarely in.
+          # `dist/` and `releases/` are gitignored and survive the switch.
+          git checkout -B "$branch" "origin/$DEFAULT_BRANCH"
 
           bun run scripts/update-catalog.ts \
             --project "$PROJECT" --version "$VERSION" --tag "$TAG" --released-at "$released_at"
@@ -137,10 +215,24 @@ jobs:
           bun run scripts/promote-markdown.ts "dist/$PROJECT-$VERSION"
 
           git add catalog.json "markdown/$PROJECT/$VERSION"
-          git commit -m "chore(catalog): record $TAG"
-          git push origin "$branch"
-          gh pr create \
-            --base "${{ github.event.repository.default_branch }}" \
-            --head "$branch" \
-            --title "chore(catalog): record $TAG" \
-            --body "Adds \`$PROJECT $VERSION\` → \`$TAG\` and the converted tree under \`markdown/$PROJECT/$VERSION/\`, published by the release workflow."
+          if git diff --cached --quiet; then
+            echo "::notice::The default branch already carries $TAG; nothing to commit."
+          else
+            git commit -m "chore(catalog): record $TAG"
+          fi
+          # Force: the branch is named after the tag and written only by this
+          # workflow, so anything already at `catalog/$TAG` is a failed attempt
+          # of this same release, rebuilt from the same inputs. `--force-with-lease`
+          # would reject the push instead, since this branch was just recreated
+          # from the default branch rather than from that leftover.
+          git push --force origin "$branch"
+
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            echo "::notice::A pull request for $branch is already open; the force-push updated it."
+          else
+            gh pr create \
+              --base "$DEFAULT_BRANCH" \
+              --head "$branch" \
+              --title "chore(catalog): record $TAG" \
+              --body "Adds \`$PROJECT $VERSION\` → \`$TAG\` and the converted tree under \`markdown/$PROJECT/$VERSION/\`, published by the release workflow."
+          fi
