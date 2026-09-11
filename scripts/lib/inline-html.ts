@@ -94,6 +94,21 @@ const ANGLE_BRACKETS = /[<>]/g
 /** Runs of whitespace separating CSS class names. */
 const CLASS_SEPARATOR = /\s+/
 
+/** Characters that must be encoded inside an HTML double-quoted attribute value. */
+const HTML_ATTR_SPECIALS = /[&<"]/g
+const HTML_ATTR_ENTITIES: Readonly<Record<string, string>> = { '&': '&amp;', '<': '&lt;', '"': '&quot;' }
+
+/**
+ * Escape a value for an HTML double-quoted attribute.
+ *
+ * Shared by `inlineHtmlToMarkdown` (inline anchors) and `markdown-converter.ts`
+ * (section anchors) — both emit raw `<a id="…">` HTML, so both need the same
+ * quote-safety guarantee.
+ */
+export function escapeHtmlAttribute(value: string): string {
+  return value.replace(HTML_ATTR_SPECIALS, char => HTML_ATTR_ENTITIES[char] ?? char)
+}
+
 /** Decode the HTML entities Asciidoctor emits, named and numeric alike. */
 function decodeEntities(text: string): string {
   return text.replace(ENTITY, (match, body: string) => {
@@ -348,8 +363,14 @@ export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}):
           break
         case 'a': {
           const href = node.attrs.get('href')
-          // `<a id="…"></a>` is a section anchor; GFM generates its own.
           if (href === undefined) {
+            // GFM derives heading slugs from text and generates nothing at all
+            // for a non-heading anchor, so an inline anchor (e.g. the
+            // application-properties appendix's per-property self-link) has no
+            // other target and must survive as raw HTML rather than be dropped.
+            const id = node.attrs.get('id')
+            if (id !== undefined && id !== '')
+              emit(`<a id="${escapeHtmlAttribute(id)}"></a>`)
             walk(node.children)
             break
           }

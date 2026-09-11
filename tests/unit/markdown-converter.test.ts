@@ -39,6 +39,13 @@ describe('document frontmatter', () => {
 
     expect(markdown).not.toContain('\n\n\n')
   })
+
+  test('renders an anchor before the document title when it has an explicit id', () => {
+    // 143 of 242 measured document-level ids are cross-page link targets.
+    const { markdown } = convert('[[my.page.id]]\n= T\n\nBody.')
+
+    expect(markdown).toContain('<a id="my.page.id"></a>\n\n# T')
+  })
 })
 
 describe('headings', () => {
@@ -47,6 +54,21 @@ describe('headings', () => {
 
     expect(markdown).toContain('## Level One')
     expect(markdown).toContain('### Level Two')
+  })
+
+  test('renders an anchor before a section with an explicit id', () => {
+    const { markdown } = convert('= T\n\n[[my.section.id]]\n== Level One')
+
+    expect(markdown).toContain('<a id="my.section.id"></a>\n\n## Level One')
+  })
+
+  test('renders a section without an id exactly as before', () => {
+    // Asciidoctor auto-assigns section ids by default; :sectids!: is the only
+    // way to get a section with none, exercising the "no id" branch.
+    const { markdown } = convert(':sectids!:\n\n= T\n\n== Level One')
+
+    expect(markdown).not.toContain('<a id=')
+    expect(markdown).toContain('## Level One')
   })
 })
 

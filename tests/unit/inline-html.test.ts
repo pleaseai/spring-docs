@@ -65,8 +65,18 @@ describe('inlineHtmlToMarkdown', () => {
     ).toBe('[start](https://start.spring.io/#!language=kotlin)')
   })
 
-  test('drops a bare anchor, which GFM regenerates from the heading', () => {
-    expect(inlineHtmlToMarkdown('<a id="section.id"></a>text')).toBe('text')
+  test('emits an inline anchor with an id instead of dropping it', () => {
+    // GFM generates nothing for a non-heading anchor, so a config-property
+    // self-link (e.g. the application-properties appendix) has no other target.
+    expect(inlineHtmlToMarkdown('<a id="section.id"></a>text')).toBe('<a id="section.id"></a>text')
+  })
+
+  test('unwraps an anchor with neither href nor id to its children', () => {
+    expect(inlineHtmlToMarkdown('<a>text</a>')).toBe('text')
+  })
+
+  test('escapes the id of an inline anchor', () => {
+    expect(inlineHtmlToMarkdown('<a id="a&b&quot;c"></a>')).toBe('<a id="a&amp;b&quot;c"></a>')
   })
 
   test('decodes named and numeric entities', () => {

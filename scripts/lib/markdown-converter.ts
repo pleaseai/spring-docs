@@ -15,7 +15,7 @@ import type {
   AsciidoctorTable,
   AsciidoctorTableCell,
 } from './antora-types.ts'
-import { inlineHtmlToMarkdown } from './inline-html.ts'
+import { escapeHtmlAttribute, inlineHtmlToMarkdown } from './inline-html.ts'
 
 /** Inputs the converter needs beyond the document itself. */
 export interface ConvertOptions {
@@ -135,6 +135,17 @@ function flattenForCell(text: string): string {
  */
 export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): ConvertResult {
   const warnings = new Set<string>()
+
+  /**
+   * Render an explicit `[[id]]` as its own inline-HTML anchor block.
+   *
+   * GFM derives a heading's slug from its text and generates nothing at all for
+   * an `[[...]]` id, so a cross-page link built from that id (930 of 963 unique
+   * cross-page fragment targets, measured against the real dist/ output) has no
+   * other target once the heading is rendered.
+   */
+  const renderAnchor = (id: string | undefined): string[] =>
+    id === undefined || id === '' ? [] : [`<a id="${escapeHtmlAttribute(id)}"></a>`]
 
   const warn = (message: string, node?: AsciidoctorNode): void => {
     const line = node?.getLineNumber?.()
@@ -285,7 +296,11 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
     switch (context) {
       case 'section': {
         const level = Math.min(node.getLevel() + 1, MAX_HEADING_LEVEL)
-        return [`${'#'.repeat(level)} ${inline(node.getTitle())}`, ...renderBlocks(node.getBlocks())].join('\n\n')
+        return [
+          ...renderAnchor(node.getId()),
+          `${'#'.repeat(level)} ${inline(node.getTitle())}`,
+          ...renderBlocks(node.getBlocks()),
+        ].join('\n\n')
       }
       case 'preamble':
       case 'open':
@@ -324,6 +339,10 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
 
   const chunks = [
     frontmatter,
+    // The document's own `[[id]]` (its title's anchor) is a cross-page link
+    // target too — 143 of 242 measured document-level ids are referenced this
+    // way — so it needs the same anchor as a section id.
+    ...renderAnchor(doc.getId()),
     ...(title === '' ? [] : [`# ${title}`]),
     ...renderBlocks(doc.getBlocks()),
   ]
