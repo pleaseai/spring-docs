@@ -1,0 +1,55 @@
+scripts/package-release.ts
+  s_17d6f26f25a930::t_718b0c3bce745d 208
+  s_17d6f26f25a930::t_7a4da7ca281301 198
+  s_17d6f26f25a930::t_f9590845e09a90 222
+  s_17d6f26f25a930::t_ed54751815ca8b 46,52
+  s_17d6f26f25a930::t_744bc870908614 388-392
+scripts/detect-upstream-versions.ts
+  s_17d6f26f25a930::t_fc60e9cd22e1b4 38
+  s_17d6f26f25a930::t_e8a2f07483d652 25
+  s_17d6f26f25a930::t_e70d99de6ab2fe 174-178
+tests/unit/convert.test.ts
+  s_17d6f26f25a930::t_8245435e95c445 1-38
+scripts/fetch-upstream.ts
+  s_17d6f26f25a930::t_c947bbabaf9190 29,35
+  s_17d6f26f25a930::t_7c47175f74e1b9 228-232
+tests/unit/promote-markdown.test.ts
+  s_17d6f26f25a930::t_4d33fb1709f6cb 1-33
+scripts/update-catalog.ts
+  s_17d6f26f25a930::t_1edce0edd594e6 51
+  s_17d6f26f25a930::t_4daaeb633571cb 140-144
+  s_17d6f26f25a930::t_13f8fad34eb660 29
+tests/unit/fetch-upstream.test.ts
+  s_17d6f26f25a930::t_70726b61ac868d 1-24
+tests/unit/update-catalog.test.ts
+  s_17d6f26f25a930::t_bddad342a890ca 1-58
+tests/unit/detect-upstream-versions.test.ts
+  s_17d6f26f25a930::t_3b3fb6cb506ffb 1-33
+scripts/convert.ts
+  s_17d6f26f25a930::t_908b680758e74c 224-228
+  s_17d6f26f25a930::t_30d303fe34ed13 61
+  s_17d6f26f25a930::t_343104e48bf0ab 70
+scripts/promote-markdown.ts
+  s_17d6f26f25a930::t_d29456484a000b 39
+  s_17d6f26f25a930::t_5e49ce45778d20 105-109
+  s_17d6f26f25a930::t_f22d50a53a7ccb 23
+tests/unit/package-release.test.ts
+  s_17d6f26f25a930::t_f29713e98d2119 1,3-91
+  s_17d6f26f25a930::t_d5e5551d1de89e 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "25ce0e93f95b869656c4de57a2ee33b58d80794a",
+  "prompts": {},
+  "sessions": {
+    "s_17d6f26f25a930": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9e9e58b-5f7c-40dd-90e2-11e1e189982e",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
