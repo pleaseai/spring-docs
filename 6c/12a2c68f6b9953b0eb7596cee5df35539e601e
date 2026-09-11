@@ -1,0 +1,79 @@
+tests/unit/upstream-sources.test.ts
+  s_17d6f26f25a930::t_d7fda9e455465c 5
+  s_17d6f26f25a930::t_47627114961c94 97-109
+  s_17d6f26f25a930::t_ec3b01372114b2 112-119
+  s_23314bc1687b8f::t_fba12580f1329c 110-111
+tests/unit/catalog-update.test.ts
+  s_17d6f26f25a930::t_e164e7218823ba 119-132
+tests/fixtures/upstream-component/modules/ROOT/pages/index.adoc
+  s_17d6f26f25a930::t_658b9d3ffb14e3 23-24
+scripts/lib/catalog-update.ts
+  s_17d6f26f25a930::t_027e89a75bb688 2
+  s_17d6f26f25a930::t_ecfbc001818dfc 83-86
+tests/fixtures/upstream-component/modules/ROOT/examples/java/asection/FixtureInclude.java
+  s_17d6f26f25a930::t_9324e99e72734b 1-7
+scripts/lib/upstream-sources.ts
+  s_17d6f26f25a930::t_67bf8df3f17042 211-230,236-237,245-246,248
+  s_17d6f26f25a930::t_36ed82f0226d22 256-280
+  s_17d6f26f25a930::t_d94f8ee7e1d21b 210
+  s_17d6f26f25a930::t_7ab05d67031470 255
+.github/actions/build-release/action.yml
+  s_17d6f26f25a930::t_41d44026440217 28-31,35-37,41-43,50-52,55,63-66
+scripts/lib/generated-file-targets.ts
+  s_17d6f26f25a930::t_6d541687570bfc 7
+  s_17d6f26f25a930::t_34238f3fc4f700 1-4,8-52
+  s_17d6f26f25a930::t_c2a72b54febbec 5-6
+tests/integration/pipeline.test.ts
+  s_17d6f26f25a930::t_83d19a0217fbe6 179-191
+  s_17d6f26f25a930::t_7f40abe1efe3c2 273-306
+  s_17d6f26f25a930::t_a73a8711c05038 95-109
+scripts/lib/markdown-converter.ts
+  s_17d6f26f25a930::t_dbcbf070baa6ba 293-301,338-353
+  s_e9fd5f53eebc34::t_c4f6c2745f282d 354-355
+tests/unit/generated-file-targets.test.ts
+  s_17d6f26f25a930::t_1c7fb9d9e96e3f 1-43
+scripts/package-release.ts
+  s_17d6f26f25a930::t_692657736807a5 27
+  s_17d6f26f25a930::t_6a63301201f970 197-199,205-206,215-218
+  s_17d6f26f25a930::t_16b6448ba0e907 311-314
+  s_17d6f26f25a930::t_039abbcd617afe 299-304,306-310,315-318,322-325,328-329,332-335
+  s_17d6f26f25a930::t_58100f5b512acb 321
+  s_17d6f26f25a930::t_884a08782f4667 219-220
+tests/unit/markdown-converter.test.ts
+  s_17d6f26f25a930::t_b33078824458ce 89
+  s_17d6f26f25a930::t_1eae1175aa91de 73-88,90
+tests/fixtures/upstream-component/antora.yml
+  s_17d6f26f25a930::t_b83f478b311adb 7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "6c12a2c68f6b9953b0eb7596cee5df35539e601e",
+  "prompts": {},
+  "sessions": {
+    "s_17d6f26f25a930": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9e9e58b-5f7c-40dd-90e2-11e1e189982e",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    },
+    "s_23314bc1687b8f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6ff32bd2-e0d0-46dd-b1cb-1ffcc5db7869",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    },
+    "s_e9fd5f53eebc34": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a93f0642-bd5e-4e4e-8a0f-f933b9ebf83b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
