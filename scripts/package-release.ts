@@ -31,6 +31,7 @@ import {
 
 } from './lib/manifest.ts'
 import { buildNotice } from './lib/notice.ts'
+import { parseReleaseName } from './lib/release-name.ts'
 
 /**
  * Fixed archive timestamp: 1980-02-01 UTC, the same instant Spring's own content
@@ -206,10 +207,13 @@ async function main(): Promise<void> {
   const source = resolve(cwd, args.source)
   const outDir = resolve(cwd, args.out)
   const name = basename(source)
-  const [project, ...versionParts] = name.split('-')
-  const version = versionParts.join('-')
-  if (!project || !version) {
-    console.error(`Cannot derive (project, version) from directory name "${name}"; expected <project>-<version>`)
+  let project: string
+  let version: string
+  try {
+    ({ project, version } = parseReleaseName(name))
+  }
+  catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
     process.exit(2)
   }
 
@@ -252,14 +256,20 @@ async function main(): Promise<void> {
     // Entries are fed in sorted order so the archive does not depend on
     // directory traversal, and `gzip -n` drops gzip's own mtime field, which
     // `tar -z` would otherwise reintroduce.
+    //
+    // Every entry is prefixed with `<project>-<version>/` by archiving from the
+    // parent directory, so extraction creates one directory instead of spilling
+    // hundreds of files into the consumer's working directory. Doing it this way
+    // rather than with a rename flag keeps GNU tar and BSD tar on the same path:
+    // they spell that flag differently (`--transform` vs `-s`).
     await normalizeMetadata(source, files)
     const fileList = join(outDir, `${name}.files`)
-    await writeFile(fileList, `${files.join('\n')}\n`)
+    await writeFile(fileList, `${files.map(file => `${name}/${file}`).join('\n')}\n`)
     await run(
       [
         'sh',
         '-c',
-        `${[tar.command, ...tar.flags].join(' ')} -cf - -C ${JSON.stringify(source)} `
+        `${[tar.command, ...tar.flags].join(' ')} -cf - -C ${JSON.stringify(resolve(source, '..'))} `
         + `-T ${JSON.stringify(fileList)} | gzip -n -9 > ${JSON.stringify(archivePath)}`,
       ],
       cwd,

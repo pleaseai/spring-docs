@@ -4,7 +4,7 @@
 >
 > **Audience**: Contributors implementing or reviewing pipeline changes. For *what this project is* and *how to consume artifacts*, see [`README.md`](./README.md).
 >
-> **Status**: The fetch → convert → package → index pipeline is implemented and proven end to end on `boot 4.1.1`, and the CI workflows that drive it (detect, matrix build, release) are in place. Nothing has been published yet: `catalog.json` is still empty. Sections marked _(Planned)_ are not yet implemented; the canonical source of intent until they are is this file plus `.please/docs/knowledge/`.
+> **Status**: The fetch → convert → package → index pipeline is implemented and proven end to end on `boot 4.1.1`, and the CI workflows that drive it (detect, matrix build, release) are in place. Nothing has been published yet: `catalog.json` is still empty and `markdown/` holds no content. This file plus `.please/docs/knowledge/` remain the canonical statement of intent.
 
 ## Table of Contents
 
@@ -63,10 +63,12 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `INDEX.md`.                          |
 | `package-release.ts`       | Pipeline entry — produce a reproducible `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
 | `update-catalog.ts`        | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`.                                                                 |
+| `promote-markdown.ts`      | Pipeline entry — copy a converted tree into the committed `markdown/<project>/<version>/`.                                                       |
 | `detect-upstream-versions.ts` | Tooling entry — list GA versions upstream has released that the catalog does not carry. Read-only; feeds the nightly issues and the build matrix. |
 | `lib/catalog-schema.ts`    | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                                             |
 | `lib/upstream-sources.ts`  | Per-project upstream coordinates — repo, tag, component path, content archives, javadoc + external component URLs, and the supported version floor. |
 | `lib/version-detect.ts`    | Pure diff of upstream tags against the catalog.                                                                                                   |
+| `lib/release-name.ts`      | The `<project>-<version>` split, shared by packaging and promotion.                                                                               |
 | `lib/output-layout.ts`     | Where each converted page lands, and the collision guard that keeps the tree platform-independent.                                                 |
 | `lib/markdown-converter.ts`| Block-level conversion: walks the resolved Asciidoctor AST and emits Markdown. **All block conversion logic lives here.**                          |
 | `lib/inline-html.ts`       | Inline-level conversion: the restricted HTML Asciidoctor returns for inline content → Markdown, including external component link rewriting.       |
@@ -79,11 +81,11 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 
 Conversion delegates page resolution — xrefs, includes, `include-code::`, `javadoc:`, `configprop:` — to Antora and Spring's own Asciidoctor extensions rather than reimplementing them; see [ADR-0002](./.please/docs/decisions/0002-antora-as-a-library.md) and `.please/docs/knowledge/upstream-antora.md`.
 
-### `markdown/` _(scaffolded; content Planned)_
+### `markdown/` _(empty until the first release)_
 
 Output tree, organized as `markdown/<project>/<version>/`. Committed for diff-ability and direct GitHub browsing. **Not** the primary consumption surface — consumers fetch GitHub Release archives, not this directory.
 
-Conversion currently writes to `dist/<project>-<version>/` (gitignored) and packaging reads from there; promoting a converted tree into `markdown/` is a separate, still-unimplemented step. The converted tree mirrors Antora's URL shape: the `ROOT` module at the tree root, every other module under its own directory, each page keeping its source path with `.adoc` → `.md`. The generated listing is `_index.md`: `INDEX.md` would collide with the `index.md` an upstream `index.adoc` produces on a case-insensitive filesystem.
+Conversion writes to `dist/<project>-<version>/` (gitignored) and packaging reads from there; `promote-markdown.ts` copies a converted tree here, and `release.yml` runs it in the same pull request that records the release, so the committed tree only ever carries content a release actually carries. A promoted version is replaced wholesale, so a page deleted upstream disappears here too. Each version costs roughly 3 MB of repository history. The converted tree mirrors Antora's URL shape: the `ROOT` module at the tree root, every other module under its own directory, each page keeping its source path with `.adoc` → `.md`. The generated listing is `_index.md`: `INDEX.md` would collide with the `index.md` an upstream `index.adoc` produces on a case-insensitive filesystem.
 
 ### `.github/workflows/`
 
@@ -183,7 +185,7 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
                           │ tar.gz + sha256 + manifest.json + NOTICE
                           │ scripts/package-release.ts
                           ▼
-        releases/<project>-<version>.tar.gz
+        releases/<project>-<version>.tar.gz     (entries under <project>-<version>/)
         releases/<project>-<version>.tar.gz.sha256
         releases/manifest.json
                           │
@@ -194,8 +196,9 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
                           │
                           │ update + commit + PR
                           │ scripts/update-catalog.ts
+                          │ scripts/promote-markdown.ts
                           ▼
-                    catalog.json
+              catalog.json + markdown/<project>/<version>/
                           │
                           ▼
                     Consumers
@@ -278,7 +281,7 @@ Coverage target: **>80% for new code**. Coverage is informational; the load-bear
 
 - **No secrets in the repo.** GitHub Actions tokens only.
 - **No user input.** All input is sourced from public upstream Git tags.
-- **Dependencies** are pinned via `bun.lock`, and GitHub Actions are pinned by commit SHA. Renovate / Dependabot manages updates _(config Planned)_. Upstream Spring tag detection is **not** Renovate's responsibility — it is handled by `nightly-detect.yml`.
+- **Dependencies** are pinned via `bun.lock`, and GitHub Actions are pinned by commit SHA. Renovate manages updates ([`renovate.json`](./renovate.json)); the conversion toolchain is held behind dashboard approval because an Antora or Asciidoctor bump is a conversion change, not a dependency bump. Upstream Spring tag detection is **not** Renovate's responsibility — it is handled by `nightly-detect.yml`.
 
 ### License Compliance
 

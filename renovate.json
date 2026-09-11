@@ -1,0 +1,42 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":semanticCommits",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "timezone": "Asia/Seoul",
+  "schedule": ["before 9am on monday"],
+  "prConcurrentLimit": 3,
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Antora and Asciidoctor are pinned by ADR-0002: @springio/asciidoctor-extensions uses the Opal API that @asciidoctor/core 4.x drops, and Antora 3.2 pins the same range. An upgrade is a conversion change, not a dependency bump — it needs a full reconversion and a diff review.",
+      "matchPackageNames": [
+        "@antora/**",
+        "@asciidoctor/**",
+        "@springio/**"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Dev tooling moves together; one PR rather than five.",
+      "matchDepTypes": ["devDependencies"],
+      "groupName": "dev dependencies"
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Keep the Bun version in the workflows in step with packageManager.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.yml$/"],
+      "matchStrings": ["bun-version:\\s*(?<currentValue>\\S+)"],
+      "depNameTemplate": "oven-sh/bun",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^bun-v(?<version>.*)$"
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"]
+  }
+}

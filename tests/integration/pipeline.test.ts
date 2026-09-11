@@ -208,14 +208,21 @@ describe('package-release.ts over a converted tree', () => {
     expect(manifest.upstream.archives).toEqual(['root-aggregate-content'])
   })
 
+  test('every entry sits under one <project>-<version> directory', async () => {
+    const listed = await run(['tar', '-tzf', archive], work)
+    const entries = listed.stdout.trim().split('\n')
+
+    expect(entries.every(entry => entry.startsWith(`${NAME}/`))).toBe(true)
+  })
+
   test('the archive ships NOTICE and every converted file, and nothing else', async () => {
     const listed = await run(['tar', '-tzf', archive], work)
     const entries = listed.stdout.trim().split('\n').sort()
 
-    expect(entries).toContain('NOTICE')
-    expect(entries).toContain('index.md')
-    expect(entries).toContain('guide/nested.md')
-    expect(entries).toContain(INDEX_FILENAME)
+    expect(entries).toContain(`${NAME}/NOTICE`)
+    expect(entries).toContain(`${NAME}/index.md`)
+    expect(entries).toContain(`${NAME}/guide/nested.md`)
+    expect(entries).toContain(`${NAME}/${INDEX_FILENAME}`)
 
     const manifest = ManifestSchema.parse(
       JSON.parse(await readFile(join(out, 'manifest.json'), 'utf8')),
