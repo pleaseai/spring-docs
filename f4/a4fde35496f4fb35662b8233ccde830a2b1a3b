@@ -1,0 +1,19 @@
+codecov.yml
+  s_17d6f26f25a930::t_4d8840ad1bca10 1-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "f4a4fde35496f4fb35662b8233ccde830a2b1a3b",
+  "prompts": {},
+  "sessions": {
+    "s_17d6f26f25a930": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9e9e58b-5f7c-40dd-90e2-11e1e189982e",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
