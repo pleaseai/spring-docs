@@ -63,4 +63,56 @@ describe('classifyRelease', () => {
       catalogTag: 'boot-4.1.1+rebuild.1',
     })).toBe('complete')
   })
+
+  test('is complete when a newer rebuild has superseded this tag', () => {
+    // rebuild.1 published but never got registered; rebuild.2 was cut and
+    // completed both phases in the meantime. Re-running rebuild.1 must not
+    // reopen a catalog pull request walking consumers back onto it.
+    expect(classifyRelease({
+      tag: 'boot-4.1.1+rebuild.1',
+      releaseExists: true,
+      catalogTag: 'boot-4.1.1+rebuild.2',
+    })).toBe('complete')
+  })
+
+  test('is complete when a rebuild has superseded the base tag', () => {
+    // The same supersession seen from ordinal 0: the base tag is published and
+    // was the catalog entry until a rebuild replaced it.
+    expect(classifyRelease({
+      tag: 'boot-4.1.1',
+      releaseExists: true,
+      catalogTag: 'boot-4.1.1+rebuild.1',
+    })).toBe('complete')
+  })
+
+  test('orders rebuild suffixes numerically, not lexicographically', () => {
+    // "10" < "9" as text, which would read the catalog as being behind and
+    // register rebuild.9 over the rebuild.10 that replaced it.
+    expect(classifyRelease({
+      tag: 'boot-4.1.1+rebuild.9',
+      releaseExists: true,
+      catalogTag: 'boot-4.1.1+rebuild.10',
+    })).toBe('complete')
+  })
+
+  test('still registers when the catalog names an older rebuild', () => {
+    // Supersession is strictly forward: a catalog left behind by this tag is
+    // the ordinary rebuild flow and still owes registration.
+    expect(classifyRelease({
+      tag: 'boot-4.1.1+rebuild.2',
+      releaseExists: true,
+      catalogTag: 'boot-4.1.1+rebuild.1',
+    })).toBe('register')
+  })
+
+  test('does not treat a different pair as superseding this tag', () => {
+    // Only a hand-edited catalog puts another pair's tag here. Registration
+    // proceeds so `applyEntry` refuses it by name rather than this module
+    // silently reporting nothing to do.
+    expect(classifyRelease({
+      tag: 'boot-4.1.1',
+      releaseExists: true,
+      catalogTag: 'boot-4.1.2+rebuild.1',
+    })).toBe('register')
+  })
 })

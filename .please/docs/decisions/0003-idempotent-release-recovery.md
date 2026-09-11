@@ -58,18 +58,35 @@ still outstanding and completes only those.
    on the pair of facts that actually describe the release's state, yielding three modes
    (`scripts/lib/release-state.ts`, a pure function):
 
-   | Release exists | Catalog names this tag | Mode       |
-   | -------------- | ---------------------- | ---------- |
-   | no             | no                     | `publish`  |
-   | yes            | no                     | `register` |
-   | yes            | yes                    | `complete` |
-   | no             | yes                    | refuse     |
+   | Release exists | Catalog entry for this `(project, version)` | Mode       |
+   | -------------- | ------------------------------------------- | ---------- |
+   | no             | absent, or a tag this one supersedes         | `publish`  |
+   | yes            | absent, or a tag this one supersedes         | `register` |
+   | yes            | this tag                                     | `complete` |
+   | yes            | a newer rebuild of the pair                  | `complete` |
+   | no             | a newer rebuild of the pair                  | `publish`* |
+   | no             | this tag                                     | refuse     |
+
+   \* The one row this decision leaves as it found it — see Negative.
 
    `publish` runs both phases. `register` skips publication and runs registration only.
-   `complete` is a successful no-op. The fourth row cannot arise from an interrupted run —
+   `complete` is a successful no-op. The last row cannot arise from an interrupted run —
    registration only ever follows publication — so it means the release was deleted or the
    catalog was hand-edited, and the run fails rather than papering over an index that is
    already lying.
+
+   The fourth row is what recovery arriving late looks like. `catalog-update.ts` permits
+   repointing an entry at any rebuild of its own pair and deliberately does not enforce suffix
+   ordering — it records the rebuild last published, not the highest one — so registering an
+   older tag is a legal catalog write that walks consumers backwards onto a superseded
+   archive. Left to the two raw booleans, re-running an interrupted `+rebuild.1` after
+   `+rebuild.2` had completed would open exactly that pull request under a routine
+   `chore(catalog): record …` title. Supersession is compared on the `+rebuild.N` ordinal,
+   with the base tag as ordinal 0, so a re-run of an original tag a rebuild has replaced is
+   covered by the same rule. It folds into `complete` rather than becoming a fourth mode
+   because the modes name what a run still owes, and a superseded run owes nothing; the
+   workflow's `complete` notice names the tag the catalog actually resolves to, so the two
+   cases stay distinguishable to an operator.
 
 2. **The catalog consulted is the one on the default branch**, read with
    `git show "origin/$DEFAULT_BRANCH:catalog.json"`. The checked-out tag's copy predates its
@@ -126,6 +143,13 @@ still outstanding and completes only those.
   properly means making `generated_at` reproducible.
 - **The catalog branch is force-pushed.** Safe because the branch name carries the tag and
   only this workflow writes it, but it is a force-push in CI.
+
+- **Supersession is only checked on the `register` path.** A tag whose release does not exist
+  is classified `publish` even when the catalog has moved on to a newer rebuild, so publishing
+  it then registers it and moves the entry backwards. That path predates this decision — the
+  guard it replaced keyed on the release existing, so it never fired here either — and closing
+  it means deciding whether a superseded tag should still be publishable at all, which is a
+  separate question from recovery. Tracked as a follow-up.
 
 ### Neutral
 
