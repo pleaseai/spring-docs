@@ -1,0 +1,22 @@
+tests/unit/catalog-update.test.ts
+  s_17d6f26f25a930::t_eb37d81eb1370d 100-113
+scripts/lib/catalog-update.ts
+  s_17d6f26f25a930::t_861e13b6bbad22 2
+  s_17d6f26f25a930::t_a2a678fb4e466f 81-83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "909fc4499195d6a247003246b4e3e0daca77d702",
+  "prompts": {},
+  "sessions": {
+    "s_17d6f26f25a930": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a9e9e58b-5f7c-40dd-90e2-11e1e189982e",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
