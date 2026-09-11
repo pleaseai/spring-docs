@@ -42,6 +42,40 @@ export interface Args {
 /** The options this script accepts. All are required. */
 const OPTIONS = ['project', 'version', 'tag', 'catalog', 'release-exists'] as const
 
+/** Rendered once, so the "unknown option" message needs no nested template. */
+const KNOWN_OPTIONS = OPTIONS.map(option => `--${option}`).join(', ')
+
+/**
+ * Scan `--name value` and `--name=value` pairs out of `argv`.
+ *
+ * Kept separate from {@link parseArgs} so neither the scan nor the
+ * required-field check carries the other's branches.
+ *
+ * @throws if an argument is unrecognized, misplaced, or missing its value.
+ */
+function scanFlags(argv: readonly string[]): Map<string, string> {
+  const flags = new Map<string, string>()
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (!arg?.startsWith('--'))
+      throw new Error(`Unexpected argument "${arg}". This script takes options only.`)
+
+    const eq = arg.indexOf('=')
+    const name = eq === -1 ? arg.slice(2) : arg.slice(2, eq)
+    if (!OPTIONS.includes(name as typeof OPTIONS[number]))
+      throw new Error(`Unknown option "--${name}". Known: ${KNOWN_OPTIONS}`)
+
+    const value = eq === -1 ? argv[++i] : arg.slice(eq + 1)
+    if (value === undefined || value === '' || value.startsWith('--'))
+      throw new Error(`Option "--${name}" needs a value.`)
+
+    flags.set(name, value)
+  }
+
+  return flags
+}
+
 /**
  * Parse the CLI arguments.
  *
@@ -53,24 +87,7 @@ const OPTIONS = ['project', 'version', 'tag', 'catalog', 'release-exists'] as co
  * @throws if an argument is unrecognized, misplaced, or missing its value.
  */
 export function parseArgs(argv: readonly string[]): Args {
-  const flags = new Map<string, string>()
-
-  for (let i = 0; i < argv.length; i++) {
-    const arg = argv[i]
-    if (arg?.startsWith('--')) {
-      const eq = arg.indexOf('=')
-      const name = eq === -1 ? arg.slice(2) : arg.slice(2, eq)
-      if (!OPTIONS.includes(name as typeof OPTIONS[number]))
-        throw new Error(`Unknown option "--${name}". Known: ${OPTIONS.map(o => `--${o}`).join(', ')}`)
-      const value = eq === -1 ? argv[++i] : arg.slice(eq + 1)
-      if (value === undefined || value === '' || value.startsWith('--'))
-        throw new Error(`Option "--${name}" needs a value.`)
-      flags.set(name, value)
-    }
-    else {
-      throw new Error(`Unexpected argument "${arg}". This script takes options only.`)
-    }
-  }
+  const flags = scanFlags(argv)
 
   const project = flags.get('project')
   const version = flags.get('version')
