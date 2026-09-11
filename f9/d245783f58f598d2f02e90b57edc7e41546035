@@ -1,0 +1,38 @@
+renovate.json
+  s_a45f4eb9419dba::t_190eb0e7b83ee2 1-42
+ARCHITECTURE.md
+  s_a45f4eb9419dba::t_77b9e6773f20c2 7
+  s_a45f4eb9419dba::t_f7f9365388328a 66,71,84,88,188,199,201,284
+scripts/promote-markdown.ts
+  s_a45f4eb9419dba::t_3b0aa6b5818aec 1-86
+.github/workflows/release.yml
+  s_a45f4eb9419dba::t_190eb0e7b83ee2 120-123,130
+tests/integration/pipeline.test.ts
+  s_a45f4eb9419dba::t_ce28255cb6ebcc 211-217,222-225
+scripts/package-release.ts
+  s_a45f4eb9419dba::t_3b0aa6b5818aec 34,210-216
+  s_a45f4eb9419dba::t_ce28255cb6ebcc 259-264,267,272
+tests/unit/release-name.test.ts
+  s_a45f4eb9419dba::t_4b40ecf8a4ab5d 1-40
+scripts/lib/release-name.ts
+  s_a45f4eb9419dba::t_3b0aa6b5818aec 1-39
+README.md
+  s_a45f4eb9419dba::t_c4d4c1f0d1372a 10-11,44-46,48,51-53,55-65,74,76,78-79,83-84,86-92,95-98,103-105,107-110,112-115,117-119,123-124,130-134,148,159-166,171-172,177-182,192-193,203-205,207-209,212-213,233
+  s_a45f4eb9419dba::t_77b9e6773f20c2 157-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "f9d245783f58f598d2f02e90b57edc7e41546035",
+  "prompts": {},
+  "sessions": {
+    "s_a45f4eb9419dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fd784619-f559-4102-8d26-586e2a5360aa",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
