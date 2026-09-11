@@ -88,6 +88,48 @@ async function run(cmd: readonly string[], cwd: string): Promise<string> {
   return stdout.trim()
 }
 
+/**
+ * Pipe `tar -cf -` into `gzip -n -9`, writing the result straight to
+ * `archivePath` — without a shell.
+ *
+ * `source`, `parentDir` and `fileList` all ultimately derive from CLI
+ * arguments. A shell string built with `JSON.stringify()` quoting is not safe
+ * against them: POSIX double quotes still expand `$`, `$(...)` and backticks.
+ * Spawning argv arrays directly sidesteps that class of injection entirely,
+ * since no shell ever parses the values.
+ *
+ * Both processes' exit codes are checked — a tar failure whose stderr
+ * `gzip` swallows must still fail the run, not just a `gzip` failure.
+ */
+async function packArchive(
+  tar: TarFlavor,
+  cwd: string,
+  parentDir: string,
+  fileList: string,
+  archivePath: string,
+): Promise<void> {
+  const tarProc = Bun.spawn(
+    [tar.command, ...tar.flags, '-cf', '-', '-C', parentDir, '-T', fileList],
+    { cwd, stdout: 'pipe', stderr: 'pipe' },
+  )
+  const gzipProc = Bun.spawn(
+    ['gzip', '-n', '-9'],
+    { cwd, stdin: tarProc.stdout, stdout: Bun.file(archivePath), stderr: 'pipe' },
+  )
+
+  const [tarStderr, gzipStderr, tarExit, gzipExit] = await Promise.all([
+    new Response(tarProc.stderr).text(),
+    new Response(gzipProc.stderr).text(),
+    tarProc.exited,
+    gzipProc.exited,
+  ])
+
+  if (tarExit !== 0)
+    throw new Error(`${tar.command} failed (exit ${tarExit})\n${tarStderr.trim()}`)
+  if (gzipExit !== 0)
+    throw new Error(`gzip failed (exit ${gzipExit})\n${gzipStderr.trim()}`)
+}
+
 /** A tar implementation and the flags it needs for a reproducible archive. */
 interface TarFlavor {
   readonly command: string
@@ -151,6 +193,32 @@ async function fileChecksum(path: string): Promise<string> {
   return hex(await crypto.subtle.digest('SHA-256', await Bun.file(path).arrayBuffer()))
 }
 
+/** SHA-256 of the NOTICE content, computed in memory rather than from disk. */
+function noticeChecksum(notice: string): Promise<string> {
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(notice)).then(hex)
+}
+
+/**
+ * Insert an entry into an already-sorted entry list, keeping it sorted.
+ *
+ * Used only for the dry-run NOTICE entry: the real write path gets NOTICE for
+ * free from `listFiles`, already in position.
+ */
+function insertSorted(entries: readonly ContentEntry[], entry: ContentEntry): ContentEntry[] {
+  const index = entries.findIndex(existing => existing.path > entry.path)
+  const result = [...entries]
+  result.splice(index === -1 ? result.length : index, 0, entry)
+  return result
+}
+
+/** Read one required, non-empty string field of a provenance sidecar. */
+function requiredString(record: Record<string, unknown>, field: string, sidecar: string): string {
+  const value = record[field]
+  if (typeof value !== 'string' || value === '')
+    throw new Error(`Malformed provenance sidecar at ${sidecar}: "${field}" must be a non-empty string`)
+  return value
+}
+
 /** Read the provenance sidecar written by `fetch-upstream.ts`. */
 async function readUpstream(source: string, project: string, version: string): Promise<ManifestUpstream> {
   const sidecar = resolve(source, '..', 'upstream', `${project}-${version}.upstream.json`)
@@ -163,9 +231,9 @@ async function readUpstream(source: string, project: string, version: string): P
     ? record.archives.filter((a): a is string => typeof a === 'string')
     : []
   return {
-    repo: String(record.repo),
-    ref: String(record.ref),
-    commit: String(record.commit),
+    repo: requiredString(record, 'repo', sidecar),
+    ref: requiredString(record, 'ref', sidecar),
+    commit: requiredString(record, 'commit', sidecar),
     archives,
   }
 }
@@ -221,16 +289,21 @@ async function main(): Promise<void> {
     const tar = await findTar(cwd)
     const upstream = await readUpstream(source, project, version)
 
-    // NOTICE is content, so it must exist before the tree is checksummed.
+    // NOTICE is content, so it must exist before the tree is checksummed. A
+    // dry run never writes it, so its entry is computed from the in-memory
+    // bytes instead and spliced in — otherwise dry-run's file_count and
+    // content_sha256 would not match what the same invocation actually packages.
     const notice = buildNotice(await readFile(join(cwd, 'NOTICE'), 'utf8'), upstream, project, version)
     if (!args.dryRun)
       await writeFile(join(source, 'NOTICE'), notice)
 
     const files = await listFiles(source)
-    const entries: ContentEntry[] = []
+    let entries: ContentEntry[] = []
     for (const path of files) {
       entries.push({ path, sha256: await fileChecksum(join(source, path)) })
     }
+    if (args.dryRun)
+      entries = insertSorted(entries, { path: 'NOTICE', sha256: await noticeChecksum(notice) })
 
     const manifest = await buildManifest({
       project,
@@ -265,15 +338,7 @@ async function main(): Promise<void> {
     await normalizeMetadata(source, files)
     const fileList = join(outDir, `${name}.files`)
     await writeFile(fileList, `${files.map(file => `${name}/${file}`).join('\n')}\n`)
-    await run(
-      [
-        'sh',
-        '-c',
-        `${[tar.command, ...tar.flags].join(' ')} -cf - -C ${JSON.stringify(resolve(source, '..'))} `
-        + `-T ${JSON.stringify(fileList)} | gzip -n -9 > ${JSON.stringify(archivePath)}`,
-      ],
-      cwd,
-    )
+    await packArchive(tar, cwd, resolve(source, '..'), fileList, archivePath)
     await rm(fileList, { force: true })
 
     const archiveSha = await fileChecksum(archivePath)
