@@ -86,19 +86,33 @@ bun test
 
 Used by `scripts/convert.ts` to transform upstream Spring docs.
 
-**Input**: `framework-docs/modules/ROOT/pages/**/*.adoc` (Antora module structure)
+**Input**: a fetched upstream component (`antora.yml` + `modules/**`), aggregated from the repo's docs subtree plus Spring's published content archive.
 
-**Conversion rules** (centralized in `scripts/lib/antora-rules.ts`):
+**Decision** ([ADR-0002](../decisions/0002-antora-as-a-library.md)): resolution is delegated to the upstream toolchain rather than reimplemented. `scripts/convert.ts` drives Antora's pipeline modules as a library — `@antora/playbook-builder` → `@antora/content-aggregator` → `@antora/content-classifier` → `@antora/asciidoc-loader` — with Spring's own `@springio/asciidoctor-extensions` registered, and converts the resolved Asciidoctor AST with a custom Markdown emitter. The `antora` CLI is not used: it only emits an HTML site and requires a UI bundle.
+
+| Package | Version | Why pinned |
+|---|---|---|
+| `@antora/*` | 3.2.x | The pipeline modules; the CLI itself is not a dependency |
+| `@asciidoctor/core` | ~2.2 | `@springio/asciidoctor-extensions` uses the Opal API, which the 4.x native-JS rewrite drops; Antora 3.2 pins the same range |
+| `@springio/asciidoctor-extensions` | latest | Supplies `include-code::`, `javadoc:`, `configprop:`, section ids |
+
+`@asciidoctor/tabs` is deliberately **not** registered: it rewrites tab groups into HTML passthrough blocks, which destroys the structure the converter turns into headed code fences.
+
+**Conversion layers** (pure, no I/O):
+
+| Layer | File | Input → output |
+|---|---|---|
+| Block | `scripts/lib/markdown-converter.ts` | resolved Asciidoctor AST → Markdown |
+| Inline | `scripts/lib/inline-html.ts` | the restricted HTML `getContent()` returns → Markdown |
 
 | AsciiDoc construct | Markdown output |
 |---|---|
-| `xref:path[text]` | `[text](relative/path.md)` |
-| `include::partial$file.adoc[]` | Inline expansion of file contents |
-| `[NOTE]` / `[TIP]` / `[WARNING]` blocks | GFM admonitions (`> [!NOTE]`) |
-| Tab blocks (Gradle / Maven / Kotlin DSL) | Headed code-fence groups (`### Gradle` + ` ```kotlin`) |
-| Attribute substitution (`{spring-version}`) | Resolved literal values from the upstream tag |
-
-Conversion implementation may use a library (e.g., Asciidoctor.js) for parsing, then a custom Markdown emitter — or a direct AST-walking converter. Decision deferred to the implementation track.
+| `xref:path[text]` | `[text](relative/path.md)` (Antora resolves the target; the converter rewrites `.html` → `.md`) |
+| `xref:` into an external component (`api`, `gradle-plugin`, …) | absolute `docs.spring.io` URL |
+| `include::` / `include-code::` | expanded by Antora before conversion |
+| `[NOTE]` / `[TIP]` / `[WARNING]` blocks | GFM alerts (`> [!NOTE]`) |
+| Tab blocks (Java / Kotlin, Gradle / Maven) | Headed code-fence groups (`#### Java` + fence) |
+| Attribute substitution (`{spring-version}`) | Resolved literal values from the published `antora.yml` |
 
 ### Upstream Fetching
 
@@ -110,6 +124,8 @@ git sparse-checkout set framework-docs/modules/ROOT/pages
 ```
 
 **Why**: Avoid downloading multi-GB Spring repos when we only need the docs subtree. No submodules — they are an operational footgun.
+
+The checkout alone is not enough. The committed `antora.yml` is a build-time stub, and the sample sources `include-code::` reads are not under the docs subtree. Both come from Spring's published content archive on Maven Central (`<artifact>-<version>-<classifier>.zip`), which `fetch-upstream.ts` merges over the checkout — so no Gradle or JVM build is needed. The merged tree is then committed as its own git repository, which Antora requires of a local content source.
 
 ## Packaging & Distribution
 

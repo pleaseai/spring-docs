@@ -4,7 +4,7 @@
 >
 > **Audience**: Contributors implementing or reviewing pipeline changes. For *what this project is* and *how to consume artifacts*, see [`README.md`](./README.md).
 >
-> **Status**: This document describes the **intended architecture**. Sections marked _(Planned)_ are not yet implemented; the canonical source of intent until they are is this file plus `.please/docs/knowledge/`.
+> **Status**: The fetch → convert → package → index pipeline is implemented and proven end to end on `boot 4.1.1`. Sections marked _(Planned)_ are not yet implemented; the canonical source of intent until they are is this file plus `.please/docs/knowledge/`.
 
 ## Table of Contents
 
@@ -40,9 +40,11 @@ When reading the code or the spec for the first time, start here:
 | `.please/docs/knowledge/tech-stack.md`                   | Runtime, language, conversion library choices with rationale                                        |
 | [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) | CI entry — typecheck + lint + `validate-catalog` + test on every PR and push to main                |
 | [`scripts/validate-catalog.ts`](./scripts/validate-catalog.ts) | Tooling entry — runs the catalog zod schema; CI gate that guards `catalog.json` shape              |
-| `scripts/fetch-upstream.ts` _(Planned)_                  | Pipeline entry — sparse-checkout one upstream `(project, tag)` pair                                 |
-| `scripts/convert.ts` _(Planned)_                         | Pipeline entry — AsciiDoc/Antora → Markdown conversion                                              |
-| `scripts/package-release.ts` _(Planned)_                 | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum                              |
+| [`scripts/fetch-upstream.ts`](./scripts/fetch-upstream.ts) | Pipeline entry — sparse-checkout one upstream `(project, tag)` pair and merge its published content archives |
+| [`scripts/convert.ts`](./scripts/convert.ts)             | Pipeline entry — AsciiDoc/Antora → Markdown conversion                                              |
+| [`scripts/package-release.ts`](./scripts/package-release.ts) | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum                          |
+| [`scripts/update-catalog.ts`](./scripts/update-catalog.ts) | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`                  |
+| [`.please/docs/decisions/0002-antora-as-a-library.md`](./.please/docs/decisions/0002-antora-as-a-library.md) | Why conversion delegates to Antora + Spring's own extensions rather than reimplementing them |
 | `.github/workflows/matrix-build.yml` _(Planned)_         | CI entry — orchestrates N projects × M versions in parallel                                         |
 
 ## Code Map
@@ -53,21 +55,31 @@ Top-level layout, in implementation order (top to bottom = fetch → convert →
 
 Conversion pipeline. Each top-level file is an executable Bun/TypeScript script with a clearly defined input → output. Pure logic lives in `scripts/lib/`.
 
-| File                                  | Role                                                                                                                                |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `validate-catalog.ts`                 | Validate `catalog.json` against the canonical zod schema. CI gate.                                                                  |
-| `fetch-upstream.ts` _(Planned)_       | Pipeline entry — sparse-checkout one upstream `(project, tag)` pair. Writes only the docs subtree to `--out`. No submodules.        |
-| `convert.ts` _(Planned)_              | Pipeline entry — AsciiDoc/Antora → Markdown. Reads a fetched upstream tree, applies conversion rules, writes a versioned tree.      |
-| `package-release.ts` _(Planned)_      | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
-| `lib/catalog-schema.ts`               | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                               |
-| `lib/antora-rules.ts` _(Planned)_     | Centralized conversion rules (xref, include, admonitions, tab blocks, attribute substitution). **All conversion logic lives here.** |
-| `lib/manifest.ts` _(Planned)_         | `manifest.json` schema + builder. Owns the public schema; changes require an ADR.                                                   |
+| File                       | Role                                                                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `validate-catalog.ts`      | Validate `catalog.json` against the canonical zod schema. CI gate.                                                                                |
+| `fetch-upstream.ts`        | Pipeline entry — sparse-checkout one upstream `(project, tag)` docs subtree, merge Spring's published content archives, write a provenance sidecar. |
+| `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `INDEX.md`.                          |
+| `package-release.ts`       | Pipeline entry — produce a reproducible `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
+| `update-catalog.ts`        | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`.                                                                 |
+| `lib/catalog-schema.ts`    | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                                             |
+| `lib/upstream-sources.ts`  | Per-project upstream coordinates — repo, tag, component path, content archives, javadoc + external component URLs.                                |
+| `lib/markdown-converter.ts`| Block-level conversion: walks the resolved Asciidoctor AST and emits Markdown. **All block conversion logic lives here.**                          |
+| `lib/inline-html.ts`       | Inline-level conversion: the restricted HTML Asciidoctor returns for inline content → Markdown, including external component link rewriting.       |
+| `lib/manifest.ts`          | `manifest.json` schema + builder, and the content checksum. Owns the public schema; changes require an ADR.                                       |
+| `lib/catalog-update.ts`    | Pure `catalog.json` update — refuses to repoint an existing tag (releases are immutable).                                                          |
+| `lib/notice.ts`            | Builds the per-release `NOTICE` attribution text, pinned to the upstream commit.                                                                   |
+| `lib/antora-types.ts`      | Hand-written types for the Antora modules we call. `lib/antora.d.ts` maps them onto the untyped packages.                                          |
 
-**Architecture rule**: Conversion rules in `lib/` are pure functions over an AST or token stream. They do not perform I/O. I/O lives only in the top-level script entry points.
+**Architecture rule**: Conversion rules in `lib/` are pure functions over an AST or a string. They do not perform I/O. I/O lives only in the top-level script entry points.
+
+Conversion delegates page resolution — xrefs, includes, `include-code::`, `javadoc:`, `configprop:` — to Antora and Spring's own Asciidoctor extensions rather than reimplementing them; see [ADR-0002](./.please/docs/decisions/0002-antora-as-a-library.md) and `.please/docs/knowledge/upstream-antora.md`.
 
 ### `markdown/` _(scaffolded; content Planned)_
 
 Output tree, organized as `markdown/<project>/<version>/`. Committed for diff-ability and direct GitHub browsing. **Not** the primary consumption surface — consumers fetch GitHub Release archives, not this directory.
+
+Conversion currently writes to `dist/<project>-<version>/` (gitignored) and packaging reads from there; promoting a converted tree into `markdown/` is a separate, still-unimplemented step. The converted tree mirrors Antora's URL shape: the `ROOT` module at the tree root, every other module under its own directory, each page keeping its source path with `.adoc` → `.md`.
 
 ### `.github/workflows/`
 
@@ -105,9 +117,11 @@ Bun test suite.
 | Path                          | Scope                                                                                |
 | ----------------------------- | ------------------------------------------------------------------------------------ |
 | `tests/sanity.test.ts`        | Harness smoke test (proves Bun test + TypeScript strict mode are wired)              |
-| `tests/unit/`                 | Per-rule tests for `scripts/lib/*` (e.g., `catalog-schema.test.ts`; antora rules planned)   |
+| `tests/unit/`                 | Per-module tests for the pure functions in `scripts/lib/*` — catalog schema and update, manifest and content checksum, notice, upstream sources, and the two conversion layers (`markdown-converter`, `inline-html`) |
 | `tests/integration/` _(Planned)_ | Fixture upstream tree → full archive → checksum verification                          |
 | `tests/fixtures/` _(Planned)_    | Minimal upstream-shaped trees for deterministic tests                                 |
+
+The conversion tests drive the converters over hand-built AST doubles and HTML strings, not over a real upstream tree: running Antora needs a fetched checkout, which is what `tests/integration/` is for.
 
 ### `.please/`
 
@@ -132,25 +146,40 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
                           │
                           │ new upstream tag detected
                           ▼
-        upstream/spring-projects/<repo>:<tag>
-                          │
-                          │ sparse checkout
+    ┌─────────────────────┴─────────────────────┐
+    │                                           │
+  github.com/spring-projects/<repo>:<tag>   Maven Central
+  (sparse checkout of the docs subtree)     <artifact>-<version>-<classifier>.zip
+    │                                           │
+    │  the authored AsciiDoc component          │  the generated half: the resolved
+    │                                           │  antora.yml + sample source tree
+    └─────────────────────┬─────────────────────┘
+                          │ merge, promote modules/antora.yml,
+                          │ commit as a self-contained git repo
                           │ scripts/fetch-upstream.ts
                           ▼
-        <upstream-out>/<repo>/<tag>/docs/**.adoc
+        dist/upstream/<project>-<version>/        + <project>-<version>.upstream.json
+          antora.yml, modules/**                    (provenance: commit, archive URLs)
                           │
-                          │ AST walk + rules
+                          │ aggregate → classify → load each page
+                          │ (Antora modules + Spring's Asciidoctor
+                          │  extensions resolve xref/include/javadoc)
                           │ scripts/convert.ts
-                          │ scripts/lib/antora-rules.ts
+                          ▼
+                  resolved Asciidoctor AST
+                          │
+                          │ pure AST walk + inline HTML pass
+                          │ scripts/lib/markdown-converter.ts
+                          │ scripts/lib/inline-html.ts
                           ▼
         dist/<project>-<version>/**.md + INDEX.md
                           │
-                          │ tar.gz + sha256 + manifest.json
+                          │ tar.gz + sha256 + manifest.json + NOTICE
                           │ scripts/package-release.ts
                           ▼
-        <project>-<version>.tar.gz
-        <project>-<version>.tar.gz.sha256
-        manifest.json
+        releases/<project>-<version>.tar.gz
+        releases/<project>-<version>.tar.gz.sha256
+        releases/manifest.json
                           │
                           │ gh release upload
                           │ .github/workflows/release.yml
@@ -158,6 +187,7 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
         GitHub Release: tag = <project>-<version>
                           │
                           │ update + commit + PR
+                          │ scripts/update-catalog.ts
                           ▼
                     catalog.json
                           │
@@ -165,6 +195,9 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
                     Consumers
         (@pleaseai/spring, Cursor, Continue, RAG, ...)
 ```
+
+Both upstream halves are required. The checked-out `antora.yml` is a build-time stub; only the published archive carries the resolved attributes (dependency versions, javadoc locations) and the sample sources that `include-code::` reads, so fetching without it produces pages that convert cleanly while silently losing every included snippet.
+
 
 **Determinism guarantee**: Same upstream commit + same `scripts/` SHA = byte-identical Markdown output and identical archive checksum. This is the load-bearing property of the entire system.
 
