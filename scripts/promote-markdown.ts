@@ -20,7 +20,7 @@ import { basename, join, resolve } from 'node:path'
 import process from 'node:process'
 import { parseReleaseName } from './lib/release-name.ts'
 
-interface Args {
+export interface Args {
   readonly source: string
   readonly out: string
 }
@@ -36,7 +36,7 @@ interface Args {
  *
  * @throws if an option is unrecognized or missing its value, or no source is given.
  */
-function parseArgs(argv: readonly string[]): Args {
+export function parseArgs(argv: readonly string[]): Args {
   const positional: string[] = []
   let out = 'markdown'
 
@@ -102,4 +102,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+// This module is imported directly by unit tests exercising `parseArgs`;
+// without the guard that import would run `main()` against the test
+// runner's own argv.
+if (import.meta.main)
+  await main()

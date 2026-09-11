@@ -58,7 +58,7 @@ const PLAYBOOK_ATTRIBUTES = {
   'tabs-sync-option': '@',
 } as const
 
-interface Args {
+export interface Args {
   readonly source: string
   readonly project: string
   readonly version: string
@@ -67,7 +67,7 @@ interface Args {
   readonly strict: boolean
 }
 
-function parseArgs(argv: readonly string[]): Args {
+export function parseArgs(argv: readonly string[]): Args {
   const positional: string[] = []
   const flags = new Map<string, string>()
   let strict = false
@@ -221,4 +221,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+// This module is imported directly by unit tests exercising `parseArgs`;
+// without the guard that import would run `main()` against the test
+// runner's own argv.
+if (import.meta.main)
+  await main()

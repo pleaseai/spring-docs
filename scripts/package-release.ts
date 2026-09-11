@@ -43,13 +43,13 @@ const EPOCH_SECONDS = Date.UTC(1980, 1, 1) / 1000
 /** Leading semver range operator in a package.json dependency spec. */
 const RANGE_PREFIX = /^[\^~]/
 
-interface Args {
+export interface Args {
   readonly source: string
   readonly out: string
   readonly dryRun: boolean
 }
 
-function parseArgs(argv: readonly string[]): Args {
+export function parseArgs(argv: readonly string[]): Args {
   const positional: string[] = []
   let out: string | undefined
   let dryRun = false
@@ -195,7 +195,7 @@ async function fileChecksum(path: string): Promise<string> {
 }
 
 /** SHA-256 of in-memory text content, computed without touching disk. */
-function textChecksum(text: string): Promise<string> {
+export function textChecksum(text: string): Promise<string> {
   return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)).then(hex)
 }
 
@@ -205,7 +205,7 @@ function textChecksum(text: string): Promise<string> {
  * Used only for a dry run's generated-file entries: the real write path gets
  * them for free from `listFiles`, already in position.
  */
-function insertSorted(entries: readonly ContentEntry[], entry: ContentEntry): ContentEntry[] {
+export function insertSorted(entries: readonly ContentEntry[], entry: ContentEntry): ContentEntry[] {
   const index = entries.findIndex(existing => existing.path > entry.path)
   const result = [...entries]
   result.splice(index === -1 ? result.length : index, 0, entry)
@@ -219,7 +219,7 @@ interface GeneratedFile {
 }
 
 /** Read one required, non-empty string field of a provenance sidecar. */
-function requiredString(record: Record<string, unknown>, field: string, sidecar: string): string {
+export function requiredString(record: Record<string, unknown>, field: string, sidecar: string): string {
   const value = record[field]
   if (typeof value !== 'string' || value === '')
     throw new Error(`Malformed provenance sidecar at ${sidecar}: "${field}" must be a non-empty string`)
@@ -385,4 +385,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+// This module is imported directly by unit tests exercising its pure
+// helpers; without the guard that import would run `main()` against the
+// test runner's own argv.
+if (import.meta.main)
+  await main()

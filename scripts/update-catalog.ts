@@ -26,7 +26,7 @@ import process from 'node:process'
 import { CatalogSchema } from './lib/catalog-schema.ts'
 import { applyEntry, serializeCatalog } from './lib/catalog-update.ts'
 
-interface Args {
+export interface Args {
   readonly project: string
   readonly version: string
   readonly tag: string
@@ -48,7 +48,7 @@ const OPTIONS = ['project', 'version', 'tag', 'released-at'] as const
  *
  * @throws if an argument is unrecognized, misplaced, or missing its value.
  */
-function parseArgs(argv: readonly string[]): Args {
+export function parseArgs(argv: readonly string[]): Args {
   const flags = new Map<string, string>()
   let dryRun = false
 
@@ -137,4 +137,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+// This module is imported directly by unit tests exercising `parseArgs`;
+// without the guard that import would run `main()` against the test
+// runner's own argv.
+if (import.meta.main)
+  await main()

@@ -26,13 +26,13 @@ import process from 'node:process'
 import { assertNoSymlinks } from './lib/reject-symlinks.ts'
 import { resolveUpstream } from './lib/upstream-sources.ts'
 
-interface Args {
+export interface Args {
   readonly project: string
   readonly version: string
   readonly out: string
 }
 
-function parseArgs(argv: readonly string[]): Args {
+export function parseArgs(argv: readonly string[]): Args {
   const positional: string[] = []
   let out: string | undefined
 
@@ -225,4 +225,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+// This module is imported directly by unit tests exercising `parseArgs`;
+// without the guard that import would run `main()` against the test
+// runner's own argv.
+if (import.meta.main)
+  await main()

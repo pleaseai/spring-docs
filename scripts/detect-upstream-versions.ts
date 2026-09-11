@@ -22,7 +22,7 @@ import { CatalogSchema } from './lib/catalog-schema.ts'
 import { cloneUrlFor, resolveUpstream, supportedProjects } from './lib/upstream-sources.ts'
 import { missingVersions, parseTagRefs } from './lib/version-detect.ts'
 
-interface Args {
+export interface Args {
   readonly projects: readonly string[]
   /** Newest N missing versions per project, or null for all of them. */
   readonly limit: number | null
@@ -35,7 +35,7 @@ interface MatrixEntry {
   readonly version: string
 }
 
-function parseArgs(argv: readonly string[]): Args {
+export function parseArgs(argv: readonly string[]): Args {
   const flags = new Map<string, string>()
   let json = false
 
@@ -171,4 +171,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main()
+// This module is imported directly by unit tests exercising `parseArgs`;
+// without the guard that import would run `main()` against the test
+// runner's own argv.
+if (import.meta.main)
+  await main()
