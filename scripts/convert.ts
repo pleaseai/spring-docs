@@ -19,7 +19,6 @@
  *   2 — bad arguments
  */
 
-import type { AntoraPage } from './lib/antora-types.ts'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
@@ -28,6 +27,7 @@ import aggregateContent from '@antora/content-aggregator'
 import classifyContent from '@antora/content-classifier'
 import buildPlaybook from '@antora/playbook-builder'
 import { convertDocument } from './lib/markdown-converter.ts'
+import { assertUniquePaths, buildIndex, INDEX_FILENAME, outputPathFor } from './lib/output-layout.ts'
 import { resolveUpstream } from './lib/upstream-sources.ts'
 
 /**
@@ -43,12 +43,6 @@ const ASCIIDOC_EXTENSIONS = [
   '@springio/asciidoctor-extensions/configuration-properties-extension',
   '@springio/asciidoctor-extensions/section-ids-extension',
 ] as const
-
-/** The `.adoc` extension of a page's source path. */
-const ADOC_EXTENSION = /\.adoc$/
-
-/** The `.md` extension of a converted page. */
-const MD_EXTENSION = /\.md$/
 
 /**
  * Attributes upstream sets in its playbook template.
@@ -152,17 +146,6 @@ async function writePlaybook(source: string, javadocLocation: string): Promise<s
   return playbookPath
 }
 
-/**
- * Output path for one page, relative to the converted tree.
- *
- * Mirrors Antora's URL shape: the ROOT module lives at the tree root, every
- * other module under its own directory.
- */
-export function outputPathFor(page: AntoraPage): string {
-  const relative = page.src.relative.replace(ADOC_EXTENSION, '.md')
-  return page.src.module === 'ROOT' ? relative : join(page.src.module, relative)
-}
-
 async function main(): Promise<void> {
   let args: Args
   try {
@@ -189,6 +172,8 @@ async function main(): Promise<void> {
       throw new Error(`No pages classified from ${source} — is antora.yml present?`)
     }
 
+    assertUniquePaths([...pages.map(outputPathFor), INDEX_FILENAME])
+
     await rm(outDir, { recursive: true, force: true })
     await mkdir(outDir, { recursive: true })
 
@@ -213,7 +198,7 @@ async function main(): Promise<void> {
       written.push(relativeOut)
     }
 
-    await writeFile(join(outDir, 'INDEX.md'), buildIndex(args.project, args.version, written))
+    await writeFile(join(outDir, INDEX_FILENAME), buildIndex(args.project, args.version, written))
     await rm(playbookPath, { force: true })
 
     if (warnings.length > 0) {
@@ -234,23 +219,6 @@ async function main(): Promise<void> {
     console.error(`✗ convert failed: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
-}
-
-/** Deterministic index of the converted tree. */
-export function buildIndex(
-  project: string,
-  version: string,
-  paths: readonly string[],
-): string {
-  const sorted = [...paths].sort()
-  return [
-    `# ${project} ${version}`,
-    '',
-    `${sorted.length} pages, converted from upstream Spring AsciiDoc.`,
-    '',
-    ...sorted.map(path => `- [${path.replace(MD_EXTENSION, '')}](./${path})`),
-    '',
-  ].join('\n')
 }
 
 await main()

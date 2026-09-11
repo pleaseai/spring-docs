@@ -103,3 +103,48 @@ describe('serializeCatalog', () => {
     expect(text.endsWith('\n\n')).toBe(false)
   })
 })
+
+describe('applyEntry rebuilds', () => {
+  const published: Catalog = {
+    version: '1',
+    generated_at: '2026-09-11T00:00:00Z',
+    projects: { boot: { '4.1.1': { tag: 'boot-4.1.1', released_at: '2026-09-11T00:00:00Z' } } },
+  }
+
+  test('repoints a version at a rebuild of the same version', () => {
+    const updated = applyEntry(
+      published,
+      { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1+rebuild.1', releasedAt: null },
+      new Date('2026-09-12T00:00:00Z'),
+    )
+    expect(updated.projects.boot?.['4.1.1']).toEqual({
+      tag: 'boot-4.1.1+rebuild.1',
+      released_at: null,
+    })
+  })
+
+  test('refuses to fall back from a rebuild to the original tag', () => {
+    const rebuilt = applyEntry(
+      published,
+      { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1+rebuild.1', releasedAt: null },
+      new Date('2026-09-12T00:00:00Z'),
+    )
+    expect(() =>
+      applyEntry(
+        rebuilt,
+        { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1', releasedAt: null },
+        new Date('2026-09-13T00:00:00Z'),
+      ),
+    ).toThrow(/immutable/)
+  })
+
+  test('refuses a tag belonging to a different version', () => {
+    expect(() =>
+      applyEntry(
+        published,
+        { project: 'boot', version: '4.1.1', tag: 'boot-4.1.2+rebuild.1', releasedAt: null },
+        new Date('2026-09-12T00:00:00Z'),
+      ),
+    ).toThrow(/immutable/)
+  })
+})

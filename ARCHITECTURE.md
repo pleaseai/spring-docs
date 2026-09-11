@@ -4,7 +4,7 @@
 >
 > **Audience**: Contributors implementing or reviewing pipeline changes. For *what this project is* and *how to consume artifacts*, see [`README.md`](./README.md).
 >
-> **Status**: The fetch → convert → package → index pipeline is implemented and proven end to end on `boot 4.1.1`. Sections marked _(Planned)_ are not yet implemented; the canonical source of intent until they are is this file plus `.please/docs/knowledge/`.
+> **Status**: The fetch → convert → package → index pipeline is implemented and proven end to end on `boot 4.1.1`, and the CI workflows that drive it (detect, matrix build, release) are in place. Nothing has been published yet: `catalog.json` is still empty. Sections marked _(Planned)_ are not yet implemented; the canonical source of intent until they are is this file plus `.please/docs/knowledge/`.
 
 ## Table of Contents
 
@@ -45,7 +45,8 @@ When reading the code or the spec for the first time, start here:
 | [`scripts/package-release.ts`](./scripts/package-release.ts) | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum                          |
 | [`scripts/update-catalog.ts`](./scripts/update-catalog.ts) | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`                  |
 | [`.please/docs/decisions/0002-antora-as-a-library.md`](./.please/docs/decisions/0002-antora-as-a-library.md) | Why conversion delegates to Antora + Spring's own extensions rather than reimplementing them |
-| `.github/workflows/matrix-build.yml` _(Planned)_         | CI entry — orchestrates N projects × M versions in parallel                                         |
+| [`.github/workflows/matrix-build.yml`](./.github/workflows/matrix-build.yml) | CI entry — orchestrates N projects × M versions in parallel                       |
+| [`.github/workflows/release.yml`](./.github/workflows/release.yml) | CI entry — a `<project>-<version>` tag push builds, publishes and records the release |
 
 ## Code Map
 
@@ -62,8 +63,11 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `INDEX.md`.                          |
 | `package-release.ts`       | Pipeline entry — produce a reproducible `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
 | `update-catalog.ts`        | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`.                                                                 |
+| `detect-upstream-versions.ts` | Tooling entry — list GA versions upstream has released that the catalog does not carry. Read-only; feeds the nightly issues and the build matrix. |
 | `lib/catalog-schema.ts`    | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                                             |
-| `lib/upstream-sources.ts`  | Per-project upstream coordinates — repo, tag, component path, content archives, javadoc + external component URLs.                                |
+| `lib/upstream-sources.ts`  | Per-project upstream coordinates — repo, tag, component path, content archives, javadoc + external component URLs, and the supported version floor. |
+| `lib/version-detect.ts`    | Pure diff of upstream tags against the catalog.                                                                                                   |
+| `lib/output-layout.ts`     | Where each converted page lands, and the collision guard that keeps the tree platform-independent.                                                 |
 | `lib/markdown-converter.ts`| Block-level conversion: walks the resolved Asciidoctor AST and emits Markdown. **All block conversion logic lives here.**                          |
 | `lib/inline-html.ts`       | Inline-level conversion: the restricted HTML Asciidoctor returns for inline content → Markdown, including external component link rewriting.       |
 | `lib/manifest.ts`          | `manifest.json` schema + builder, and the content checksum. Owns the public schema; changes require an ADR.                                       |
@@ -79,7 +83,7 @@ Conversion delegates page resolution — xrefs, includes, `include-code::`, `jav
 
 Output tree, organized as `markdown/<project>/<version>/`. Committed for diff-ability and direct GitHub browsing. **Not** the primary consumption surface — consumers fetch GitHub Release archives, not this directory.
 
-Conversion currently writes to `dist/<project>-<version>/` (gitignored) and packaging reads from there; promoting a converted tree into `markdown/` is a separate, still-unimplemented step. The converted tree mirrors Antora's URL shape: the `ROOT` module at the tree root, every other module under its own directory, each page keeping its source path with `.adoc` → `.md`.
+Conversion currently writes to `dist/<project>-<version>/` (gitignored) and packaging reads from there; promoting a converted tree into `markdown/` is a separate, still-unimplemented step. The converted tree mirrors Antora's URL shape: the `ROOT` module at the tree root, every other module under its own directory, each page keeping its source path with `.adoc` → `.md`. The generated listing is `_index.md`: `INDEX.md` would collide with the `index.md` an upstream `index.adoc` produces on a case-insensitive filesystem.
 
 ### `.github/workflows/`
 
@@ -88,9 +92,11 @@ CI/CD. GitHub Actions only; no other CI vendor.
 | Workflow                          | Trigger             | Role                                                                                            |
 | --------------------------------- | ------------------- | ----------------------------------------------------------------------------------------------- |
 | `ci.yml`                          | PR / push           | typecheck + lint + `validate-catalog` + test (with coverage + JUnit + optional Codecov)         |
-| `matrix-build.yml` _(Planned)_    | manual / scheduled  | Build N projects × M versions in parallel                                                       |
-| `nightly-detect.yml` _(Planned)_  | cron (daily)        | Poll upstream for new tags; open issues for new GA releases                                     |
-| `release.yml` _(Planned)_         | tag push            | Publish archive + checksum + manifest to GitHub Releases, update `catalog.json` via PR          |
+| `matrix-build.yml`                | manual / weekly     | Build N projects × M versions in parallel; uploads archives as artifacts, publishes nothing     |
+| `nightly-detect.yml`              | cron (daily)        | Poll upstream for new tags; open one issue per new GA release                                   |
+| `release.yml`                     | tag push            | Publish archive + checksum + manifest to GitHub Releases, update `catalog.json` via PR          |
+
+`.github/actions/build-release/` is a composite action holding the fetch → convert → package steps, so `matrix-build.yml` and `release.yml` cannot drift apart: what gets published is built by the steps the matrix build already exercised. `release.yml` rebuilds from the tag rather than promoting a matrix-build artifact.
 
 ### `catalog.json`
 
@@ -118,10 +124,10 @@ Bun test suite.
 | ----------------------------- | ------------------------------------------------------------------------------------ |
 | `tests/sanity.test.ts`        | Harness smoke test (proves Bun test + TypeScript strict mode are wired)              |
 | `tests/unit/`                 | Per-module tests for the pure functions in `scripts/lib/*` — catalog schema and update, manifest and content checksum, notice, upstream sources, and the two conversion layers (`markdown-converter`, `inline-html`) |
-| `tests/integration/` _(Planned)_ | Fixture upstream tree → full archive → checksum verification                          |
-| `tests/fixtures/` _(Planned)_    | Minimal upstream-shaped trees for deterministic tests                                 |
+| `tests/integration/`          | CLI contracts, and the fixture pipeline: fixture upstream tree → conversion → archive → checksum |
+| `tests/fixtures/`             | `upstream-component/` — a minimal Antora component standing in for a fetched upstream tree |
 
-The conversion tests drive the converters over hand-built AST doubles and HTML strings, not over a real upstream tree: running Antora needs a fetched checkout, which is what `tests/integration/` is for.
+The unit tests drive the converters over hand-built AST doubles and HTML strings; the integration test runs the real scripts as subprocesses over the fixture, which is the only place Antora and tar actually execute. Neither touches the network.
 
 ### `.please/`
 
@@ -159,7 +165,7 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
                           │ scripts/fetch-upstream.ts
                           ▼
         dist/upstream/<project>-<version>/        + <project>-<version>.upstream.json
-          antora.yml, modules/**                    (provenance: commit, archive URLs)
+          antora.yml, modules/**                    (provenance: commit, archive classifiers)
                           │
                           │ aggregate → classify → load each page
                           │ (Antora modules + Spring's Asciidoctor
@@ -172,7 +178,7 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
                           │ scripts/lib/markdown-converter.ts
                           │ scripts/lib/inline-html.ts
                           ▼
-        dist/<project>-<version>/**.md + INDEX.md
+        dist/<project>-<version>/**.md + _index.md
                           │
                           │ tar.gz + sha256 + manifest.json + NOTICE
                           │ scripts/package-release.ts
@@ -225,7 +231,7 @@ These constraints must hold; violating them is a regression, not a style prefere
 - **TypeScript strict mode, no exceptions.** `strict: true`, `noUncheckedIndexedAccess: true`.
 - **ESM only.** No CommonJS interop in new code.
 - **Zero lint warnings on `main`.** Warnings are errors.
-- **Conversion rules are pure.** No I/O inside `scripts/lib/antora-rules.ts`. I/O happens only in the script entry points.
+- **Conversion rules are pure.** No I/O anywhere in `scripts/lib/`. I/O happens only in the script entry points.
 - **No submodules.** Use sparse checkout. Submodules are an operational footgun.
 - **No new runtime dependencies beyond Bun + the AsciiDoc parser.** Adding a runtime dep requires an ADR.
 
@@ -272,7 +278,7 @@ Coverage target: **>80% for new code**. Coverage is informational; the load-bear
 
 - **No secrets in the repo.** GitHub Actions tokens only.
 - **No user input.** All input is sourced from public upstream Git tags.
-- **Dependencies** are pinned via `bun.lockb`. Renovate / Dependabot manages updates _(config Planned)_. Upstream Spring tag detection is **not** Renovate's responsibility — it is handled by `nightly-detect.yml`.
+- **Dependencies** are pinned via `bun.lock`, and GitHub Actions are pinned by commit SHA. Renovate / Dependabot manages updates _(config Planned)_. Upstream Spring tag detection is **not** Renovate's responsibility — it is handled by `nightly-detect.yml`.
 
 ### License Compliance
 

@@ -18,13 +18,27 @@ export interface CatalogEntry {
 }
 
 /**
+ * True when `tag` is a rebuild of exactly this `(project, version)`.
+ *
+ * Rebuilds are published under a suffixed tag (`boot-4.1.1+rebuild.1`) so the
+ * original tag keeps resolving to the bytes it always did.
+ */
+function isRebuildTag(entry: CatalogEntry): boolean {
+  return entry.tag.startsWith(`${entry.project}-${entry.version}+`)
+}
+
+/**
  * Apply one entry to a catalog.
  *
  * Pure — the caller owns reading and writing the file.
  *
- * @throws if the entry would repoint an existing `(project, version)` at a
- * different tag. Tags are immutable contracts; a rebuild gets a suffixed tag
- * (`boot-4.1.1+rebuild.1`) rather than overwriting one.
+ * A published tag is never deleted or moved, but the catalog entry may be
+ * repointed at a *rebuild* of the same `(project, version)` — that is how
+ * consumers reach the corrected archive. Suffix ordering is not enforced here:
+ * the catalog records the rebuild that was last published, not the highest one.
+ *
+ * @throws if the entry would repoint an existing `(project, version)` at any
+ * other tag. Tags are immutable contracts.
  */
 export function applyEntry(
   catalog: Catalog,
@@ -32,7 +46,7 @@ export function applyEntry(
   generatedAt: Date,
 ): Catalog {
   const existing = catalog.projects[entry.project]?.[entry.version]
-  if (existing && existing.tag !== entry.tag) {
+  if (existing && existing.tag !== entry.tag && !isRebuildTag(entry)) {
     throw new Error(
       `${entry.project} ${entry.version} already resolves to tag "${existing.tag}". `
       + `Tags are immutable — publish "${entry.tag}" as a rebuild suffix instead of repointing.`,

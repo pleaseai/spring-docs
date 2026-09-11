@@ -1,0 +1,6 @@
+name: boot
+version: 9.9.9
+title: Fixture Component
+asciidoc:
+  attributes:
+    fixture-dependency-version: 1.2.3

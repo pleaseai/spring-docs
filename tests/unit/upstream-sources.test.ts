@@ -1,9 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  cloneUrlFor,
+  compareGaVersions,
   isGaVersion,
   mavenArchiveUrl,
   resolveUpstream,
   supportedProjects,
+  supportedVersionsFromTags,
 } from '../../scripts/lib/upstream-sources.ts'
 
 describe('isGaVersion', () => {
@@ -69,5 +72,60 @@ describe('resolveUpstream', () => {
 describe('supportedProjects', () => {
   test('lists the known projects', () => {
     expect(supportedProjects()).toEqual(['boot'])
+  })
+})
+
+describe('compareGaVersions', () => {
+  test('orders by numeric segment, not lexically', () => {
+    expect(compareGaVersions('4.10.0', '4.9.0')).toBeGreaterThan(0)
+    expect(compareGaVersions('4.9.0', '4.10.0')).toBeLessThan(0)
+  })
+
+  test('is zero for equal versions', () => {
+    expect(compareGaVersions('4.1.1', '4.1.1')).toBe(0)
+  })
+
+  test('compares major before minor before patch', () => {
+    expect(compareGaVersions('5.0.0', '4.99.99')).toBeGreaterThan(0)
+    expect(compareGaVersions('4.1.2', '4.1.1')).toBeGreaterThan(0)
+  })
+
+  test('refuses non-GA versions instead of ordering them arbitrarily', () => {
+    expect(() => compareGaVersions('4.2.0-M1', '4.1.1')).toThrow(/Not GA versions/)
+  })
+})
+
+describe('supportedVersionsFromTags', () => {
+  test('maps release tags to versions, oldest first', () => {
+    expect(supportedVersionsFromTags('boot', ['v4.1.1', 'v4.0.0'])).toEqual(['4.0.0', '4.1.1'])
+  })
+
+  test('drops tags below the supported floor', () => {
+    expect(supportedVersionsFromTags('boot', ['v3.5.8', 'v4.0.0'])).toEqual(['4.0.0'])
+  })
+
+  test('drops pre-releases and unrelated tag names', () => {
+    expect(supportedVersionsFromTags('boot', ['v4.2.0-M1', 'docs-4.1.1', '4.1.1']))
+      .toEqual([])
+  })
+})
+
+describe('cloneUrlFor', () => {
+  test('resolves without knowing a version', () => {
+    expect(cloneUrlFor('boot')).toBe('https://github.com/spring-projects/spring-boot.git')
+  })
+
+  test('rejects an unsupported project', () => {
+    expect(() => cloneUrlFor('cloud')).toThrow(/Unknown project "cloud"/)
+  })
+})
+
+describe('resolveUpstream version floor', () => {
+  test('refuses a GA version below the project floor', () => {
+    expect(() => resolveUpstream('boot', '3.5.8')).toThrow(/below the supported floor 4\.0\.0/)
+  })
+
+  test('accepts the floor itself', () => {
+    expect(resolveUpstream('boot', '4.0.0').tag).toBe('v4.0.0')
   })
 })

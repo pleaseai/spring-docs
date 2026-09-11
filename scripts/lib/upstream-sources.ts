@@ -69,8 +69,16 @@ interface ProjectDefinition {
   readonly mavenArtifact: string
   readonly archiveClassifiers: readonly string[]
   readonly externalComponentsFor: (version: string) => Readonly<Record<string, string>>
-  /** Maps a catalog version to its upstream git tag. */
-  readonly tagFor: (version: string) => string
+  /** Prefix the upstream repository puts in front of a version to form a tag. */
+  readonly tagPrefix: string
+  /**
+   * Oldest version this pipeline is known to handle.
+   *
+   * Older lines are not merely untested: the component path and the published
+   * archive classifiers both changed across major versions, so a build below
+   * this floor would fetch the wrong tree rather than fail.
+   */
+  readonly minimumVersion: string
   /** Maps a catalog version to its published aggregated javadoc base URL. */
   readonly javadocLocationFor: (version: string) => string
 }
@@ -95,7 +103,10 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
       'gradle-plugin': `${SPRING_BOOT_DOCS}/${version}/gradle-plugin`,
       'maven-plugin': `${SPRING_BOOT_DOCS}/${version}/maven-plugin`,
     }),
-    tagFor: version => `v${version}`,
+    tagPrefix: 'v',
+    // 4.0.0 moved the docs to `documentation/spring-boot-docs` and is the first
+    // line whose `root-aggregate-content` archive this pipeline was built against.
+    minimumVersion: '4.0.0',
     javadocLocationFor: version => `${SPRING_BOOT_DOCS}/${version}/api/java`,
   },
 }
@@ -141,12 +152,19 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
     )
   }
 
+  if (compareGaVersions(version, definition.minimumVersion) < 0) {
+    throw new Error(
+      `Version "${version}" of "${project}" is below the supported floor `
+      + `${definition.minimumVersion}: the documentation layout and published archives differ there.`,
+    )
+  }
+
   return {
     project,
     version,
     repo: definition.repo,
     cloneUrl: `https://github.com/${definition.repo}.git`,
-    tag: definition.tagFor(version),
+    tag: `${definition.tagPrefix}${version}`,
     componentPath: definition.componentPath,
     archives: definition.archiveClassifiers.map(classifier => ({
       classifier,
@@ -170,4 +188,66 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
  */
 export function isGaVersion(version: string): boolean {
   return GA_VERSION.test(version)
+}
+
+/**
+ * Clone URL of a project's upstream repository.
+ *
+ * Version-independent, unlike {@link resolveUpstream}: tag discovery has to
+ * reach the repository before any version is known.
+ *
+ * @throws if the project is not supported.
+ */
+export function cloneUrlFor(project: string): string {
+  const definition = PROJECTS[project]
+  if (!definition)
+    throw new Error(`Unknown project "${project}". Supported: ${supportedProjects().join(', ')}`)
+  return `https://github.com/${definition.repo}.git`
+}
+
+/**
+ * Order two GA versions numerically.
+ *
+ * Returns a negative number when `a` precedes `b`, as `Array#sort` expects.
+ * String comparison would place `4.10.0` before `4.9.0`, so each segment is
+ * compared as a number.
+ *
+ * @throws if either argument is not a GA version.
+ */
+export function compareGaVersions(a: string, b: string): number {
+  if (!isGaVersion(a) || !isGaVersion(b))
+    throw new Error(`Not GA versions: "${a}", "${b}"`)
+
+  const left = a.split('.').map(Number)
+  const right = b.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    const diff = (left[i] ?? 0) - (right[i] ?? 0)
+    if (diff !== 0)
+      return diff
+  }
+  return 0
+}
+
+/**
+ * The versions of `project` this pipeline would build, given upstream's tag names.
+ *
+ * Drops tags that are not this project's release tags, pre-releases, and
+ * anything below the project's supported floor. Sorted oldest first.
+ *
+ * @throws if the project is not supported.
+ */
+export function supportedVersionsFromTags(
+  project: string,
+  tags: readonly string[],
+): readonly string[] {
+  const definition = PROJECTS[project]
+  if (!definition)
+    throw new Error(`Unknown project "${project}". Supported: ${supportedProjects().join(', ')}`)
+
+  return tags
+    .filter(tag => tag.startsWith(definition.tagPrefix))
+    .map(tag => tag.slice(definition.tagPrefix.length))
+    .filter(version => isGaVersion(version))
+    .filter(version => compareGaVersions(version, definition.minimumVersion) >= 0)
+    .sort(compareGaVersions)
 }

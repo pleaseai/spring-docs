@@ -184,12 +184,15 @@ bun run typecheck                    # tsc --noEmit
 bun run lint                         # eslint --max-warnings 0
 bun test                             # Bun test runner
 
+# Which upstream GA versions the catalog does not carry yet
+bun run scripts/detect-upstream-versions.ts
+
 # Build a single (project, version) pair locally
-bun run scripts/fetch-upstream.ts spring-framework v6.2.0 --out /tmp/spring-fw
-bun run scripts/convert.ts /tmp/spring-fw --project framework --version 6.2.0 --out dist/
+bun run scripts/fetch-upstream.ts boot 4.1.1 --out dist/upstream
+bun run scripts/convert.ts dist/upstream/boot-4.1.1 --project boot --version 4.1.1 --out dist --strict
 
 # Package
-bun run scripts/package-release.ts dist/spring-framework-6.2.0 --out releases/
+bun run scripts/package-release.ts dist/boot-4.1.1 --out releases
 ```
 
 ## Tooling Out of Scope
