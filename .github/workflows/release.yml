@@ -219,7 +219,10 @@ jobs:
           # after publication, by which point those scripts may need packages
           # that install never saw, so reinstall against the lockfile they
           # belong to rather than leaving a published release unregistered.
-          bun install --frozen-lockfile
+          # `--ignore-scripts`: this install runs with `contents: write` and a
+          # live `GH_TOKEN`, and nothing here needs a dependency's lifecycle
+          # script, so the release job never hands one a shell.
+          bun install --frozen-lockfile --ignore-scripts
 
           bun run scripts/update-catalog.ts \
             --project "$PROJECT" --version "$VERSION" --tag "$TAG" --released-at "$released_at"
