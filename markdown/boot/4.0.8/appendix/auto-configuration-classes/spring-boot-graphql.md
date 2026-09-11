@@ -1,0 +1,25 @@
+---
+title: "spring-boot-graphql"
+source: "appendix:auto-configuration-classes/spring-boot-graphql.adoc"
+---
+
+<a id="appendix.auto-configuration-classes.spring-boot-graphql"></a>
+
+# spring-boot-graphql
+
+The following auto-configuration classes are from the `spring-boot-graphql` module:
+
+| Configuration Class | Links |
+| --- | --- |
+| [`GraphQlAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/GraphQlAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/GraphQlAutoConfiguration.html) |
+| [`GraphQlObservationAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/observation/GraphQlObservationAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/observation/GraphQlObservationAutoConfiguration.html) |
+| [`GraphQlQueryByExampleAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlQueryByExampleAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlQueryByExampleAutoConfiguration.html) |
+| [`GraphQlQuerydslAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlQuerydslAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlQuerydslAutoConfiguration.html) |
+| [`GraphQlRSocketAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/rsocket/GraphQlRSocketAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/rsocket/GraphQlRSocketAutoConfiguration.html) |
+| [`GraphQlReactiveQueryByExampleAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlReactiveQueryByExampleAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlReactiveQueryByExampleAutoConfiguration.html) |
+| [`GraphQlReactiveQuerydslAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlReactiveQuerydslAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/data/GraphQlReactiveQuerydslAutoConfiguration.html) |
+| [`GraphQlWebFluxAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/reactive/GraphQlWebFluxAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/reactive/GraphQlWebFluxAutoConfiguration.html) |
+| [`GraphQlWebFluxSecurityAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/security/GraphQlWebFluxSecurityAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/security/GraphQlWebFluxSecurityAutoConfiguration.html) |
+| [`GraphQlWebMvcAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/servlet/GraphQlWebMvcAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/servlet/GraphQlWebMvcAutoConfiguration.html) |
+| [`GraphQlWebMvcSecurityAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/security/GraphQlWebMvcSecurityAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/security/GraphQlWebMvcSecurityAutoConfiguration.html) |
+| [`RSocketGraphQlClientAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v4.0.8/module/spring-boot-graphql/src/main/java/org/springframework/boot/graphql/autoconfigure/rsocket/RSocketGraphQlClientAutoConfiguration.java) | [javadoc](https://docs.spring.io/spring-boot/4.0.8/api/java/org/springframework/boot/graphql/autoconfigure/rsocket/RSocketGraphQlClientAutoConfiguration.html) |
