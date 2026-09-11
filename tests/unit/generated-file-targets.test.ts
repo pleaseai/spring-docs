@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { assertGeneratedTargetsWritable } from '../../scripts/lib/generated-file-targets.ts'
@@ -26,6 +26,24 @@ describe('assertGeneratedTargetsWritable', () => {
     }
     finally {
       await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test('rejects a symlink at the exact-cased target path', async () => {
+    // Exact-cased and not a directory, so the name checks pass — but the real
+    // run would write *through* it, outside the converted tree, while the dry
+    // run reported a NOTICE it never wrote.
+    const root = await mkdtemp(join(tmpdir(), 'generated-targets-symlink-'))
+    const outside = await mkdtemp(join(tmpdir(), 'generated-targets-outside-'))
+    try {
+      await writeFile(join(outside, 'target'), 'somewhere else')
+      await symlink(join(outside, 'target'), join(root, 'NOTICE'))
+
+      await expect(assertGeneratedTargetsWritable(root, ['NOTICE'])).rejects.toThrow(/not a regular file/)
+    }
+    finally {
+      await rm(root, { recursive: true, force: true })
+      await rm(outside, { recursive: true, force: true })
     }
   })
 

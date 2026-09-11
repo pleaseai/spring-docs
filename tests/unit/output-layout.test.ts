@@ -29,6 +29,22 @@ describe('outputPathFor', () => {
   test('only the trailing .adoc is replaced', () => {
     expect(outputPathFor(page('ROOT', 'x.adoc.d/y.adoc'))).toBe('x.adoc.d/y.md')
   })
+
+  test('joins with forward slashes, so the path is the same on Windows', () => {
+    // The platform join would emit `guide\\foo.md` there, which assertUniquePaths
+    // reads as distinct from the ROOT page `guide/foo.md` they would both
+    // overwrite — and which Markdown links read as escapes, not separators.
+    const path = outputPathFor(page('guide', 'nested/foo.adoc'))
+    expect(path).toBe('guide/nested/foo.md')
+    expect(path).not.toContain('\\')
+  })
+
+  test('a module page and a same-named ROOT path collide, on every platform', () => {
+    expect(() => assertUniquePaths([
+      outputPathFor(page('guide', 'foo.adoc')),
+      outputPathFor(page('ROOT', 'guide/foo.adoc')),
+    ])).toThrow(/collision/)
+  })
 })
 
 describe('assertUniquePaths', () => {

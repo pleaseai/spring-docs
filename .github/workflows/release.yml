@@ -38,13 +38,29 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          project="${TAG%%-*}"
-          rest="${TAG#*-}"
-          version="${rest%%+*}"
-          if [ -z "$project" ] || [ -z "$version" ]; then
-            echo "::error::Tag '$TAG' is not <project>-<version>" >&2
+          # Allowlist, not an emptiness test. These outputs become the shell
+          # arguments, file paths and `gh release create` inputs of every later
+          # step, so the whole tag is constrained to the documented shape up
+          # front rather than each consumer being trusted to quote it.
+          #
+          # Every project segment must start with a letter. That is not cosmetic:
+          # it encodes the invariant `scripts/lib/release-name.ts` relies on —
+          # "the project key never contains a hyphen-then-digit" — so that the
+          # last hyphen is the only one a version can follow. Allowing an
+          # all-digit segment would admit `abc-4-5.0.0`, which the split below
+          # reads as (abc-4, 5.0.0) while `parseReleaseName` reads as
+          # (abc, 4-5.0.0), and the two halves of the pipeline would disagree.
+          if [[ ! "$TAG" =~ ^[a-z][a-z0-9]*(-[a-z][a-z0-9]*)*-[0-9]+\.[0-9]+\.[0-9]+(\+rebuild\.[0-9]+)?$ ]]; then
+            echo "::error::Tag '$TAG' is not <project>-<version>[+rebuild.N], e.g. boot-4.1.1" >&2
             exit 1
           fi
+          # Split at the LAST hyphen. `%%-*` would take only `data` from
+          # `data-jpa-4.1.1` and pass `jpa-4.1.1` on as the version. Given the
+          # allowlist above, the last hyphen is exactly the one `parseReleaseName`
+          # selects, so both paths derive the same `(project, version)`.
+          project="${TAG%-*}"
+          rest="${TAG##*-}"
+          version="${rest%%+*}"
           echo "project=$project" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 

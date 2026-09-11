@@ -42,6 +42,23 @@ describe('contentChecksumPreimage', () => {
     expect(contentChecksumPreimage(forward)).toBe(`${SHA_A}  a.md\n${SHA_B}  b.md\n`)
   })
 
+  test('rejects a malformed per-file digest instead of hashing it', () => {
+    // ContentEntry.sha256 is a bare string. A bad digest folded into the hash
+    // yields a schema-valid content_sha256 describing an unverifiable tree,
+    // which ManifestSchema can no longer detect.
+    expect(() => contentChecksumPreimage([{ path: 'a.md', sha256: 'not-a-digest' }]))
+      .toThrow(/malformed SHA-256 digest/)
+    expect(() => contentChecksumPreimage([{ path: 'a.md', sha256: SHA_A.toUpperCase() }]))
+      .toThrow(/malformed SHA-256 digest/)
+  })
+
+  test('names the entry whose digest is malformed', () => {
+    expect(() => contentChecksumPreimage([
+      { path: 'a.md', sha256: SHA_A },
+      { path: 'broken.md', sha256: 'zz' },
+    ])).toThrow(/broken\.md/)
+  })
+
   test('does not mutate its input', () => {
     const entries: ContentEntry[] = [
       { path: 'b.md', sha256: SHA_B },

@@ -31,8 +31,16 @@ documentation/spring-boot-docs/src/docs/antora/    <- component root (antora.yml
   modules/{ROOT,reference,how-to,tutorial,appendix,specification,cli,build-tool-plugin,api}/
 ```
 
-Module page counts at v4.1.1: reference 90, how-to 29, specification 12, appendix 9,
-ROOT 8, cli 4, build-tool-plugin 4, tutorial 3, api 3.
+Module page counts at v4.1.1, measured over the merged tree the converter actually sees
+(git checkout + content archives): appendix 103, reference 89, how-to 28, specification 11,
+ROOT 7, build-tool-plugin 3, cli 3, tutorial 2 — 246 pages, matching the corpus total used
+throughout this file. `api` ships no `pages/` at all.
+
+`appendix` dominates that total because almost all of it is generated rather than
+authored: `auto-configuration-classes/` alone is 96 pages, and the configuration-property
+tables are the rest. Those arrive with `root-aggregate-content`, so counting the git
+checkout before the archive merge gives a much smaller appendix — and a corpus that does
+not add up to 246.
 
 ## The decisive fact: content zips are published to Maven Central
 

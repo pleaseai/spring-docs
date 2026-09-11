@@ -7,7 +7,8 @@
  *
  * A failed release must not update the catalog, so this runs only after the
  * archive is published. `--released-at` is omitted while a tag exists but its
- * release has not been published yet.
+ * release has not been published yet; omitting it for a tag the catalog already
+ * records a timestamp for keeps that timestamp rather than clearing it.
  *
  * Usage:
  *   bun run scripts/update-catalog.ts --project boot --version 4.1.1 \
@@ -34,6 +35,19 @@ interface Args {
   readonly now: Date
 }
 
+/** The options this script accepts, beyond the boolean `--dry-run`. */
+const OPTIONS = ['project', 'version', 'tag', 'released-at'] as const
+
+/**
+ * Parse the CLI arguments.
+ *
+ * Unknown options, positionals and missing values are rejected rather than
+ * ignored: this script writes the catalog from a release workflow, where a
+ * typo like `--released-att` would otherwise be dropped in silence and record
+ * the release as unpublished.
+ *
+ * @throws if an argument is unrecognized, misplaced, or missing its value.
+ */
 function parseArgs(argv: readonly string[]): Args {
   const flags = new Map<string, string>()
   let dryRun = false
@@ -45,14 +59,16 @@ function parseArgs(argv: readonly string[]): Args {
     }
     else if (arg?.startsWith('--')) {
       const eq = arg.indexOf('=')
-      if (eq !== -1) {
-        flags.set(arg.slice(2, eq), arg.slice(eq + 1))
-      }
-      else {
-        const next = argv[++i]
-        if (next !== undefined)
-          flags.set(arg.slice(2), next)
-      }
+      const name = eq === -1 ? arg.slice(2) : arg.slice(2, eq)
+      if (!OPTIONS.includes(name as typeof OPTIONS[number]))
+        throw new Error(`Unknown option "--${name}". Known: ${OPTIONS.map(o => `--${o}`).join(', ')}, --dry-run`)
+      const value = eq === -1 ? argv[++i] : arg.slice(eq + 1)
+      if (value === undefined || value === '' || value.startsWith('--'))
+        throw new Error(`Option "--${name}" needs a value.`)
+      flags.set(name, value)
+    }
+    else {
+      throw new Error(`Unexpected argument "${arg}". This script takes options only.`)
     }
   }
 
@@ -106,9 +122,13 @@ async function main(): Promise<void> {
     }
 
     await writeFile(catalogPath, serialized)
+    // Read the flag back off the result, not off `args`: `applyEntry` keeps a
+    // previously recorded timestamp when this invocation omits one, so "pending"
+    // is only true when the catalog genuinely still has none.
+    const pending = updated.projects[args.project]?.[args.version]?.released_at === null
     console.log(
       `Catalog updated: ${args.project} ${args.version} → ${args.tag}`
-      + `${args.releasedAt ? '' : ' (released_at pending)'}`,
+      + `${pending ? ' (released_at pending)' : ''}`,
     )
   }
   catch (error) {

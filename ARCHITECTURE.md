@@ -60,7 +60,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `validate-catalog.ts`      | Validate `catalog.json` against the canonical zod schema. CI gate.                                                                                |
 | `fetch-upstream.ts`        | Pipeline entry — sparse-checkout one upstream `(project, tag)` docs subtree, merge Spring's published content archives, write a provenance sidecar. |
-| `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `INDEX.md`.                          |
+| `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `_index.md`.                          |
 | `package-release.ts`       | Pipeline entry — produce a reproducible `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
 | `update-catalog.ts`        | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`.                                                                 |
 | `promote-markdown.ts`      | Pipeline entry — copy a converted tree into the committed `markdown/<project>/<version>/`.                                                       |

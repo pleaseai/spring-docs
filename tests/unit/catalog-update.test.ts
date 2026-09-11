@@ -43,7 +43,7 @@ describe('applyEntry', () => {
     expect(original.projects).toEqual({})
   })
 
-  test('refuses to repoint an existing version at a different tag', () => {
+  test('refuses a tag that is neither the base tag nor a rebuild of it', () => {
     const seeded = applyEntry(
       emptyCatalog(),
       { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1', releasedAt: null },
@@ -56,7 +56,46 @@ describe('applyEntry', () => {
         { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1-take2', releasedAt: null },
         NOW,
       ),
-    ).toThrow(/immutable/)
+    ).toThrow(/does not belong to/)
+  })
+
+  test('refuses a foreign tag on a version the catalog does not know yet', () => {
+    // The ownership check must not depend on an entry already existing: a first
+    // publication is exactly when a wrong tag becomes the recorded one.
+    expect(() =>
+      applyEntry(
+        emptyCatalog(),
+        { project: 'boot', version: '4.1.1', tag: 'boot-9.9.9', releasedAt: null },
+        NOW,
+      ),
+    ).toThrow(/does not belong to/)
+  })
+
+  test('refuses a plus-suffix that is not a +rebuild.N', () => {
+    expect(() =>
+      applyEntry(
+        emptyCatalog(),
+        { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1+hotfix', releasedAt: null },
+        NOW,
+      ),
+    ).toThrow(/does not belong to/)
+  })
+
+  test('keeps a recorded released_at when the same tag is re-applied without one', () => {
+    // `--released-at` is omitted while a release is still unpublished; once it
+    // exists, a rerun that omits the flag must not un-publish the entry.
+    const published = applyEntry(
+      emptyCatalog(),
+      { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1', releasedAt: '2026-09-11T01:00:00.000Z' },
+      NOW,
+    )
+    const rerun = applyEntry(
+      published,
+      { project: 'boot', version: '4.1.1', tag: 'boot-4.1.1', releasedAt: null },
+      NOW,
+    )
+
+    expect(rerun.projects.boot?.['4.1.1']?.released_at).toBe('2026-09-11T01:00:00.000Z')
   })
 
   test('allows re-applying the same tag, so a rerun is idempotent', () => {
@@ -173,6 +212,6 @@ describe('applyEntry rebuilds', () => {
         { project: 'boot', version: '4.1.1', tag: 'boot-4.1.2+rebuild.1', releasedAt: null },
         new Date('2026-09-12T00:00:00Z'),
       ),
-    ).toThrow(/immutable/)
+    ).toThrow(/does not belong to/)
   })
 })

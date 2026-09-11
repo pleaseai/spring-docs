@@ -56,8 +56,8 @@ Two facts, both verified during the prototype, make delegating to the real toolc
    `configuration-properties-extension`, and `section-ids-extension` — the set
    `buildSrc/.../Extensions.java` configures upstream, minus `@asciidoctor/tabs`.
    Upstream registers `@asciidoctor/tabs` because it renders HTML; it rewrites tab groups
-   into HTML passthrough blocks, which is exactly the structure this pipeline needs to keep,
-   so it is left unregistered and not depended on at all.
+   into HTML passthrough blocks, which would destroy the `example:tabs` AST structure this
+   pipeline needs to keep, so it is left unregistered and not depended on at all.
 
 3. **Emit Markdown from the AST with our own converter**, in two pure modules:
    - `scripts/lib/markdown-converter.ts` — walks the block AST (`getBlocks()` /

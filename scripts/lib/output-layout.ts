@@ -5,7 +5,7 @@
  */
 
 import type { AntoraPage } from './antora-types.ts'
-import { join } from 'node:path'
+import { posix } from 'node:path'
 
 /**
  * Filename of the generated listing.
@@ -28,10 +28,18 @@ const MD_EXTENSION = /\.md$/
  *
  * Mirrors Antora's URL shape: the ROOT module lives at the tree root, every
  * other module under its own directory.
+ *
+ * Always forward-slashed, via `posix.join` rather than the platform `join`.
+ * Antora hands `src.relative` over POSIX-style, so on Windows the platform
+ * join would emit `guide\foo.md` for a module page while the ROOT page
+ * `guide/foo.md` kept its slash: {@link assertUniquePaths} compares the two as
+ * distinct and lets them overwrite one file, and `buildIndex` would emit
+ * backslashes into Markdown links, where they are escapes rather than
+ * separators.
  */
 export function outputPathFor(page: AntoraPage): string {
   const relative = page.src.relative.replace(ADOC_EXTENSION, '.md')
-  return page.src.module === 'ROOT' ? relative : join(page.src.module, relative)
+  return page.src.module === 'ROOT' ? relative : posix.join(page.src.module, relative)
 }
 
 /**

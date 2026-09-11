@@ -25,18 +25,37 @@ interface Args {
   readonly out: string
 }
 
+/**
+ * Parse the CLI arguments.
+ *
+ * `--out` must carry a non-empty directory. Silently falling back to the
+ * default on `--out` with nothing after it, or taking `--out=` as the empty
+ * string, would promote the tree into an unintended root — `resolve(cwd, '')`
+ * is the repository itself, where this script deletes and rewrites
+ * `<project>/<version>/`.
+ *
+ * @throws if an option is unrecognized or missing its value, or no source is given.
+ */
 function parseArgs(argv: readonly string[]): Args {
   const positional: string[] = []
   let out = 'markdown'
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
-    if (arg === '--out')
-      out = argv[++i] ?? out
-    else if (arg?.startsWith('--out='))
-      out = arg.slice('--out='.length)
-    else if (arg !== undefined)
+    if (arg === undefined)
+      continue
+    if (arg === '--out' || arg.startsWith('--out=')) {
+      const value = arg === '--out' ? argv[++i] : arg.slice('--out='.length)
+      if (value === undefined || value === '' || value.startsWith('--'))
+        throw new Error('Option "--out" needs a directory.')
+      out = value
+    }
+    else if (arg.startsWith('--')) {
+      throw new Error(`Unknown option "${arg}". Known: --out`)
+    }
+    else {
       positional.push(arg)
+    }
   }
 
   const source = positional[0]

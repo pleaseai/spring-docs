@@ -161,16 +161,21 @@ async function promoteDescriptor(componentRoot: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // `resolveUpstream` rejects an unknown project, a non-GA version and one below
+  // the supported floor — all bad *arguments*, so it is resolved inside this
+  // handler. Outside it, those throws escape as an uncaught exception and the CLI
+  // exits 1, contradicting the documented exit 2.
+  let upstream: UpstreamCoordinates
   let args: Args
   try {
     args = parseArgs(process.argv.slice(2))
+    upstream = resolveUpstream(args.project, args.version)
   }
   catch (error) {
     console.error(error instanceof Error ? error.message : String(error))
     process.exit(2)
   }
 
-  const upstream = resolveUpstream(args.project, args.version)
   const outDir = resolve(process.cwd(), args.out, `${upstream.project}-${upstream.version}`)
   const workDir = await mkdtemp(join(tmpdir(), 'spring-docs-fetch-'))
 
@@ -211,7 +216,9 @@ async function main(): Promise<void> {
   }
   catch (error) {
     console.error(`✗ fetch-upstream failed: ${error instanceof Error ? error.message : String(error)}`)
-    process.exit(1)
+    // Not `process.exit(1)`: that terminates before `finally` runs and leaks the
+    // temporary checkout. Setting the code and returning lets cleanup happen.
+    process.exitCode = 1
   }
   finally {
     await rm(workDir, { recursive: true, force: true })

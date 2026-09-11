@@ -18,14 +18,26 @@ export interface CatalogEntry {
   readonly releasedAt: string | null
 }
 
+/** The `N` of a `+rebuild.N` tag suffix. */
+const REBUILD_ORDINAL = /^\d+$/
+
+/** The one tag a `(project, version)` is published under, absent a rebuild. */
+function baseTagFor(entry: CatalogEntry): string {
+  return `${entry.project}-${entry.version}`
+}
+
 /**
  * True when `tag` is a rebuild of exactly this `(project, version)`.
  *
  * Rebuilds are published under a suffixed tag (`boot-4.1.1+rebuild.1`) so the
- * original tag keeps resolving to the bytes it always did.
+ * original tag keeps resolving to the bytes it always did. The suffix must be
+ * exactly `+rebuild.<n>`: any other plus-suffix would otherwise be accepted as
+ * a rebuild and license repointing an existing entry at an unrelated tag,
+ * which is the very thing {@link applyEntry} exists to refuse.
  */
 function isRebuildTag(entry: CatalogEntry): boolean {
-  return entry.tag.startsWith(`${entry.project}-${entry.version}+`)
+  const prefix = `${baseTagFor(entry)}+rebuild.`
+  return entry.tag.startsWith(prefix) && REBUILD_ORDINAL.test(entry.tag.slice(prefix.length))
 }
 
 /**
@@ -38,14 +50,28 @@ function isRebuildTag(entry: CatalogEntry): boolean {
  * consumers reach the corrected archive. Suffix ordering is not enforced here:
  * the catalog records the rebuild that was last published, not the highest one.
  *
- * @throws if the entry would repoint an existing `(project, version)` at any
- * other tag. Tags are immutable contracts.
+ * A known `released_at` is never un-published: an entry that omits it while the
+ * catalog already records one for the *same* tag keeps the recorded timestamp.
+ * Omission means "the tag exists but its release does not yet", which cannot
+ * become true again once the release is published.
+ *
+ * @throws if the tag is neither this `(project, version)`'s base tag nor a
+ * rebuild of it, or if it would repoint an existing entry at any other tag.
+ * Tags are immutable contracts.
  */
 export function applyEntry(
   catalog: Catalog,
   entry: CatalogEntry,
   generatedAt: Date,
 ): Catalog {
+  const baseTag = baseTagFor(entry)
+  if (entry.tag !== baseTag && !isRebuildTag(entry)) {
+    throw new Error(
+      `Tag "${entry.tag}" does not belong to ${entry.project} ${entry.version}. `
+      + `Use "${baseTag}", or "${baseTag}+rebuild.<n>" for a rebuild.`,
+    )
+  }
+
   const existing = catalog.projects[entry.project]?.[entry.version]
   if (existing && existing.tag !== entry.tag && !isRebuildTag(entry)) {
     throw new Error(
@@ -54,6 +80,9 @@ export function applyEntry(
     )
   }
 
+  const releasedAt = entry.releasedAt
+    ?? (existing?.tag === entry.tag ? existing.released_at : null)
+
   return {
     ...catalog,
     generated_at: generatedAt.toISOString(),
@@ -61,7 +90,7 @@ export function applyEntry(
       ...catalog.projects,
       [entry.project]: {
         ...catalog.projects[entry.project],
-        [entry.version]: { tag: entry.tag, released_at: entry.releasedAt },
+        [entry.version]: { tag: entry.tag, released_at: releasedAt },
       },
     },
   }

@@ -101,11 +101,33 @@ describe('compareGaVersions', () => {
     expect(compareGaVersions('4.01.1', '4.1.1')).not.toBe(0)
   })
 
+  test('does not read a leading zero as extra magnitude', () => {
+    // Digit count is only a proxy for magnitude once leading zeroes are gone.
+    // Raw, "00" is longer than "8", so 4.00.0 would outrank 4.0.8 — and slip
+    // past the supported floor in resolveUpstream.
+    expect(compareGaVersions('4.00.0', '4.0.8')).toBeLessThan(0)
+    expect(compareGaVersions('4.000000.0', '4.1.0')).toBeLessThan(0)
+  })
+
   test('stays a finite comparison past Number.MAX_SAFE_INTEGER', () => {
     // A segment this long overflows Number to Infinity, and Infinity - Infinity
     // is NaN — an invalid Array#sort comparator result, not just an odd order.
     const huge = '9'.repeat(400)
     expect(compareGaVersions(`${huge}.0.0`, '4.1.1')).toBeGreaterThan(0)
+  })
+})
+
+describe('resolveUpstream version floor spellings', () => {
+  test('admits a leading-zero spelling of the floor itself', () => {
+    // The floor is a numeric question. compareGaVersions deliberately orders
+    // numerically-equal spellings rather than reporting them equal, so a raw
+    // comparison rejected "04.0.8" as *below* the 4.0.8 floor it actually meets.
+    for (const version of ['4.0.8', '4.00.8', '04.0.8', '4.0.08', '0004.000.0008'])
+      expect(() => resolveUpstream('boot', version)).not.toThrow()
+  })
+
+  test('still rejects a leading-zero spelling of a version below the floor', () => {
+    expect(() => resolveUpstream('boot', '04.0.7')).toThrow(/below the supported floor/)
   })
 })
 

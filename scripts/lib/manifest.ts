@@ -77,11 +77,23 @@ export interface ContentEntry {
  * Entries are sorted by path so the checksum depends only on content, never on
  * filesystem traversal order. Exported for tests and for debugging a checksum
  * mismatch, where seeing the pre-image is what actually tells you which file moved.
+ *
+ * Each `sha256` is validated here rather than trusted: `ContentEntry.sha256` is
+ * a bare `string`, so a malformed digest would otherwise be hashed into a
+ * perfectly schema-valid `content_sha256` and ship a manifest describing a tree
+ * no consumer can verify. The manifest's own schema cannot catch it — by then
+ * the bad digest has already been folded into one opaque hash.
+ *
+ * @throws if any entry's `sha256` is not a lowercase hex SHA-256 digest.
  */
 export function contentChecksumPreimage(entries: readonly ContentEntry[]): string {
   return [...entries]
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
-    .map(entry => `${entry.sha256}  ${entry.path}\n`)
+    .map((entry) => {
+      if (!Sha256.safeParse(entry.sha256).success)
+        throw new Error(`Entry "${entry.path}" has a malformed SHA-256 digest: "${entry.sha256}"`)
+      return `${entry.sha256}  ${entry.path}\n`
+    })
     .join('')
 }
 
@@ -119,7 +131,8 @@ export interface ManifestInput {
 /**
  * Assemble and validate a manifest.
  *
- * @throws if the assembled manifest violates {@link ManifestSchema}.
+ * @throws if any entry carries a malformed digest, or if the assembled
+ * manifest violates {@link ManifestSchema}.
  */
 export async function buildManifest(input: ManifestInput): Promise<Manifest> {
   const manifest = {

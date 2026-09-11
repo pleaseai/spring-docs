@@ -154,7 +154,9 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
     )
   }
 
-  if (compareGaVersions(version, definition.minimumVersion) < 0) {
+  // Canonical on both sides: the floor is a question about numeric value, not
+  // about key identity, so a leading-zero spelling of the floor itself must pass.
+  if (compareGaVersions(canonicalGaVersion(version), canonicalGaVersion(definition.minimumVersion)) < 0) {
     throw new Error(
       `Version "${version}" of "${project}" is below the supported floor `
       + `${definition.minimumVersion}: the documentation layout and published archives differ there.`,
@@ -207,9 +209,31 @@ export function cloneUrlFor(project: string): string {
   return `https://github.com/${definition.repo}.git`
 }
 
+/** Leading zeroes of a digit run. */
+const LEADING_ZEROES = /^0+/
+
+/** Drop leading zeroes from a digit run, keeping "0" for an all-zero segment. */
+function magnitudeOf(segment: string): string {
+  const stripped = segment.replace(LEADING_ZEROES, '')
+  return stripped === '' ? '0' : stripped
+}
+
+/**
+ * The one spelling of a GA version that carries its numeric value.
+ *
+ * `4.00.8`, `04.0.8` and `0004.000.0008` all canonicalize to `4.0.8`. Use this
+ * wherever the question is "which version is this", as opposed to "which key is
+ * this": {@link compareGaVersions} deliberately orders numerically-equal
+ * spellings rather than reporting them equal, so a raw floor comparison would
+ * reject `04.0.8` as *below* a `4.0.8` floor it actually meets.
+ */
+function canonicalGaVersion(version: string): string {
+  return version.split('.').map(magnitudeOf).join('.')
+}
+
 /**
  * Compare two GA version segments (each a run of digits, per `GA_VERSION`)
- * without going through `Number`.
+ * by numeric magnitude, without going through `Number`.
  *
  * `GA_VERSION` places no bound on segment length and allows leading zeroes,
  * and `Number` mishandles both: `Number("04") === Number("4")`, so two
@@ -218,14 +242,21 @@ export function cloneUrlFor(project: string): string {
  * comparator result. Comparing the digit strings directly avoids both: same
  * length compares lexicographically (exact, since every character is a
  * digit), and a longer run of digits is always the larger number, so length
- * decides first. This does not collapse a leading-zero segment onto its
- * bare form — "04" and "4" get a defined, stable order rather than falsely
- * comparing equal — which is exactly what a distinct-keys ordering needs.
+ * decides first.
+ *
+ * Leading zeroes are stripped *before* that length test, because digit count
+ * is only a proxy for magnitude once they are gone: raw, "00" would outrank
+ * "8", so `4.00.0` would sort above `4.0.8` and slip past the supported floor
+ * in {@link resolveUpstream}. Two spellings of one number therefore compare
+ * equal here; {@link compareGaVersions} separates them at whole-version level,
+ * where doing so cannot mask a difference in a later, more significant segment.
  */
 function compareGaSegment(a: string, b: string): number {
-  if (a.length !== b.length)
-    return a.length - b.length
-  return a < b ? -1 : a > b ? 1 : 0
+  const left = magnitudeOf(a)
+  const right = magnitudeOf(b)
+  if (left.length !== right.length)
+    return left.length - right.length
+  return left < right ? -1 : left > right ? 1 : 0
 }
 
 /**
@@ -235,6 +266,12 @@ function compareGaSegment(a: string, b: string): number {
  * String comparison would place `4.10.0` before `4.9.0`, so each segment is
  * compared with {@link compareGaSegment} instead of lexically as a whole
  * string.
+ *
+ * Two versions that are numerically equal but spelled differently (`4.01.1`
+ * and `4.1.1`) are distinct catalog keys, so they are ordered by the raw
+ * string rather than reported equal. That tie-break runs only once every
+ * segment has compared equal — applying it per segment would let a spelling
+ * difference in the minor short-circuit a real difference in the patch.
  *
  * @throws if either argument is not a GA version.
  */
@@ -249,7 +286,7 @@ export function compareGaVersions(a: string, b: string): number {
     if (diff !== 0)
       return diff
   }
-  return 0
+  return a < b ? -1 : a > b ? 1 : 0
 }
 
 /**
@@ -298,6 +335,8 @@ export function supportedVersionsFromTags(
     .filter(tag => tag.startsWith(definition.tagPrefix))
     .map(tag => tag.slice(definition.tagPrefix.length))
     .filter(version => isGaVersion(version))
-    .filter(version => compareGaVersions(version, definition.minimumVersion) >= 0)
+    // Same floor rule as `resolveUpstream`, canonical on both sides — the two
+    // must agree, or detection would offer a version the build then refuses.
+    .filter(version => compareGaVersions(canonicalGaVersion(version), canonicalGaVersion(definition.minimumVersion)) >= 0)
     .sort(compareGaVersions)
 }
