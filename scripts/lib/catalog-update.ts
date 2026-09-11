@@ -1,4 +1,5 @@
 import type { Catalog } from './catalog-schema.ts'
+import { compareGaVersions } from './upstream-sources.ts'
 
 /**
  * Pure catalog mutations.
@@ -77,7 +78,9 @@ export function serializeCatalog(catalog: Catalog): string {
   for (const project of Object.keys(catalog.projects).sort()) {
     const versions = catalog.projects[project] ?? {}
     const sorted: (typeof versions) = {}
-    for (const version of Object.keys(versions).sort()) {
+    // Numeric, not lexicographic — otherwise "4.10.0" sorts before "4.9.0" once
+    // a minor/patch reaches double digits, defeating the readable-history goal.
+    for (const version of Object.keys(versions).sort(compareGaVersions)) {
       const entry = versions[version]
       if (entry)
         sorted[version] = entry

@@ -97,6 +97,20 @@ describe('serializeCatalog', () => {
     expect(keys.length).toBeGreaterThan(0)
   })
 
+  test('sorts versions numerically, not lexicographically', () => {
+    let catalog = emptyCatalog()
+    for (const version of ['4.10.0', '4.9.0']) {
+      catalog = applyEntry(
+        catalog,
+        { project: 'boot', version, tag: `boot-${version}`, releasedAt: null },
+        NOW,
+      )
+    }
+
+    const text = serializeCatalog(catalog)
+    expect(text.indexOf('"4.9.0"')).toBeLessThan(text.indexOf('"4.10.0"'))
+  })
+
   test('ends with exactly one trailing newline', () => {
     const text = serializeCatalog(emptyCatalog())
     expect(text.endsWith('}\n')).toBe(true)
