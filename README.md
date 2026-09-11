@@ -7,6 +7,8 @@ This repository hosts LLM-friendly Markdown versions of the Spring ecosystem ref
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 [![Upstream](https://img.shields.io/badge/upstream-Apache--2.0-green)](./NOTICE)
 
+> **Status**: the pipeline is implemented and proven end to end on Spring Boot 4.1.1, but nothing has been published yet — `catalog.json` is empty and there are no releases. The formats below are the contract the pipeline produces; the examples are illustrative until the first release lands.
+
 ## What this is
 
 A **content repository** that decouples document generation from any specific consumer. The primary consumer today is [`@pleaseai/spring`](https://github.com/pleaseai/spring), a Claude Code plugin that installs these docs as auto-loaded skills — but the Markdown here is tool-agnostic and reusable by any LLM-facing workflow (RAG indexes, Cursor rules, Continue prompts, internal chatbots, etc.).
@@ -38,26 +40,29 @@ pleaseai/spring-docs/
 ├── NOTICE                       ← Upstream attribution for redistributed docs
 ├── catalog.json                 ← Master index: project × version → release tag
 ├── markdown/                    ← Generated content, organized by project/version
-│   ├── framework/
-│   │   ├── 6.1.5/
-│   │   └── 6.2.0/
 │   ├── boot/
-│   │   ├── 3.3.4/
-│   │   └── 3.4.0/
-│   ├── security/
-│   ├── data-jpa/
-│   └── cloud/
+│   │   └── 4.1.1/
+│   └── framework/
+│       └── 6.2.0/
 ├── scripts/                     ← Conversion pipeline
-│   ├── fetch-upstream.ts        ← Sparse-checkout one (project, tag) pair
+│   ├── fetch-upstream.ts        ← Sparse checkout + published content archives
 │   ├── convert.ts               ← AsciiDoc/Antora → Markdown
 │   ├── package-release.ts       ← Build tar.gz + manifest + checksum
+│   ├── promote-markdown.ts      ← Copy a converted tree into markdown/
+│   ├── update-catalog.ts        ← Record a published release in catalog.json
+│   ├── detect-upstream-versions.ts  ← GA versions the catalog does not carry yet
 │   └── lib/
-│       ├── antora-rules.ts      ← Antora-specific conversion rules
-│       └── manifest.ts          ← Release manifest schema
-└── .github/workflows/
-    ├── matrix-build.yml         ← Build N projects × M versions in parallel
-    ├── nightly-detect.yml       ← Poll upstream for new releases
-    └── release.yml              ← Publish artifacts to GitHub Releases
+│       ├── markdown-converter.ts    ← Block conversion (Asciidoctor AST → Markdown)
+│       ├── inline-html.ts           ← Inline conversion
+│       ├── upstream-sources.ts      ← Per-project upstream coordinates
+│       └── manifest.ts              ← Release manifest schema
+└── .github/
+    ├── actions/build-release/   ← fetch → convert → package, shared by both builds
+    └── workflows/
+        ├── ci.yml               ← typecheck + lint + test on every PR
+        ├── matrix-build.yml     ← Build N projects × M versions in parallel
+        ├── nightly-detect.yml   ← Poll upstream for new releases
+        └── release.yml          ← Publish artifacts to GitHub Releases
 ```
 
 `markdown/` is committed for diff-ability and direct browsing. Final consumption is via GitHub Release archives (below), not by cloning this repo.
@@ -66,58 +71,67 @@ pleaseai/spring-docs/
 
 Each `(project, version)` pair gets its own tag and Release.
 
-**Tag scheme**: `<project>-<version>`
+**Tag scheme**: `<project>-<version>` — or `<project>-<version>+rebuild.N` when an archive has to be corrected, since a published tag is never moved.
 
-| Tag | Asset(s) |
+| Tag | Assets |
 |---|---|
-| `framework-6.2.0` | `spring-framework-6.2.0.tar.gz`<br>`spring-framework-6.2.0.tar.gz.sha256`<br>`manifest.json` |
-| `boot-3.4.0` | `spring-boot-3.4.0.tar.gz` + hash + manifest |
-| `security-6.4.0` | `spring-security-6.4.0.tar.gz` + hash + manifest |
+| `boot-4.1.1` | `boot-4.1.1.tar.gz`<br>`boot-4.1.1.tar.gz.sha256`<br>`manifest.json` |
+| `framework-6.2.0` | `framework-6.2.0.tar.gz` + checksum + manifest |
 
 ### Archive contents
 
+Every entry sits under one `<project>-<version>/` directory, so extraction never spills into the working directory.
+
 ```
-spring-framework-6.2.0/
-├── manifest.json                ← Metadata (see below)
-├── NOTICE                       ← Upstream attribution
-├── INDEX.md                     ← Table of contents
-└── references/
-    ├── core/
-    ├── web/
-    ├── data-access/
-    └── ...
+boot-4.1.1/
+├── NOTICE                       ← Upstream attribution, pinned to the commit
+├── _index.md                    ← Table of contents
+├── index.md                     ← The component's own pages, at the tree root
+├── how-to/
+├── appendix/
+└── cli/                         ← One directory per non-ROOT Antora module
 ```
+
+`manifest.json` is a release asset, not an archive entry: it describes the archive, so it has to be readable without downloading it.
+
+The listing is `_index.md` rather than `INDEX.md` because upstream components ship their own `index.adoc`, and the two names collide on case-insensitive filesystems.
 
 ### `manifest.json` schema
 
 ```json
 {
-  "project": "spring-framework",
-  "version": "6.2.0",
+  "schema_version": "1",
+  "project": "boot",
+  "version": "4.1.1",
   "upstream": {
-    "repo": "spring-projects/spring-framework",
-    "ref": "v6.2.0",
-    "commit": "<sha>"
+    "repo": "spring-projects/spring-boot",
+    "ref": "v4.1.1",
+    "commit": "6fdf67ea1552691e932604d4bf67a5e08ff0b0ea",
+    "archives": ["root-aggregate-content"]
   },
-  "format": {
-    "source": "asciidoc",
-    "target": "markdown",
-    "converter": "@pleaseai/spring-docs@<this-repo-sha>"
+  "converter": {
+    "commit": "<this repo's commit, or null if built from a dirty tree>",
+    "antora": "3.2.0",
+    "asciidoctor": "2.2.8"
   },
-  "generated_at": "2026-05-12T03:14:15Z",
-  "files": 142,
-  "checksum": "sha256:..."
+  "generated_at": "2026-09-11T08:21:54.515Z",
+  "file_count": 248,
+  "content_sha256": "<sha256 over the converted tree>"
 }
 ```
+
+`content_sha256` digests the sorted `(path, sha256)` pairs of the tree, so it identifies the content independently of how it was packaged. `generated_at` is the only non-deterministic field, which is why it lives here and never in the content.
 
 ## How to consume
 
 ### Direct download
 
 ```bash
-curl -L -o framework-6.2.0.tar.gz \
-  https://github.com/pleaseai/spring-docs/releases/download/framework-6.2.0/spring-framework-6.2.0.tar.gz
-tar xzf framework-6.2.0.tar.gz
+base=https://github.com/pleaseai/spring-docs/releases/download/boot-4.1.1
+curl -LO "$base/boot-4.1.1.tar.gz"
+curl -LO "$base/boot-4.1.1.tar.gz.sha256"
+sha256sum --check boot-4.1.1.tar.gz.sha256
+tar xzf boot-4.1.1.tar.gz        # extracts into boot-4.1.1/
 ```
 
 ### Via the `@pleaseai/spring` plugin
@@ -131,7 +145,7 @@ The plugin reads your `build.gradle` / `pom.xml`, resolves matching versions via
 ### Via the GitHub API
 
 ```bash
-gh release view framework-6.2.0 --repo pleaseai/spring-docs --json assets
+gh release view boot-4.1.1 --repo pleaseai/spring-docs --json assets
 ```
 
 ### Manifest lookup
@@ -140,32 +154,32 @@ gh release view framework-6.2.0 --repo pleaseai/spring-docs --json assets
 
 ```jsonc
 {
-  "framework": {
-    "6.1.5": { "tag": "framework-6.1.5", "released_at": "..." },
-    "6.2.0": { "tag": "framework-6.2.0", "released_at": "..." }
-  },
-  "boot": {
-    "3.3.4": { "tag": "boot-3.3.4", "released_at": "..." },
-    "3.4.0": { "tag": "boot-3.4.0", "released_at": "..." }
+  // Catalog schema version; consumers must refuse to parse a mismatch.
+  "version": "1",
+  "generated_at": "2026-09-11T08:21:54Z",
+  "projects": {
+    "boot": {
+      "4.1.1": { "tag": "boot-4.1.1", "released_at": "2026-09-11T08:30:00Z" }
+    },
+    "framework": {
+      "6.2.0": { "tag": "framework-6.2.0", "released_at": null }
+    }
   }
 }
 ```
+
+`released_at` is `null` while a tag exists but its release has not been published.
 
 Consumers should prefer `catalog.json` over scraping the Releases page — it's compact, cacheable, and pinned to commits.
 
 ## Generation pipeline
 
-1. **Detect new upstream release** — `nightly-detect.yml` polls `spring-projects/*` for new tags (via GitHub API).
-2. **Sparse checkout** — For each new tag, clone *only* the docs directory (`framework-docs/modules/ROOT/pages/**`) using `--depth 1 --filter=blob:none --sparse`. No submodules.
-3. **Convert** — AsciiDoc → Markdown with Antora-aware rules:
-   - `xref:` → relative Markdown links
-   - `include::` → inline expansion
-   - Admonitions (`[NOTE]`, `[TIP]`, `[WARNING]`) → GFM admonition syntax (`> [!NOTE]`)
-   - Tab blocks (Gradle/Maven/Kotlin DSL) → headed code-fence groups
-   - Attribute substitution → resolved literal values
-4. **Validate** — Markdown link check, frontmatter schema check, size sanity check.
-5. **Package** — tar.gz + sha256 + manifest.
-6. **Release** — Publish to GitHub Releases, update `catalog.json` via PR.
+1. **Detect new upstream release** — `nightly-detect.yml` runs `detect-upstream-versions.ts`, which diffs upstream's tags against `catalog.json` and files one issue per missing GA version. It builds nothing: a new upstream line can change the documentation layout, so a human decides.
+2. **Fetch** — `fetch-upstream.ts` acquires two halves and merges them into one Antora content source: a sparse checkout of the docs subtree at the release tag, and the content archive Spring publishes to Maven Central. Only the archive carries the resolved `antora.yml` attributes and the sample sources `include-code::` reads, so the checkout alone would convert cleanly while silently losing every included snippet. No submodules, no Gradle, no JVM.
+3. **Convert** — `convert.ts` drives Antora's own pipeline modules with Spring's Asciidoctor extensions registered, so `xref:`, `include::`, `include-code::`, `javadoc:` and `configprop:` are resolved by the same code that produces docs.spring.io. Our converter then emits Markdown from the resolved AST: GFM alerts for admonitions, headed code fences for tab groups, relative `.md` links for internal xrefs, absolute `docs.spring.io` URLs for references into components we do not build. An unhandled construct fails the build rather than being dropped.
+4. **Package** — `package-release.ts` writes `NOTICE`, checksums every file, and builds a reproducible `tar.gz`: entries sorted, timestamps and ownership pinned, gzip's mtime field suppressed. The same converted tree always yields byte-identical bytes.
+5. **Release** — a `<project>-<version>` tag push runs `release.yml`, which rebuilds from the tag, verifies the manifest against it, and publishes the archive, its checksum and the manifest.
+6. **Record** — only after the release exists, `catalog.json` and `markdown/<project>/<version>/` are updated in a pull request. A failed release leaves the catalog untouched.
 
 The pipeline is matrix-parallelized: typical full ecosystem rebuild (~10 projects × 5 versions = 50 jobs) runs in under 15 minutes on free-tier runners.
 
@@ -175,8 +189,8 @@ The pipeline is matrix-parallelized: typical full ecosystem rebuild (~10 project
 |---|---|
 | **Tag immutability** | Once a `<project>-<version>` tag is published, it is not deleted. Re-generation creates a new tag suffix (`framework-6.2.0+rebuild.1`) and updates `catalog.json` to point at the latest |
 | **Pre-release versions** | Not built. Only GA versions of upstream projects |
-| **EOL versions** | Built as long as upstream sources remain reachable |
-| **Coverage window** | Latest two minor lines per project (configurable in `.github/workflows/matrix-build.yml`) |
+| **EOL versions** | Buildable only while upstream still publishes that version's documentation archive to Maven Central. For Spring Boot that is 4.0.8 onwards: the `spring-boot-docs` artifact was published for 2.2.x-2.4.2, then not again until 4.0.8, so 4.0.0-4.0.7 and 4.1.0 cannot be built at all |
+| **Coverage window** | The newest N missing GA versions per project, N being the `limit` input of `matrix-build.yml` (default 3) |
 | **Backfill** | Older versions can be requested via issue and built on-demand |
 
 ## Local development
@@ -186,12 +200,17 @@ git clone https://github.com/pleaseai/spring-docs
 cd spring-docs
 bun install
 
+# What upstream has released that the catalog does not carry
+bun run scripts/detect-upstream-versions.ts
+
 # Build one (project, version) locally
-bun run scripts/fetch-upstream.ts spring-framework v6.2.0 --out /tmp/spring-fw
-bun run scripts/convert.ts /tmp/spring-fw --project framework --version 6.2.0 --out dist/
+bun run scripts/fetch-upstream.ts boot 4.1.1 --out dist/upstream
+bun run scripts/convert.ts dist/upstream/boot-4.1.1 --project boot --version 4.1.1 --out dist --strict
+bun run scripts/package-release.ts dist/boot-4.1.1 --out releases
 
 # Inspect output
-ls dist/spring-framework-6.2.0/
+ls dist/boot-4.1.1/
+tar -tzf releases/boot-4.1.1.tar.gz | head
 ```
 
 ### Toolchain
@@ -211,11 +230,9 @@ Pre-commit: Husky + `lint-staged` runs `eslint --fix` on staged files. Same chec
 
 Issues and PRs welcome. Common contribution patterns:
 
-- **Conversion fixes** — Found a rendering issue in a generated Markdown file? Open an issue with the upstream URL and the converted output side-by-side. Fixes go in `scripts/lib/antora-rules.ts` and require regenerating the affected releases.
+- **Conversion fixes** — Found a rendering issue in a generated Markdown file? Open an issue with the upstream URL and the converted output side-by-side. Fixes go in `scripts/lib/markdown-converter.ts` (block structure) or `scripts/lib/inline-html.ts` (inline markup), and require regenerating the affected releases under a `+rebuild.N` tag.
 - **Add a project** — Want docs for `spring-batch`, `spring-integration`, etc.? Open an issue. Adding a project requires its repo to use Antora and have stable doc structure across versions.
 - **Backfill a version** — Need an older Spring version that we haven't built? Open an issue with the project+version; we'll trigger a one-off build.
-
-See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for the full workflow.
 
 ## Licensing
 

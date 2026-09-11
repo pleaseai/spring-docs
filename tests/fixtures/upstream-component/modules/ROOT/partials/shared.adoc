@@ -1,0 +1,1 @@
+This sentence comes from a partial and must be inlined by Antora.

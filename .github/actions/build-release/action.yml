@@ -1,0 +1,66 @@
+name: Build release archive
+description: >-
+  Fetch one upstream (project, version) pair, convert it to Markdown and package
+  the archive. Shared by matrix-build.yml and release.yml so a published archive
+  is produced by exactly the same steps that were exercised in the matrix build.
+
+inputs:
+  project:
+    description: Catalog project key, e.g. boot
+    required: true
+  version:
+    description: GA version, e.g. 4.1.1
+    required: true
+
+outputs:
+  archive:
+    description: Path to the built archive
+    value: ${{ steps.package.outputs.archive }}
+  sha256:
+    description: SHA-256 of the archive
+    value: ${{ steps.package.outputs.sha256 }}
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch upstream
+      shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
+      run: bun run scripts/fetch-upstream.ts "$PROJECT" "$VERSION" --out dist/upstream
+
+    - name: Convert to Markdown
+      shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
+      # --strict: an unhandled AsciiDoc construct is a pipeline bug, not a warning
+      # to page past (ARCHITECTURE: no silent fallbacks).
+      run: |
+        bun run scripts/convert.ts "dist/upstream/$PROJECT-$VERSION" \
+          --project "$PROJECT" \
+          --version "$VERSION" \
+          --out dist \
+          --strict
+
+    - name: Package
+      id: package
+      shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        name="$PROJECT-$VERSION"
+        bun run scripts/package-release.ts "dist/$name" --out releases
+        echo "archive=releases/$name.tar.gz" >> "$GITHUB_OUTPUT"
+        echo "sha256=$(cut -d' ' -f1 < "releases/$name.tar.gz.sha256")" >> "$GITHUB_OUTPUT"
+
+    - name: Verify the checksum the archive ships with
+      shell: bash
+      working-directory: releases
+      env:
+        PROJECT: ${{ inputs.project }}
+        VERSION: ${{ inputs.version }}
+      run: sha256sum --check "$PROJECT-$VERSION.tar.gz.sha256"

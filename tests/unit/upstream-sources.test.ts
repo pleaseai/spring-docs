@@ -1,0 +1,177 @@
+import { describe, expect, test } from 'bun:test'
+import {
+  cloneUrlFor,
+  compareGaVersions,
+  compareVersionKeys,
+  isGaVersion,
+  mavenArchiveUrl,
+  resolveUpstream,
+  supportedProjects,
+  supportedVersionsFromTags,
+} from '../../scripts/lib/upstream-sources.ts'
+
+describe('isGaVersion', () => {
+  test('accepts plain major.minor.patch versions', () => {
+    expect(isGaVersion('4.1.1')).toBe(true)
+    expect(isGaVersion('10.0.12')).toBe(true)
+  })
+
+  test('rejects pre-release versions, which are out of scope', () => {
+    for (const version of ['4.1.0-M1', '4.1.0-RC1', '4.2.0-SNAPSHOT', '4.1']) {
+      expect(isGaVersion(version)).toBe(false)
+    }
+  })
+})
+
+describe('mavenArchiveUrl', () => {
+  test('builds the published archive URL for a classifier', () => {
+    expect(
+      mavenArchiveUrl('org/springframework/boot', 'spring-boot-docs', '4.1.1', 'root-aggregate-content'),
+    ).toBe(
+      'https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-docs/4.1.1/spring-boot-docs-4.1.1-root-aggregate-content.zip',
+    )
+  })
+})
+
+describe('resolveUpstream', () => {
+  test('resolves boot 4.1.1 to its tag, component path and archives', () => {
+    const upstream = resolveUpstream('boot', '4.1.1')
+
+    expect(upstream.repo).toBe('spring-projects/spring-boot')
+    expect(upstream.tag).toBe('v4.1.1')
+    expect(upstream.cloneUrl).toBe('https://github.com/spring-projects/spring-boot.git')
+    expect(upstream.componentPath).toBe('documentation/spring-boot-docs/src/docs/antora')
+    expect(upstream.archives).toHaveLength(1)
+    expect(upstream.archives[0]?.classifier).toBe('root-aggregate-content')
+    expect(upstream.archives[0]?.url).toContain('spring-boot-docs-4.1.1-root-aggregate-content.zip')
+  })
+
+  test('maps the components it does not build to their published docs', () => {
+    const { externalComponents } = resolveUpstream('boot', '4.1.1')
+
+    // Left unmapped, references into these render as dangling "#component:path".
+    expect(Object.keys(externalComponents).sort()).toEqual(['api', 'gradle-plugin', 'maven-plugin'])
+    expect(externalComponents.api).toBe('https://docs.spring.io/spring-boot/4.1.1/api')
+  })
+
+  test('pins the javadoc base URL to the exact patch version', () => {
+    expect(resolveUpstream('boot', '4.1.1').javadocLocation).toBe(
+      'https://docs.spring.io/spring-boot/4.1.1/api/java',
+    )
+  })
+
+  test('rejects an unknown project, naming what is supported', () => {
+    expect(() => resolveUpstream('cloud', '4.1.1')).toThrow(/Unknown project "cloud"/)
+    expect(() => resolveUpstream('cloud', '4.1.1')).toThrow(/boot/)
+  })
+
+  test('rejects a pre-release version rather than fetching it', () => {
+    expect(() => resolveUpstream('boot', '4.2.0-M1')).toThrow(/not a GA version/)
+  })
+})
+
+describe('supportedProjects', () => {
+  test('lists the known projects', () => {
+    expect(supportedProjects()).toEqual(['boot'])
+  })
+})
+
+describe('compareGaVersions', () => {
+  test('orders by numeric segment, not lexically', () => {
+    expect(compareGaVersions('4.10.0', '4.9.0')).toBeGreaterThan(0)
+    expect(compareGaVersions('4.9.0', '4.10.0')).toBeLessThan(0)
+  })
+
+  test('is zero for equal versions', () => {
+    expect(compareGaVersions('4.1.1', '4.1.1')).toBe(0)
+  })
+
+  test('compares major before minor before patch', () => {
+    expect(compareGaVersions('5.0.0', '4.99.99')).toBeGreaterThan(0)
+    expect(compareGaVersions('4.1.2', '4.1.1')).toBeGreaterThan(0)
+  })
+
+  test('refuses non-GA versions instead of ordering them arbitrarily', () => {
+    expect(() => compareGaVersions('4.2.0-M1', '4.1.1')).toThrow(/Not GA versions/)
+  })
+
+  test('treats a leading-zero segment as distinct from its bare form', () => {
+    // Number("04") === Number("4"), so a Number-based comparator would wrongly
+    // report these as equal even though they are distinct catalog keys.
+    expect(compareGaVersions('4.01.1', '4.1.1')).not.toBe(0)
+  })
+
+  test('does not read a leading zero as extra magnitude', () => {
+    // Digit count is only a proxy for magnitude once leading zeroes are gone.
+    // Raw, "00" is longer than "8", so 4.00.0 would outrank 4.0.8 — and slip
+    // past the supported floor in resolveUpstream.
+    expect(compareGaVersions('4.00.0', '4.0.8')).toBeLessThan(0)
+    expect(compareGaVersions('4.000000.0', '4.1.0')).toBeLessThan(0)
+  })
+
+  test('stays a finite comparison past Number.MAX_SAFE_INTEGER', () => {
+    // A segment this long overflows Number to Infinity, and Infinity - Infinity
+    // is NaN — an invalid Array#sort comparator result, not just an odd order.
+    const huge = '9'.repeat(400)
+    expect(compareGaVersions(`${huge}.0.0`, '4.1.1')).toBeGreaterThan(0)
+  })
+})
+
+describe('resolveUpstream version floor spellings', () => {
+  test('admits a leading-zero spelling of the floor itself', () => {
+    // The floor is a numeric question. compareGaVersions deliberately orders
+    // numerically-equal spellings rather than reporting them equal, so a raw
+    // comparison rejected "04.0.8" as *below* the 4.0.8 floor it actually meets.
+    for (const version of ['4.0.8', '4.00.8', '04.0.8', '4.0.08', '0004.000.0008'])
+      expect(() => resolveUpstream('boot', version)).not.toThrow()
+  })
+
+  test('still rejects a leading-zero spelling of a version below the floor', () => {
+    expect(() => resolveUpstream('boot', '04.0.7')).toThrow(/below the supported floor/)
+  })
+})
+
+describe('compareVersionKeys', () => {
+  test('orders GA keys numerically, same as compareGaVersions', () => {
+    expect(compareVersionKeys('4.10.0', '4.9.0')).toBeGreaterThan(0)
+  })
+
+  test('never throws on a non-GA key, unlike compareGaVersions', () => {
+    expect(() => compareVersionKeys('4.2.0-RC1', '4.1.1')).not.toThrow()
+  })
+})
+
+describe('supportedVersionsFromTags', () => {
+  test('maps release tags to versions, oldest first', () => {
+    expect(supportedVersionsFromTags('boot', ['v4.1.1', 'v4.0.8'])).toEqual(['4.0.8', '4.1.1'])
+  })
+
+  test('drops tags below the supported floor', () => {
+    expect(supportedVersionsFromTags('boot', ['v4.0.7', 'v3.5.8', 'v4.0.8'])).toEqual(['4.0.8'])
+  })
+
+  test('drops pre-releases and unrelated tag names', () => {
+    expect(supportedVersionsFromTags('boot', ['v4.2.0-M1', 'docs-4.1.1', '4.1.1']))
+      .toEqual([])
+  })
+})
+
+describe('cloneUrlFor', () => {
+  test('resolves without knowing a version', () => {
+    expect(cloneUrlFor('boot')).toBe('https://github.com/spring-projects/spring-boot.git')
+  })
+
+  test('rejects an unsupported project', () => {
+    expect(() => cloneUrlFor('cloud')).toThrow(/Unknown project "cloud"/)
+  })
+})
+
+describe('resolveUpstream version floor', () => {
+  test('refuses a GA version below the project floor', () => {
+    expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/below the supported floor 4\.0\.8/)
+  })
+
+  test('accepts the floor itself', () => {
+    expect(resolveUpstream('boot', '4.0.8').tag).toBe('v4.0.8')
+  })
+})

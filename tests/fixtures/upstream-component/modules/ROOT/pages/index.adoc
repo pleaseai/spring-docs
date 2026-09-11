@@ -1,0 +1,34 @@
+= Fixture Page
+
+An intro paragraph with `inline code`, *bold text* and a
+https://example.com/external[link to an external site].
+
+include::partial$shared.adoc[]
+
+[#a-section]
+== A Section
+
+NOTE: Admonitions become GFM alerts.
+
+.A titled listing
+[source,java]
+----
+public record Fixture(String name) {
+}
+----
+
+* first item
+* second item
+
+include-code::FixtureInclude[]
+
+|===
+| Column A | Column B
+
+| a1 | b1
+|===
+
+Cross references: xref:guide/nested.adoc[the nested page] and
+xref:api:java/org/example/Fixture.html[the Javadoc].
+
+The pinned dependency version is {fixture-dependency-version}.
