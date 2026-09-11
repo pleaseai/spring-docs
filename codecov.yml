@@ -1,0 +1,25 @@
+# Codecov configuration.
+#
+# Both targets are explicit numbers rather than `auto`. `auto` inherits the base
+# branch's coverage as the bar, and this repository bootstrapped from a single
+# 29-line file at 100% — so `auto` demanded 100% of a ~1,600-line pipeline diff,
+# a bar no amount of reasonable testing reaches.
+#
+# 60% is a floor, not a goal. The pure modules under `scripts/lib/` — where the
+# conversion logic actually lives — sit at 99-100% and are expected to stay
+# there. The pipeline entry scripts sit lower because the bulk of each `main()`
+# is I/O orchestration: a sparse git checkout, a Maven Central download, a `tar`
+# invocation. Those paths are exercised end to end by
+# `tests/integration/pipeline.test.ts` against a fixture tree, which proves more
+# about them than a line-coverage number would.
+
+coverage:
+  status:
+    project:
+      default:
+        target: 60%
+        threshold: 2%
+    patch:
+      default:
+        target: 60%
+        threshold: 2%
