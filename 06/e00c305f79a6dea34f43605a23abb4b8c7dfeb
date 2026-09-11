@@ -1,0 +1,64 @@
+tests/unit/catalog-update.test.ts
+  s_a45f4eb9419dba::t_86e0f0adaf3dc9 106-150
+scripts/convert.ts
+  s_a45f4eb9419dba::t_437742578b630e 30,175-176,201
+tests/fixtures/upstream-component/modules/ROOT/partials/shared.adoc
+  s_a45f4eb9419dba::t_2ded99463d575d 1
+tests/unit/upstream-sources.test.ts
+  s_a45f4eb9419dba::t_8a5ac119fbe3bc 3-4,9,77-131
+tests/unit/version-detect.test.ts
+  s_a45f4eb9419dba::t_8a5ac119fbe3bc 1-62
+.github/workflows/nightly-detect.yml
+  s_a45f4eb9419dba::t_8caa685df03e16 68-69,79-80,84-88
+  s_a45f4eb9419dba::t_890513db0ac00a 1-67,70-78,81-83,89
+tests/fixtures/upstream-component/antora.yml
+  s_a45f4eb9419dba::t_2ded99463d575d 1-6
+scripts/lib/upstream-sources.ts
+  s_a45f4eb9419dba::t_66bccb1069ff4a 194-208
+  s_a45f4eb9419dba::t_5ff6899d3ee7e9 72-81,106-109,155-161,167,192-193,209-253
+.github/workflows/release.yml
+  s_a45f4eb9419dba::t_890513db0ac00a 1-127
+ARCHITECTURE.md
+  s_a45f4eb9419dba::t_6489f1246f5ba1 48-49,66,68-70,86,95-99,127-128,130,168,181,234
+  s_a45f4eb9419dba::t_a9b2e1b9a9b0ba 7,281
+.github/actions/build-release/action.yml
+  s_a45f4eb9419dba::t_484884f13fc027 1-54
+.please/docs/knowledge/tech-stack.md
+  s_a45f4eb9419dba::t_6489f1246f5ba1 187-189,191-192,195
+scripts/detect-upstream-versions.ts
+  s_a45f4eb9419dba::t_66bccb1069ff4a 1-134
+tests/fixtures/upstream-component/modules/ROOT/pages/guide/nested.adoc
+  s_a45f4eb9419dba::t_2ded99463d575d 1-3
+scripts/lib/output-layout.ts
+  s_a45f4eb9419dba::t_437742578b630e 1-77
+tests/unit/output-layout.test.ts
+  s_a45f4eb9419dba::t_f5f599fd5addfd 1-84
+.github/workflows/matrix-build.yml
+  s_a45f4eb9419dba::t_484884f13fc027 1-99
+tests/integration/pipeline.test.ts
+  s_a45f4eb9419dba::t_2922193b4326df 1-238
+scripts/lib/catalog-update.ts
+  s_a45f4eb9419dba::t_86e0f0adaf3dc9 21-29,35-41,49
+  s_a45f4eb9419dba::t_c3489745c6ffa8 20
+tests/fixtures/upstream-component/modules/ROOT/pages/index.adoc
+  s_a45f4eb9419dba::t_2922193b4326df 8
+  s_a45f4eb9419dba::t_2ded99463d575d 1-7,9-32
+scripts/lib/version-detect.ts
+  s_a45f4eb9419dba::t_66bccb1069ff4a 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "06e00c305f79a6dea34f43605a23abb4b8c7dfeb",
+  "prompts": {},
+  "sessions": {
+    "s_a45f4eb9419dba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fd784619-f559-4102-8d26-586e2a5360aa",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
