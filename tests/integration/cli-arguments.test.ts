@@ -1,9 +1,10 @@
 /**
- * Argument guards of the two catalog-adjacent CLIs.
+ * Argument guards of the catalog-adjacent CLIs.
  *
- * Both run from the release workflow, where a mistyped flag has to fail the run
- * rather than be dropped: `update-catalog.ts` writes the public index, and
- * `promote-markdown.ts` deletes and rewrites a directory tree. Both parse their
+ * All three run from the release workflow, where a mistyped flag has to fail the
+ * run rather than be dropped: `update-catalog.ts` writes the public index,
+ * `promote-markdown.ts` deletes and rewrites a directory tree, and
+ * `release-mode.ts` decides whether the run publishes at all. All parse their
  * own arguments and call `main()` at import time, so the contract is exercised
  * as a subprocess, like `validate-catalog.test.ts`.
  */
@@ -15,6 +16,7 @@ import { join, resolve } from 'node:path'
 
 const UPDATE_CATALOG = resolve(__dirname, '..', '..', 'scripts', 'update-catalog.ts')
 const PROMOTE_MARKDOWN = resolve(__dirname, '..', '..', 'scripts', 'promote-markdown.ts')
+const RELEASE_MODE = resolve(__dirname, '..', '..', 'scripts', 'release-mode.ts')
 
 let cwd: string
 
@@ -48,55 +50,49 @@ async function seedCatalog(projects: unknown = {}) {
 }
 
 describe('update-catalog.ts argument guards', () => {
-  test('exit 2 on a misspelled option rather than dropping it', async () => {
-    await seedCatalog()
+  // Every rejection is the same subprocess contract — seed a catalog, run the
+  // CLI, assert the exit code and the message it failed with — so the cases are
+  // a table rather than four near-identical blocks.
+  const REJECTIONS = [
+    {
+      name: 'exit 2 on a misspelled option rather than dropping it',
+      args: ['--project', 'boot', '--version', '4.1.1', '--tag', 'boot-4.1.1', '--released-att', '2026-09-11T00:00:00Z'],
+      exitCode: 2,
+      message: 'Unknown option "--released-att"',
+    },
+    {
+      name: 'exit 2 when an option is missing its value',
+      args: ['--project', 'boot', '--version', '4.1.1', '--tag'],
+      exitCode: 2,
+      message: 'needs a value',
+    },
+    {
+      name: 'exit 2 on a positional argument',
+      args: ['--project', 'boot', '--version', '4.1.1', '--tag', 'boot-4.1.1', 'extra'],
+      exitCode: 2,
+      message: 'Unexpected argument',
+    },
+    {
+      // Not an argument shape but a cross-check against the tag: exit 1 rather
+      // than 2, because the arguments parsed fine and the catalog write is what
+      // was refused.
+      name: 'exit 1 on a tag that does not belong to the (project, version)',
+      args: ['--project', 'boot', '--version', '4.1.1', '--tag', 'boot-9.9.9'],
+      exitCode: 1,
+      message: 'does not belong to',
+    },
+  ] as const
 
-    const { stderr, exitCode } = await run(UPDATE_CATALOG, [
-      '--project',
-      'boot',
-      '--version',
-      '4.1.1',
-      '--tag',
-      'boot-4.1.1',
-      '--released-att',
-      '2026-09-11T00:00:00Z',
-    ])
+  for (const rejection of REJECTIONS) {
+    test(rejection.name, async () => {
+      await seedCatalog()
 
-    expect(exitCode).toBe(2)
-    expect(stderr).toContain('Unknown option "--released-att"')
-  })
+      const { stderr, exitCode } = await run(UPDATE_CATALOG, rejection.args)
 
-  test('exit 2 when an option is missing its value', async () => {
-    await seedCatalog()
-
-    const { stderr, exitCode } = await run(UPDATE_CATALOG, [
-      '--project',
-      'boot',
-      '--version',
-      '4.1.1',
-      '--tag',
-    ])
-
-    expect(exitCode).toBe(2)
-    expect(stderr).toContain('needs a value')
-  })
-
-  test('exit 2 on a positional argument', async () => {
-    await seedCatalog()
-
-    const { stderr, exitCode } = await run(UPDATE_CATALOG, [
-      '--project',
-      'boot',
-      '--version',
-      '4.1.1',
-      '--tag',
-      'boot-4.1.1',
-      'extra',
-    ])
-
-    expect(exitCode).toBe(2)
-    expect(stderr).toContain('Unexpected argument')
-  })
+      expect(exitCode).toBe(rejection.exitCode)
+      expect(stderr).toContain(rejection.message)
+    })
+  }
 
   test('a rerun that omits --released-at keeps the recorded timestamp', async () => {
     await seedCatalog({
@@ -116,22 +112,6 @@ describe('update-catalog.ts argument guards', () => {
     expect(stdout).not.toContain('pending')
     const catalog = JSON.parse(await readFile(join(cwd, 'catalog.json'), 'utf8'))
     expect(catalog.projects.boot['4.1.1'].released_at).toBe('2026-09-11T00:00:00Z')
-  })
-
-  test('exit 1 on a tag that does not belong to the (project, version)', async () => {
-    await seedCatalog()
-
-    const { stderr, exitCode } = await run(UPDATE_CATALOG, [
-      '--project',
-      'boot',
-      '--version',
-      '4.1.1',
-      '--tag',
-      'boot-9.9.9',
-    ])
-
-    expect(exitCode).toBe(1)
-    expect(stderr).toContain('does not belong to')
   })
 })
 
@@ -155,5 +135,52 @@ describe('promote-markdown.ts argument guards', () => {
 
     expect(exitCode).toBe(2)
     expect(stderr).toContain('Unknown option "--output"')
+  })
+})
+
+describe('release-mode.ts argument guards', () => {
+  const REQUIRED = [
+    '--project',
+    'boot',
+    '--version',
+    '4.1.1',
+    '--tag',
+    'boot-4.1.1',
+    '--catalog',
+    'catalog.json',
+  ] as const
+
+  test('stdout carries the mode and nothing else', async () => {
+    // The workflow captures stdout with `$(...)` and compares it to a mode
+    // name, so any progress line has to go to stderr.
+    await seedCatalog()
+
+    const { stdout, stderr, exitCode } = await run(RELEASE_MODE, [...REQUIRED, '--release-exists', 'true'])
+
+    expect(exitCode).toBe(0)
+    expect(stdout).toBe('register\n')
+    expect(stderr).toContain('boot-4.1.1: register')
+  })
+
+  test('exit 2 on a --release-exists that is neither true nor false', async () => {
+    // A probe that emits anything else must stop the run: read as "no release",
+    // it would republish over an archive that already exists.
+    await seedCatalog()
+
+    const { stderr, exitCode } = await run(RELEASE_MODE, [...REQUIRED, '--release-exists', 'yes'])
+
+    expect(exitCode).toBe(2)
+    expect(stderr).toContain('takes "true" or "false"')
+  })
+
+  test('exit 1 when the catalog names a tag whose release is gone', async () => {
+    await seedCatalog({
+      boot: { '4.1.1': { tag: 'boot-4.1.1', released_at: '2026-09-11T00:00:00Z' } },
+    })
+
+    const { stderr, exitCode } = await run(RELEASE_MODE, [...REQUIRED, '--release-exists', 'false'])
+
+    expect(exitCode).toBe(1)
+    expect(stderr).toContain('no such release exists')
   })
 })

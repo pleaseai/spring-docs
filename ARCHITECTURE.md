@@ -63,6 +63,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `_index.md`.                          |
 | `package-release.ts`       | Pipeline entry — produce a reproducible `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
 | `update-catalog.ts`        | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`.                                                                 |
+| `release-mode.ts`          | Pipeline entry — report whether a tag still owes publication, registration, or nothing (ADR-0003).                                                |
 | `promote-markdown.ts`      | Pipeline entry — copy a converted tree into the committed `markdown/<project>/<version>/`.                                                       |
 | `detect-upstream-versions.ts` | Tooling entry — list GA versions upstream has released that the catalog does not carry. Read-only; feeds the nightly issues and the build matrix. |
 | `lib/catalog-schema.ts`    | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                                             |
@@ -74,6 +75,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `lib/inline-html.ts`       | Inline-level conversion: the restricted HTML Asciidoctor returns for inline content → Markdown, including external component link rewriting.       |
 | `lib/manifest.ts`          | `manifest.json` schema + builder, and the content checksum. Owns the public schema; changes require an ADR.                                       |
 | `lib/catalog-update.ts`    | Pure `catalog.json` update — refuses to repoint an existing tag (releases are immutable).                                                          |
+| `lib/release-state.ts`     | Pure decision of which release phases a re-run still owes.                                                                                        |
 | `lib/notice.ts`            | Builds the per-release `NOTICE` attribution text, pinned to the upstream commit.                                                                   |
 | `lib/antora-types.ts`      | Hand-written types for the Antora modules we call. `lib/antora.d.ts` maps them onto the untyped packages.                                          |
 
@@ -96,7 +98,7 @@ CI/CD. GitHub Actions only; no other CI vendor.
 | `ci.yml`                          | PR / push           | typecheck + lint + `validate-catalog` + test (with coverage + JUnit + optional Codecov)         |
 | `matrix-build.yml`                | manual / weekly     | Build N projects × M versions in parallel; uploads archives as artifacts, publishes nothing     |
 | `nightly-detect.yml`              | cron (daily)        | Poll upstream for new tags; open one issue per new GA release                                   |
-| `release.yml`                     | tag push            | Publish archive + checksum + manifest to GitHub Releases, update `catalog.json` via PR          |
+| `release.yml`                     | tag push            | Publish archive + checksum + manifest to GitHub Releases, update `catalog.json` via PR; re-running a tag completes an interrupted release |
 
 `.github/actions/build-release/` is a composite action holding the fetch → convert → package steps, so `matrix-build.yml` and `release.yml` cannot drift apart: what gets published is built by the steps the matrix build already exercised. `release.yml` rebuilds from the tag rather than promoting a matrix-build artifact.
 
@@ -229,7 +231,10 @@ These constraints must hold; violating them is a regression, not a style prefere
 - **Every archive ships with `NOTICE`.** Apache-2.0 attribution to the upstream repo, pinned to commit.
 - **Every archive ships with `manifest.json`.** Contains upstream `(repo, ref, commit)`, converter version, file count, and content checksum.
 - **`catalog.json` is the single source of truth** for `(project, version) → tag` resolution.
-- **A failed release does not update `catalog.json`.** Partial state is rolled back.
+- **A failed release does not update `catalog.json`.** Publication and registration are two
+  phases, and a run that completes the first but not the second is finished by re-running the
+  tag: the run completes only the phases still outstanding, and registers an already-published
+  archive only after a rebuild reproduces its bytes. See ADR-0003.
 
 ### Code Invariants
 
@@ -254,7 +259,7 @@ These constraints must hold; violating them is a regression, not a style prefere
 - Conversion errors include the **upstream file path and line number** when known.
 - Pipeline failures exit with non-zero status and a one-line summary on stdout; detailed diagnostics on stderr.
 - CI jobs surface failed `(project, version)` pairs as annotated workflow output; one failed cell does not block its siblings in the build matrix.
-- A failed release does **not** update `catalog.json`. Either the archive is published and the index is updated, or nothing changes.
+- A failed release does **not** update `catalog.json`. Recovery is forward, not a rollback: re-running the tag completes whichever phase is missing (ADR-0003). A published archive is never replaced — corrections ship as a `+rebuild.N` tag.
 
 ### Logging & Observability
 
