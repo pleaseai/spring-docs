@@ -95,6 +95,17 @@ describe('classifyRelease', () => {
     })).toBe('complete')
   })
 
+  test('orders rebuild ordinals past the safe-integer range', () => {
+    // As doubles these two ordinals are the same value, so the catalog would
+    // not read as ahead and this run would register over the rebuild that
+    // replaced it — walking consumers back onto a superseded archive.
+    expect(classifyRelease({
+      tag: 'boot-4.1.1+rebuild.9007199254740992',
+      releaseExists: true,
+      catalogTag: 'boot-4.1.1+rebuild.9007199254740993',
+    })).toBe('complete')
+  })
+
   test('still registers when the catalog names an older rebuild', () => {
     // Supersession is strictly forward: a catalog left behind by this tag is
     // the ordinary rebuild flow and still owes registration.

@@ -213,6 +213,14 @@ jobs:
           # `dist/` and `releases/` are gitignored and survive the switch.
           git checkout -B "$branch" "origin/$DEFAULT_BRANCH"
 
+          # `node_modules` is gitignored, so it survived the switch above still
+          # holding what the tag's lockfile pinned — while every script below is
+          # now the default branch's. A recovery run arrives an arbitrary time
+          # after publication, by which point those scripts may need packages
+          # that install never saw, so reinstall against the lockfile they
+          # belong to rather than leaving a published release unregistered.
+          bun install --frozen-lockfile
+
           bun run scripts/update-catalog.ts \
             --project "$PROJECT" --version "$VERSION" --tag "$TAG" --released-at "$released_at"
           bun run validate-catalog

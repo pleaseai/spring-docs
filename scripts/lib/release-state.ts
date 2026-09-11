@@ -65,11 +65,11 @@ const REBUILD_SUFFIX = /^(?<base>.+)\+rebuild\.(?<ordinal>\d+)$/
  * and `+rebuild.1` is the first correction to it, so the same comparison orders
  * a base tag against its rebuilds without a special case.
  */
-function rebuildOrdinal(tag: string): { base: string, ordinal: number } {
+function rebuildOrdinal(tag: string): { base: string, ordinal: bigint } {
   const groups = REBUILD_SUFFIX.exec(tag)?.groups
   return groups?.base === undefined || groups.ordinal === undefined
-    ? { base: tag, ordinal: 0 }
-    : { base: groups.base, ordinal: Number(groups.ordinal) }
+    ? { base: tag, ordinal: 0n }
+    : { base: groups.base, ordinal: BigInt(groups.ordinal) }
 }
 
 /**
