@@ -1,0 +1,27 @@
+scripts/detect-upstream-versions.ts
+  s_d835e4018f0b05::t_4067e8d7f0ad13 80-111,120-124,126-154
+  s_d835e4018f0b05::t_196bdeb152d261 192
+tests/unit/upstream-sources.test.ts
+  s_d835e4018f0b05::t_9d24f825c01052 184-189
+  s_d835e4018f0b05::t_af06fe7ffd0cc1 182-183
+.please/docs/review/rejected-findings.jsonl
+  s_d835e4018f0b05::t_914505bccdbe85 1-5
+.please/docs/knowledge/upstream-antora.md
+  s_d835e4018f0b05::t_295f1aef05110f 206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "3f57ed774c771d4a3f185766b2ef8dfe4ae98feb",
+  "prompts": {},
+  "sessions": {
+    "s_d835e4018f0b05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2bbe8cb-48ac-4bf8-915d-1b383bdcb970",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
