@@ -45,7 +45,7 @@ pleaseai/spring-docs/
 │   └── framework/
 │       └── 6.2.0/
 ├── scripts/                     ← Conversion pipeline
-│   ├── fetch-upstream.ts        ← Sparse checkout + published content archives
+│   ├── fetch-upstream.ts        ← Sparse checkout + archives, or reconstruction
 │   ├── convert.ts               ← AsciiDoc/Antora → Markdown
 │   ├── package-release.ts       ← Build tar.gz + manifest + checksum
 │   ├── promote-markdown.ts      ← Copy a converted tree into markdown/
@@ -54,7 +54,9 @@ pleaseai/spring-docs/
 │   └── lib/
 │       ├── markdown-converter.ts    ← Block conversion (Asciidoctor AST → Markdown)
 │       ├── inline-html.ts           ← Inline conversion
-│       ├── upstream-sources.ts      ← Per-project upstream coordinates
+│       ├── upstream-sources.ts      ← Per-project coordinates and layout eras
+│       ├── antora-attributes.ts     ← Rebuilds the generated component descriptor
+│       ├── bom-libraries.ts         ← Parses the dependency BOM's library/links DSL
 │       └── manifest.ts              ← Release manifest schema
 └── .github/
     ├── actions/build-release/   ← fetch → convert → package, shared by both builds
@@ -175,7 +177,7 @@ Consumers should prefer `catalog.json` over scraping the Releases page — it's 
 ## Generation pipeline
 
 1. **Detect new upstream release** — `nightly-detect.yml` runs `detect-upstream-versions.ts`, which diffs upstream's tags against `catalog.json` and files one issue per missing GA version. It builds nothing: a new upstream line can change the documentation layout, so a human decides.
-2. **Fetch** — `fetch-upstream.ts` acquires two halves and merges them into one Antora content source: a sparse checkout of the docs subtree at the release tag, and the content archive Spring publishes to Maven Central. Only the archive carries the resolved `antora.yml` attributes and the sample sources `include-code::` reads, so the checkout alone would convert cleanly while silently losing every included snippet. No submodules, no Gradle, no JVM.
+2. **Fetch** — `fetch-upstream.ts` assembles one Antora content source from two halves. The authored half is always a sparse checkout of the docs subtree at the release tag. The generated half — the resolved `antora.yml` attributes, the sample sources `include-code::` reads, and the configuration-property metadata `configprop:` validates against — depends on the version's layout era ([ADR-0004](./.please/docs/decisions/0004-synthesize-3x-component.md)): Spring Boot 4.0.8+ merge the content archive published to Maven Central, while 3.3-3.x reconstruct it from the tag plus the published `spring-boot-*` jars, because those archives are excluded from Spring's Maven Central sync. Either way: no submodules, no Gradle, no JVM.
 3. **Convert** — `convert.ts` drives Antora's own pipeline modules with Spring's Asciidoctor extensions registered, so `xref:`, `include::`, `include-code::`, `javadoc:` and `configprop:` are resolved by the same code that produces docs.spring.io. Our converter then emits Markdown from the resolved AST: GFM alerts for admonitions, headed code fences for tab groups, relative `.md` links for internal xrefs, absolute `docs.spring.io` URLs for references into components we do not build. An unhandled construct fails the build rather than being dropped.
 4. **Package** — `package-release.ts` writes `NOTICE`, checksums every file, and builds a reproducible `tar.gz`: entries sorted, timestamps and ownership pinned, gzip's mtime field suppressed. The same converted tree always yields byte-identical bytes.
 5. **Release** — a `<project>-<version>` tag push runs `release.yml`, which rebuilds from the tag, verifies the manifest against it, and publishes the archive, its checksum and the manifest.
@@ -189,7 +191,8 @@ The pipeline is matrix-parallelized: typical full ecosystem rebuild (~10 project
 |---|---|
 | **Tag immutability** | Once a `<project>-<version>` tag is published, it is not deleted. Re-generation creates a new tag suffix (`framework-6.2.0+rebuild.1`) and updates `catalog.json` to point at the latest |
 | **Pre-release versions** | Not built. Only GA versions of upstream projects |
-| **EOL versions** | Buildable only while upstream still publishes that version's documentation archive to Maven Central. For Spring Boot that is 4.0.8 onwards: the `spring-boot-docs` artifact was published for 2.2.x-2.4.2, then not again until 4.0.8, so 4.0.0-4.0.7 and 4.1.0 cannot be built at all |
+| **Buildable versions** | Spring Boot `3.3.0`-`3.x` and `4.0.8`+. 3.2 and older predate the Antora component entirely. 4.0.0-4.0.7 moved to the 4.x layout but published no content archive, so they fall between the two eras and are refused; 4.1.0 is tagged with no archive either |
+| **3.x appendix** | The generated appendix — auto-configuration class listings and configuration-property tables, ~101 pages — is a Gradle build output with no published equivalent, so 3.x archives omit it. The prose corpus (reference, how-to, tutorial, specification) is complete |
 | **Coverage window** | The newest N missing GA versions per project, N being the `limit` input of `matrix-build.yml` (default 3) |
 | **Backfill** | Older versions can be requested via issue and built on-demand |
 

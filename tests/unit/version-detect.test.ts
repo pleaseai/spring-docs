@@ -46,9 +46,11 @@ describe('missingVersions', () => {
     expect(missingVersions(other, 'boot', tags)).toEqual(['4.0.8', '4.1.0', '4.1.1'])
   })
 
-  test('drops pre-releases and versions below the supported floor', () => {
-    const noisy = ['v3.5.0', 'v4.0.7', 'v4.1.0', 'v4.2.0-M1', 'v4.2.0-RC1', 'not-a-tag']
-    expect(missingVersions(catalog({}), 'boot', noisy)).toEqual(['4.1.0'])
+  test('drops pre-releases and versions no layout era covers', () => {
+    // 3.5.0 is built from the synthesized era; 4.0.7 falls in the gap between
+    // the two eras and 3.2.12 predates both.
+    const noisy = ['v3.2.12', 'v3.5.0', 'v4.0.7', 'v4.1.0', 'v4.2.0-M1', 'v4.2.0-RC1', 'not-a-tag']
+    expect(missingVersions(catalog({}), 'boot', noisy)).toEqual(['3.5.0', '4.1.0'])
   })
 
   test('sorts numerically, oldest first, so callers can take the newest few', () => {

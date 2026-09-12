@@ -190,3 +190,102 @@ Both were hit while probing; the second is silent.
 
 Read `listing` bodies with `getSource()`, not `getContent()` — the latter carries the
 code-folding extension's `<span class="fold-block">` wrappers.
+
+## The 3.x line (3.3-3.5)
+
+> Field notes from probing v3.5.16. These drive the synthesized layout era in
+> `upstream-sources.ts` (ADR-0004). Verified 2026-09-12.
+
+### Where it differs from 4.x
+
+| Aspect | 3.3-3.5 | 4.0.8+ |
+|---|---|---|
+| Component root | `spring-boot-project/spring-boot-docs/src/docs/antora` | `documentation/spring-boot-docs/src/docs/antora` |
+| Dependency BOM script | `spring-boot-project/spring-boot-dependencies/build.gradle` | `platform/spring-boot-dependencies/build.gradle` |
+| Content archives on Maven Central | **none** | `root-aggregate-content` |
+| Pages produced | 145 | 246 |
+
+`antora.yml` first appears at **v3.3.0**; 3.2 and older ship the pre-Antora
+`src/docs/asciidoc` layout, which this pipeline cannot classify.
+
+### Why the archives are missing
+
+Not an oversight and not a gap that will fill in. 3.x ships
+`.github/actions/sync-to-maven-central/artifacts.spec`, which excludes
+`org/springframework/boot/spring-boot-docs/*` from the sync to Maven Central. 4.x
+dropped that file, which is exactly why 4.0.8 is the first version with an archive.
+The archives do exist on `repo.spring.io`, which answers anonymous requests with 401.
+
+### What has to be rebuilt, and from where
+
+Every input except the imported BOMs and the metadata jars sits in the checkout, so the
+reconstruction is pinned to the release tag:
+
+| Input | Source |
+|---|---|
+| `ROOT:example$` java/kotlin samples | `spring-boot-docs/src/main` — the directory `antoraContributions` copies |
+| Static asciidoc attributes | `buildSrc/src/main/resources/org/springframework/boot/build/antora/antora-asciidoc-attributes.properties` |
+| `version-*` and `url-*` | the BOM's `library(...)`/`links { }` DSL, with `${…}` versions from `gradle.properties` |
+| `version-graal`, `version-native-build-tools` | `gradle.properties` |
+| Jackson / Pulsar / Spring Data versions | the BOMs the build script imports, fetched from Maven Central |
+| `spring-configuration-metadata.json` | `META-INF/` of the published `spring-boot-*` jars |
+
+`gradle.properties` defines **every** variable the BOM interpolates, so no Groovy
+evaluation is needed to resolve library versions.
+
+### Traps measured while probing
+
+1. **`include-java` needs the `ROOT:` prefix.** The generated descriptor sets
+   `include-java: ROOT:example$java/org/springframework/boot/docs`. Without it,
+   `example$` resolves against the *current page's* module, so every `include-code::`
+   on a `reference:` page silently finds nothing.
+2. **`configprop:` ignores directory layout.** The extension scans every partial whose
+   basename is `spring-configuration-metadata.json`, wherever it sits
+   (`configuration-properties-extension.js`), so the per-artifact directory is for human
+   readers only.
+3. **`spring-boot-test` publishes no metadata.** It has a jar but no
+   `META-INF/spring-configuration-metadata.json`; the other eight modules do.
+4. **Imported BOMs express versions indirectly.** `jackson-bom` resolves
+   `jackson-databind` through a property that references another property, and
+   `pulsar-bom` uses `${project.version}`. Both have to be expanded, or the attribute
+   carries a literal `${…}`.
+
+### The BOM DSL changes shape within 3.x
+
+The `library(...)` DSL is not stable across 3.3-3.5, so a parser written against one minor
+silently under-resolves on another. Three variants, all found by a build reporting
+unresolved attributes:
+
+| Construct | 3.3-3.4 | 3.5+ |
+|---|---|---|
+| Link factory | Groovy closure: `docs { version -> … }` | Java lambda: `docs(version -> …)` |
+| Named link | trailing closure: `add("userguide") { version -> … }` | `add("userguide", version -> …)` |
+| Imported BOM | `imports = ["spring-data-bom"]` | `bom("spring-data-bom")` |
+
+A module's version is therefore resolved two ways: through the BOM it is imported via, or —
+when the library lists it under `modules = [...]` instead, as 3.3-3.4 do for Pulsar
+Reactive — from the declaring library's own version.
+
+3.4 also generates `version-testcontainers-*` attributes that 3.5 dropped, so the
+Testcontainers BOM has to be resolved for the 3.4 line.
+
+### Measured result across the range
+
+Each version converts with zero unresolved attributes, `configprop:` macros or
+`include-code::` targets:
+
+| Version | attributes | pages |
+|---|---|---|
+| 3.3.0 | 557 | 141 |
+| 3.3.13 | 886 | 147 |
+| 3.4.0 | 877 | 147 |
+| 3.4.13 | 893 | 146 |
+| 3.5.0 | 881 | 147 |
+| 3.5.16 | 895 | 146 |
+
+### Residual gap
+
+The generated appendix is not reconstructed: ~101 pages of auto-configuration class
+listings and configuration-property tables, which leave 46 `include::` failures in the
+appendix index pages and 4 dangling `xref:appendix:` targets. They are Gradle task
+outputs with no published equivalent.

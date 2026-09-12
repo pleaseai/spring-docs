@@ -19,7 +19,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { CatalogSchema } from './lib/catalog-schema.ts'
-import { cloneUrlFor, resolveUpstream, supportedProjects } from './lib/upstream-sources.ts'
+import { cloneUrlFor, requiredArtifactUrls, supportedProjects } from './lib/upstream-sources.ts'
 import { missingVersions, parseTagRefs } from './lib/version-detect.ts'
 
 export interface Args {
@@ -77,24 +77,25 @@ export function parseArgs(argv: readonly string[]): Args {
 }
 
 /**
- * Whether every content archive a version needs has been published.
+ * Whether every remote artifact a version's build reads has been published.
  *
  * Upstream tags a release long before — and sometimes without ever — publishing
- * the `spring-boot-docs` archives this pipeline reads: 4.0.0-4.0.7 and 4.1.0 are
- * tagged but have no archive at all. Filing an issue for a version that cannot be
- * built wastes a human's time, so availability is checked here rather than left
- * for `fetch-upstream.ts` to hit as a 404.
+ * the artifacts this pipeline reads: 4.1.0 is tagged but has no content archive.
+ * Which artifacts matter depends on the version's layout era, so the list comes
+ * from `requiredArtifactUrls`. Filing an issue for a version that cannot be built
+ * wastes a human's time, so availability is checked here rather than left for
+ * `fetch-upstream.ts` to hit as a 404.
  *
  * @throws if a URL cannot be reached, so a network fault is never mistaken for
  * an unpublished version.
  */
-async function archivesPublished(project: string, version: string): Promise<boolean> {
-  for (const archive of resolveUpstream(project, version).archives) {
-    const response = await fetch(archive.url, { method: 'HEAD' })
+async function artifactsPublished(project: string, version: string): Promise<boolean> {
+  for (const url of requiredArtifactUrls(project, version)) {
+    const response = await fetch(url, { method: 'HEAD' })
     if (response.status === 404)
       return false
     if (!response.ok)
-      throw new Error(`HEAD ${archive.url} → ${response.status} ${response.statusText}`)
+      throw new Error(`HEAD ${url} → ${response.status} ${response.statusText}`)
   }
   return true
 }
@@ -137,7 +138,7 @@ async function main(): Promise<void> {
       const buildable: string[] = []
       const unpublished: string[] = []
       for (const version of missing) {
-        if (await archivesPublished(project, version))
+        if (await artifactsPublished(project, version))
           buildable.push(version)
         else
           unpublished.push(version)
@@ -149,7 +150,7 @@ async function main(): Promise<void> {
       // stderr, so `--json` output stays machine-readable.
       if (unpublished.length > 0) {
         console.error(
-          `${project}: skipping ${unpublished.length} version(s) with no published content archive: ${unpublished.join(', ')}`,
+          `${project}: skipping ${unpublished.length} version(s) with unpublished upstream artifacts: ${unpublished.join(', ')}`,
         )
       }
 

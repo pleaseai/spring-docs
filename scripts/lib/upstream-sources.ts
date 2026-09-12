@@ -3,9 +3,10 @@
  *
  * Pure data + pure functions. No I/O — `fetch-upstream.ts` performs the fetching.
  *
- * Two inputs make up one Antora content source (see ADR-0002):
- *   1. the component root, sparse-checked-out from the release tag
- *   2. the generated content zips Spring publishes to Maven Central
+ * One Antora content source is assembled from the component root, sparse-checked
+ * out from the release tag, plus the generated half of the component. Where that
+ * generated half comes from depends on the version's layout era (ADR-0004):
+ * published content zips for 4.0.8+, reconstruction from the tag for 3.3-3.x.
  */
 
 /** Plain `major.minor.patch`; anything else is a pre-release. */
@@ -39,8 +40,21 @@ export interface UpstreamCoordinates {
   readonly tag: string
   /** Repo-relative path of the Antora component root (holds `antora.yml`). */
   readonly componentPath: string
-  /** Published archives to merge over the checked-out component root. */
+  /** How the generated half of the component is assembled for this version. */
+  readonly assembly: ComponentAssembly
+  /**
+   * Published archives to merge over the checked-out component root.
+   *
+   * Empty for a synthesized era, which has none to merge.
+   */
   readonly archives: readonly ContentArchive[]
+  /**
+   * Repo-relative paths the sparse checkout must materialize.
+   *
+   * Always includes {@link componentPath}; a synthesized era adds the build
+   * inputs its reconstruction reads.
+   */
+  readonly checkoutPaths: readonly string[]
   /**
    * Base URL for `javadoc:` macro targets.
    *
@@ -61,38 +75,106 @@ export interface UpstreamCoordinates {
   readonly externalComponents: Readonly<Record<string, string>>
 }
 
+/** Where an era's component descriptor and generated content come from. */
+export type DescriptorSource = 'archive' | 'synthesized'
+
+/**
+ * Repo-relative inputs used to rebuild what Spring's Gradle build would have
+ * generated, for an era that publishes no content archive.
+ *
+ * Every path here is checked out from the release tag, so the reconstruction is
+ * pinned to the same commit as the prose it accompanies.
+ */
+export interface SynthesisSources {
+  /** Directory whose *contents* become `modules/ROOT/examples`. */
+  readonly examplesPath: string
+  /** Java properties file of asciidoc attributes that carry no version. */
+  readonly staticAttributesPath: string
+  /** Build script declaring the dependency BOM's libraries and their links. */
+  readonly bomBuildScriptPath: string
+  /** Properties file holding toolchain versions the BOM does not manage. */
+  readonly gradlePropertiesPath: string
+  /**
+   * Maven artifact ids whose published jar ships
+   * `META-INF/spring-configuration-metadata.json`.
+   *
+   * `configprop:` resolves against any partial with that basename, regardless of
+   * directory (see `configuration-properties-extension.js`), so these are merely
+   * dropped under `modules/ROOT/partials/<artifact>/`.
+   */
+  readonly metadataArtifacts: readonly string[]
+}
+
+/** How one era's component content is assembled. */
+export type ComponentAssembly
+  = | { readonly descriptor: 'archive', readonly archiveClassifiers: readonly string[] }
+    | { readonly descriptor: 'synthesized', readonly synthesis: SynthesisSources }
+
+/**
+ * One documentation layout era of an upstream project.
+ *
+ * Spring Boot has moved its Antora component twice and changed how — and
+ * whether — the generated half of it reaches the public: 3.3.0 introduced the
+ * component but its content archives are excluded from the Maven Central sync
+ * (`.github/actions/sync-to-maven-central/artifacts.spec`), while 4.x dropped
+ * that exclusion and publishes them. An era pins both facts together, because
+ * getting one without the other produces a tree that classifies but converts
+ * with unresolved attributes.
+ */
+interface LayoutEra {
+  /** Inclusive floor: the oldest version built with this layout. */
+  readonly since: string
+  /**
+   * Exclusive ceiling, when the era does not run to the newest release.
+   *
+   * Eras are not contiguous: 4.0.0-4.0.7 changed to the 4.x component path but
+   * published no content archive, so they belong to neither era and are not
+   * buildable at all. Without a ceiling they would fall back to the preceding
+   * era and be fetched from a path that does not exist at their tag.
+   */
+  readonly until?: string
+  /** Repo-relative path of the Antora component root (holds `antora.yml`). */
+  readonly componentPath: string
+  /** How the generated half of the component is obtained. */
+  readonly assembly: ComponentAssembly
+}
+
 /** Static definition of a supported upstream project. */
 interface ProjectDefinition {
   readonly repo: string
-  readonly componentPath: string
   readonly mavenGroupPath: string
   readonly mavenArtifact: string
-  readonly archiveClassifiers: readonly string[]
   readonly externalComponentsFor: (version: string) => Readonly<Record<string, string>>
   /** Prefix the upstream repository puts in front of a version to form a tag. */
   readonly tagPrefix: string
-  /**
-   * Oldest version this pipeline can build.
-   *
-   * A cheap pre-filter over what upstream actually publishes — the authority is
-   * whether the content archives exist, which `detect-upstream-versions.ts`
-   * checks per candidate version.
-   */
-  readonly minimumVersion: string
+  /** Layout eras, oldest first. The first one's `since` is the supported floor. */
+  readonly eras: readonly [LayoutEra, ...LayoutEra[]]
   /** Maps a catalog version to its published aggregated javadoc base URL. */
   readonly javadocLocationFor: (version: string) => string
 }
 
+/**
+ * Modules whose jar carries configuration-property metadata in the 3.3-3.5 line.
+ *
+ * Measured against 3.5.16, not guessed: `spring-boot-test` publishes a jar but
+ * ships no `META-INF/spring-configuration-metadata.json`, so it is absent here.
+ */
+const BOOT_3_METADATA_ARTIFACTS = [
+  'spring-boot',
+  'spring-boot-actuator',
+  'spring-boot-actuator-autoconfigure',
+  'spring-boot-autoconfigure',
+  'spring-boot-devtools',
+  'spring-boot-docker-compose',
+  'spring-boot-test-autoconfigure',
+  'spring-boot-testcontainers',
+] as const
+
 const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
   boot: {
     repo: 'spring-projects/spring-boot',
-    componentPath: 'documentation/spring-boot-docs/src/docs/antora',
     mavenGroupPath: 'org/springframework/boot',
     mavenArtifact: 'spring-boot-docs',
-    // `root-aggregate-content` carries the generated component descriptor
-    // (912 resolved attributes) plus the ROOT:example$ java/kotlin sample tree
-    // that `include-code::` resolves against.
-    archiveClassifiers: ['root-aggregate-content'],
     // Separate Antora components, published as their own artifacts and not built
     // here. Their xref targets are rewritten to the upstream documentation site.
     externalComponentsFor: version => ({
@@ -104,11 +186,44 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
       'maven-plugin': `${SPRING_BOOT_DOCS}/${version}/maven-plugin`,
     }),
     tagPrefix: 'v',
-    // Not a compatibility guess: `spring-boot-docs` is published to Maven Central
-    // only for 2.2.x-2.4.2 and then again from 4.0.8, and this pipeline needs that
-    // artifact's `root-aggregate-content` archive. 4.0.0-4.0.7 and 4.1.0 have no
-    // archive at all, so they cannot be built however the converter behaves.
-    minimumVersion: '4.0.8',
+    eras: [
+      {
+        // 3.3.0 is where the Antora component first appears; 3.2.x and older
+        // ship the pre-Antora `src/docs/asciidoc` layout this pipeline cannot
+        // classify. Verified by probing `antora.yml` at each minor's `.0` tag.
+        since: '3.3.0',
+        // 4.0.0 moved the component to `documentation/`, so this era stops short
+        // of it even though 4.0.0-4.0.7 are equally archive-less.
+        until: '4.0.0',
+        componentPath: 'spring-boot-project/spring-boot-docs/src/docs/antora',
+        assembly: {
+          descriptor: 'synthesized',
+          synthesis: {
+            examplesPath: 'spring-boot-project/spring-boot-docs/src/main',
+            staticAttributesPath:
+              'buildSrc/src/main/resources/org/springframework/boot/build/antora/antora-asciidoc-attributes.properties',
+            bomBuildScriptPath: 'spring-boot-project/spring-boot-dependencies/build.gradle',
+            gradlePropertiesPath: 'gradle.properties',
+            metadataArtifacts: BOOT_3_METADATA_ARTIFACTS,
+          },
+        },
+      },
+      {
+        // `spring-boot-docs` is published to Maven Central only for 2.2.x-2.4.2
+        // and then again from 4.0.8, and this era needs that artifact's
+        // `root-aggregate-content` archive. 4.0.0-4.0.7 and 4.1.0 have no archive
+        // at all, so they cannot be built however the converter behaves.
+        since: '4.0.8',
+        componentPath: 'documentation/spring-boot-docs/src/docs/antora',
+        assembly: {
+          descriptor: 'archive',
+          // `root-aggregate-content` carries the generated component descriptor
+          // (912 resolved attributes) plus the ROOT:example$ java/kotlin sample
+          // tree that `include-code::` resolves against.
+          archiveClassifiers: ['root-aggregate-content'],
+        },
+      },
+    ],
     javadocLocationFor: version => `${SPRING_BOOT_DOCS}/${version}/api/java`,
   },
 }
@@ -135,9 +250,46 @@ export function mavenArchiveUrl(
 }
 
 /**
+ * Build the Maven Central download URL for one published jar.
+ *
+ * @example
+ * mavenJarUrl('org/springframework/boot', 'spring-boot-autoconfigure', '3.5.16')
+ * // https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-autoconfigure/3.5.16/spring-boot-autoconfigure-3.5.16.jar
+ */
+export function mavenJarUrl(groupPath: string, artifact: string, version: string): string {
+  return `${MAVEN_CENTRAL}/${groupPath}/${artifact}/${version}/${artifact}-${version}.jar`
+}
+
+/**
+ * The era that built a given version.
+ *
+ * Eras are declared oldest first, so the last one whose floor the version meets
+ * is the match.
+ *
+ * @returns the era, or `undefined` when the version predates every era.
+ */
+function eraFor(definition: ProjectDefinition, version: string): LayoutEra | undefined {
+  const canonical = canonicalGaVersion(version)
+  return definition.eras.find((era) => {
+    if (compareGaVersions(canonical, canonicalGaVersion(era.since)) < 0)
+      return false
+    return era.until === undefined
+      || compareGaVersions(canonical, canonicalGaVersion(era.until)) < 0
+  })
+}
+
+/** Human-readable list of the version ranges a project can be built from. */
+function buildableRanges(definition: ProjectDefinition): string {
+  return definition.eras
+    .map(era => (era.until === undefined ? `>= ${era.since}` : `${era.since}-<${era.until}`))
+    .join(', ')
+}
+
+/**
  * Resolve the coordinates for one `(project, version)` pair.
  *
- * @throws if the project is not supported, or the version is not a plain GA version.
+ * @throws if the project is not supported, the version is not a plain GA
+ * version, or it predates the project's oldest buildable layout.
  */
 export function resolveUpstream(project: string, version: string): UpstreamCoordinates {
   const definition = PROJECTS[project]
@@ -156,12 +308,26 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
 
   // Canonical on both sides: the floor is a question about numeric value, not
   // about key identity, so a leading-zero spelling of the floor itself must pass.
-  if (compareGaVersions(canonicalGaVersion(version), canonicalGaVersion(definition.minimumVersion)) < 0) {
+  const era = eraFor(definition, version)
+  if (!era) {
     throw new Error(
-      `Version "${version}" of "${project}" is below the supported floor `
-      + `${definition.minimumVersion}: the documentation layout and published archives differ there.`,
+      `Version "${version}" of "${project}" is not buildable: neither its `
+      + `documentation layout nor its published artifacts are supported. `
+      + `Buildable ranges: ${buildableRanges(definition)}.`,
     )
   }
+
+  const archives = era.assembly.descriptor === 'archive'
+    ? era.assembly.archiveClassifiers.map(classifier => ({
+        classifier,
+        url: mavenArchiveUrl(
+          definition.mavenGroupPath,
+          definition.mavenArtifact,
+          version,
+          classifier,
+        ),
+      }))
+    : []
 
   return {
     project,
@@ -169,19 +335,52 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
     repo: definition.repo,
     cloneUrl: `https://github.com/${definition.repo}.git`,
     tag: `${definition.tagPrefix}${version}`,
-    componentPath: definition.componentPath,
-    archives: definition.archiveClassifiers.map(classifier => ({
-      classifier,
-      url: mavenArchiveUrl(
-        definition.mavenGroupPath,
-        definition.mavenArtifact,
-        version,
-        classifier,
-      ),
-    })),
+    componentPath: era.componentPath,
+    assembly: era.assembly,
+    archives,
+    checkoutPaths: checkoutPathsFor(era),
     javadocLocation: definition.javadocLocationFor(version),
     externalComponents: definition.externalComponentsFor(version),
   }
+}
+
+/** Repo-relative paths the sparse checkout must materialize for one era. */
+function checkoutPathsFor(era: LayoutEra): readonly string[] {
+  if (era.assembly.descriptor === 'archive')
+    return [era.componentPath]
+  const { synthesis } = era.assembly
+  return [
+    era.componentPath,
+    synthesis.examplesPath,
+    synthesis.staticAttributesPath,
+    synthesis.bomBuildScriptPath,
+    synthesis.gradlePropertiesPath,
+  ]
+}
+
+/**
+ * Every remote file a version's build depends on, as absolute URLs.
+ *
+ * Upstream tags a release long before — and sometimes without ever — publishing
+ * the artifacts this pipeline reads. Which artifacts those are depends on the
+ * era: an archive era needs the content zips, a synthesized era needs the jars
+ * carrying configuration-property metadata. `detect-upstream-versions.ts` checks
+ * these so a version that cannot be built is never offered as one that can.
+ *
+ * @throws if the project is not supported or the version is not buildable.
+ */
+export function requiredArtifactUrls(project: string, version: string): readonly string[] {
+  const definition = PROJECTS[project]
+  if (!definition)
+    throw new Error(`Unknown project "${project}". Supported: ${supportedProjects().join(', ')}`)
+
+  const upstream = resolveUpstream(project, version)
+  if (upstream.assembly.descriptor === 'archive')
+    return upstream.archives.map(archive => archive.url)
+
+  return upstream.assembly.synthesis.metadataArtifacts.map(artifact =>
+    mavenJarUrl(definition.mavenGroupPath, artifact, version),
+  )
 }
 
 /**
@@ -335,8 +534,9 @@ export function supportedVersionsFromTags(
     .filter(tag => tag.startsWith(definition.tagPrefix))
     .map(tag => tag.slice(definition.tagPrefix.length))
     .filter(version => isGaVersion(version))
-    // Same floor rule as `resolveUpstream`, canonical on both sides — the two
-    // must agree, or detection would offer a version the build then refuses.
-    .filter(version => compareGaVersions(canonicalGaVersion(version), canonicalGaVersion(definition.minimumVersion)) >= 0)
+    // Same era rule as `resolveUpstream` — the two must agree, or detection
+    // would offer a version the build then refuses. Era membership, not a bare
+    // floor: 4.0.0-4.0.7 sit above the floor and are still not buildable.
+    .filter(version => eraFor(definition, version) !== undefined)
     .sort(compareGaVersions)
 }

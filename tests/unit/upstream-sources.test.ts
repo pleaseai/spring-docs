@@ -5,6 +5,7 @@ import {
   compareVersionKeys,
   isGaVersion,
   mavenArchiveUrl,
+  requiredArtifactUrls,
   resolveUpstream,
   supportedProjects,
   supportedVersionsFromTags,
@@ -126,8 +127,8 @@ describe('resolveUpstream version floor spellings', () => {
       expect(() => resolveUpstream('boot', version)).not.toThrow()
   })
 
-  test('still rejects a leading-zero spelling of a version below the floor', () => {
-    expect(() => resolveUpstream('boot', '04.0.7')).toThrow(/below the supported floor/)
+  test('still rejects a leading-zero spelling of a version inside the 4.0 gap', () => {
+    expect(() => resolveUpstream('boot', '04.0.7')).toThrow(/not buildable/)
   })
 })
 
@@ -146,8 +147,11 @@ describe('supportedVersionsFromTags', () => {
     expect(supportedVersionsFromTags('boot', ['v4.1.1', 'v4.0.8'])).toEqual(['4.0.8', '4.1.1'])
   })
 
-  test('drops tags below the supported floor', () => {
-    expect(supportedVersionsFromTags('boot', ['v4.0.7', 'v3.5.8', 'v4.0.8'])).toEqual(['4.0.8'])
+  test('keeps 3.3+ tags and drops ones no era covers', () => {
+    // 4.0.7 is above the oldest floor yet belongs to no era, so era membership
+    // — not a bare floor comparison — has to decide.
+    expect(supportedVersionsFromTags('boot', ['v4.0.7', 'v3.5.8', 'v4.0.8', 'v3.2.12']))
+      .toEqual(['3.5.8', '4.0.8'])
   })
 
   test('drops pre-releases and unrelated tag names', () => {
@@ -166,12 +170,61 @@ describe('cloneUrlFor', () => {
   })
 })
 
-describe('resolveUpstream version floor', () => {
-  test('refuses a GA version below the project floor', () => {
-    expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/below the supported floor 4\.0\.8/)
+describe('resolveUpstream layout eras', () => {
+  test('refuses a version older than every era', () => {
+    // 3.2.x predates the Antora component entirely.
+    expect(() => resolveUpstream('boot', '3.2.12')).toThrow(/not buildable/)
   })
 
-  test('accepts the floor itself', () => {
+  test('refuses a version that falls in the gap between two eras', () => {
+    // 4.0.0-4.0.7 moved to the 4.x path but published no content archive.
+    expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/not buildable/)
+  })
+
+  test('names the buildable ranges when it refuses', () => {
+    expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/3\.3\.0-<4\.0\.0, >= 4\.0\.8/)
+  })
+
+  test('accepts each era floor itself', () => {
+    expect(resolveUpstream('boot', '3.3.0').tag).toBe('v3.3.0')
     expect(resolveUpstream('boot', '4.0.8').tag).toBe('v4.0.8')
+  })
+
+  test('resolves a 3.x version to the synthesized era', () => {
+    const upstream = resolveUpstream('boot', '3.5.16')
+
+    expect(upstream.componentPath).toBe('spring-boot-project/spring-boot-docs/src/docs/antora')
+    expect(upstream.assembly.descriptor).toBe('synthesized')
+    expect(upstream.archives).toEqual([])
+    expect(upstream.checkoutPaths).toContain('gradle.properties')
+  })
+
+  test('resolves a 4.x version to the archive era', () => {
+    const upstream = resolveUpstream('boot', '4.1.1')
+
+    expect(upstream.componentPath).toBe('documentation/spring-boot-docs/src/docs/antora')
+    expect(upstream.assembly.descriptor).toBe('archive')
+    expect(upstream.archives).toHaveLength(1)
+    // An archive era needs nothing beyond the component root.
+    expect(upstream.checkoutPaths).toEqual(['documentation/spring-boot-docs/src/docs/antora'])
+  })
+})
+
+describe('requiredArtifactUrls', () => {
+  test('an archive era depends on its content zips', () => {
+    expect(requiredArtifactUrls('boot', '4.1.1')).toEqual([
+      'https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-docs/4.1.1/spring-boot-docs-4.1.1-root-aggregate-content.zip',
+    ])
+  })
+
+  test('a synthesized era depends on the jars carrying property metadata', () => {
+    const urls = requiredArtifactUrls('boot', '3.5.16')
+
+    expect(urls).toHaveLength(8)
+    expect(urls).toContain(
+      'https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-autoconfigure/3.5.16/spring-boot-autoconfigure-3.5.16.jar',
+    )
+    // Publishes a jar but ships no configuration metadata (measured on 3.5.16).
+    expect(urls.some(url => url.includes('/spring-boot-test/'))).toBe(false)
   })
 })
