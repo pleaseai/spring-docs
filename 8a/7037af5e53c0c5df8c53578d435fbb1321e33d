@@ -1,0 +1,24 @@
+ARCHITECTURE.md
+  s_d835e4018f0b05::t_791af787291d6f 73
+tests/unit/artifact-availability.test.ts
+  s_d835e4018f0b05::t_791af787291d6f 125-126
+  s_d835e4018f0b05::t_6367a45cc7d1bb 117-124,127-130
+scripts/lib/artifact-availability.ts
+  s_d835e4018f0b05::t_ceeef630accf0a 55-56,63-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "8a7037af5e53c0c5df8c53578d435fbb1321e33d",
+  "prompts": {},
+  "sessions": {
+    "s_d835e4018f0b05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2bbe8cb-48ac-4bf8-915d-1b383bdcb970",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
