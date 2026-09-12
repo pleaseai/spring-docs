@@ -1,9 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-11T19:16:47.638Z",
+  "generated_at": "2026-09-12T12:39:56.040Z",
   "projects": {
     "boot": {
+      "3.3.7": {
+        "tag": "boot-3.3.7",
+        "released_at": "2026-09-12T12:39:55Z"
+      },
       "4.0.8": {
         "tag": "boot-4.0.8",
         "released_at": "2026-09-11T19:11:35Z"
