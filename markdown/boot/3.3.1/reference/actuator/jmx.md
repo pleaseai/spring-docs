@@ -1,0 +1,76 @@
+---
+title: "Monitoring and Management over JMX"
+source: "reference:actuator/jmx.adoc"
+---
+
+<a id="actuator.jmx"></a>
+
+# Monitoring and Management over JMX
+
+Java Management Extensions (JMX) provide a standard mechanism to monitor and manage applications.
+By default, this feature is not enabled.
+You can turn it on by setting the `spring.jmx.enabled` configuration property to `true`.
+Spring Boot exposes the most suitable `MBeanServer` as a bean with an ID of `mbeanServer`.
+Any of your beans that are annotated with Spring JMX annotations (`@ManagedResource`, `@ManagedAttribute`, or `@ManagedOperation`) are exposed to it.
+
+If your platform provides a standard `MBeanServer`, Spring Boot uses that and defaults to the VM `MBeanServer`, if necessary.
+If all that fails, a new `MBeanServer` is created.
+
+See the [`JmxAutoConfiguration`](https://github.com/spring-projects/spring-boot/tree/v3.3.1/spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/jmx/JmxAutoConfiguration.java) class for more details.
+
+By default, Spring Boot also exposes management endpoints as JMX MBeans under the `org.springframework.boot` domain.
+To take full control over endpoint registration in the JMX domain, consider registering your own `EndpointObjectNameFactory` implementation.
+
+<a id="actuator.jmx.custom-mbean-names"></a>
+
+## Customizing MBean Names
+
+The name of the MBean is usually generated from the `id` of the endpoint.
+For example, the `health` endpoint is exposed as `org.springframework.boot:type=Endpoint,name=Health`.
+
+If your application contains more than one Spring `ApplicationContext`, you may find that names clash.
+To solve this problem, you can set the `spring.jmx.unique-names` property to `true` so that MBean names are always unique.
+
+You can also customize the JMX domain under which endpoints are exposed.
+The following settings show an example of doing so in `application.properties`:
+
+#### Properties
+
+```properties
+spring.jmx.unique-names=true
+management.endpoints.jmx.domain=com.example.myapp
+```
+
+#### YAML
+
+```yaml
+spring:
+  jmx:
+    unique-names: true
+management:
+  endpoints:
+    jmx:
+      domain: "com.example.myapp"
+```
+
+<a id="actuator.jmx.disable-jmx-endpoints"></a>
+
+## Disabling JMX Endpoints
+
+If you do not want to expose endpoints over JMX, you can set the `management.endpoints.jmx.exposure.exclude` property to `*`, as the following example shows:
+
+#### Properties
+
+```properties
+management.endpoints.jmx.exposure.exclude=*
+```
+
+#### YAML
+
+```yaml
+management:
+  endpoints:
+    jmx:
+      exposure:
+        exclude: "*"
+```

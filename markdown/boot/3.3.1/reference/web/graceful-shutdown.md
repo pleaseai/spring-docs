@@ -1,0 +1,60 @@
+---
+title: "Graceful Shutdown"
+source: "reference:web/graceful-shutdown.adoc"
+---
+
+<a id="web.graceful-shutdown"></a>
+
+# Graceful Shutdown
+
+Graceful shutdown is supported with all four embedded web servers (Jetty, Reactor Netty, Tomcat, and Undertow) and with both reactive and servlet-based web applications.
+It occurs as part of closing the application context and is performed in the earliest phase of stopping `SmartLifecycle` beans.
+This stop processing uses a timeout which provides a grace period during which existing requests will be allowed to complete but no new requests will be permitted.
+
+The exact way in which new requests are not permitted varies depending on the web server that is being used.
+Implementations may stop accepting requests at the network layer, or they may return a response with a specific HTTP status code or HTTP header.
+The use of persistent connections can also change the way that requests stop being accepted.
+
+> [!TIP]
+> To learn about more the specific method used with your web server, see the `shutDownGracefully` javadoc for [TomcatWebServer](<https://docs.spring.io/spring-boot/3.3.1/api/java/org/springframework/boot/web/embedded/tomcat/TomcatWebServer.html#shutDownGracefully(org.springframework.boot.web.server.GracefulShutdownCallback)>), [NettyWebServer](<https://docs.spring.io/spring-boot/3.3.1/api/java/org/springframework/boot/web/embedded/netty/NettyWebServer.html#shutDownGracefully(org.springframework.boot.web.server.GracefulShutdownCallback)>), [JettyWebServer](<https://docs.spring.io/spring-boot/3.3.1/api/java/org/springframework/boot/web/embedded/jetty/JettyWebServer.html#shutDownGracefully(org.springframework.boot.web.server.GracefulShutdownCallback)>) or [UndertowWebServer](<https://docs.spring.io/spring-boot/3.3.1/api/java/org/springframework/boot/web/embedded/undertow/UndertowWebServer.html#shutDownGracefully(org.springframework.boot.web.server.GracefulShutdownCallback)>).
+
+Jetty, Reactor Netty, and Tomcat will stop accepting new requests at the network layer.
+Undertow will accept new connections but respond immediately with a service unavailable (503) response.
+
+> [!NOTE]
+> Graceful shutdown with Tomcat requires Tomcat 9.0.33 or later.
+
+To enable graceful shutdown, configure the `server.shutdown` property, as shown in the following example:
+
+#### Properties
+
+```properties
+server.shutdown=graceful
+```
+
+#### YAML
+
+```yaml
+server:
+  shutdown: "graceful"
+```
+
+To configure the timeout period, configure the `spring.lifecycle.timeout-per-shutdown-phase` property, as shown in the following example:
+
+#### Properties
+
+```properties
+spring.lifecycle.timeout-per-shutdown-phase=20s
+```
+
+#### YAML
+
+```yaml
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: "20s"
+```
+
+> [!IMPORTANT]
+> Using graceful shutdown with your IDE may not work properly if it does not send a proper `SIGTERM` signal.
+> See the documentation of your IDE for more details.

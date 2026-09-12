@@ -1,0 +1,8 @@
+---
+title: "Reference"
+source: "reference:index.adoc"
+---
+
+# Reference
+
+This section provides information on using the feature and capabilities of Spring Boot.

@@ -1,0 +1,43 @@
+---
+title: "Docker Compose"
+source: "how-to:docker-compose.adoc"
+---
+
+<a id="howto.docker-compose"></a>
+
+# Docker Compose
+
+This section includes topics relating to the Docker Compose support in Spring Boot.
+
+<a id="howto.docker-compose.jdbc-url"></a>
+
+## Customizing the JDBC URL
+
+When using [`JdbcConnectionDetails`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/autoconfigure/jdbc/JdbcConnectionDetails.html) with Docker Compose, the parameters of the JDBC URL
+can be customized by applying the `org.springframework.boot.jdbc.parameters` label to the
+service. For example:
+
+```yaml
+services:
+  postgres:
+    image: 'postgres:15.3'
+    environment:
+      - 'POSTGRES_USER=myuser'
+      - 'POSTGRES_PASSWORD=secret'
+      - 'POSTGRES_DB=mydb'
+    ports:
+      - '5432:5432'
+    labels:
+      org.springframework.boot.jdbc.parameters: 'ssl=true&sslmode=require'
+```
+
+With this Docker Compose file in place, the JDBC URL used is `jdbc:postgresql://127.0.0.1:5432/mydb?ssl=true&sslmode=require`.
+
+<a id="howto.docker-compose.sharing-services"></a>
+
+## Sharing Services Between Multiple Applications
+
+If you want to share services between multiple applications, create the `compose.yaml` file in one of the applications and then use the configuration property `spring.docker.compose.file` in the other applications to reference the `compose.yaml` file.
+You should also set `spring.docker.compose.lifecycle-management` to `start-only`, as it defaults to `start-and-stop` and stopping one application would shut down the shared services for the other still running applications as well.
+Setting it to `start-only` won’t stop the shared services on application stop, but a caveat is that if you shut down all applications, the services remain running.
+You can stop the services manually by running `docker compose stop` on the command line in the directory which contains the `compose.yaml` file.
