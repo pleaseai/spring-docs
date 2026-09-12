@@ -22,6 +22,7 @@
  *   2 — bad arguments
  */
 
+import type { Fetcher } from './lib/artifact-availability.ts'
 import type { SynthesisSources, UpstreamCoordinates } from './lib/upstream-sources.ts'
 import { Buffer } from 'node:buffer'
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
@@ -330,9 +331,13 @@ async function addConfigurationMetadata(
  * alternative is a 404 partway through — after a clone, with a message about one
  * jar rather than about the version.
  */
-async function assertArtifactsPublished(upstream: UpstreamCoordinates): Promise<void> {
+export async function assertArtifactsPublished(
+  upstream: UpstreamCoordinates,
+  fetchImpl?: Fetcher,
+): Promise<void> {
   const missing = await unpublishedArtifacts(
     requiredArtifactUrls(upstream.project, upstream.version),
+    { fetchImpl },
   )
   if (missing.length === 0)
     return
