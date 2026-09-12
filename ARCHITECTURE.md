@@ -164,11 +164,10 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
     ┌─────────────────────┴─────────────────────┐
     │                                           │
   github.com/spring-projects/<repo>:<tag>   Maven Central
-  (sparse checkout of the docs subtree)     archive era:     the content zip
-    │                                       synthesized era: the metadata jars
-    │  the authored AsciiDoc component          │
-    │  — plus, for a synthesized era, the       │  the generated half: the resolved
-    │    build inputs it is rebuilt from        │  antora.yml + sample source tree
+  (sparse checkout of the docs subtree)     (a content zip, or jars and BOM poms)
+    │                                           │
+    │  the authored component — and, for a      │  the generated half, or the
+    │  synthesized era, its build inputs        │  inputs left to rebuild it
     └─────────────────────┬─────────────────────┘
                           │ merge the archive, or rebuild the generated
                           │ half from the tag (ADR-0004); promote
@@ -216,7 +215,7 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
 
 Both upstream halves are required. The checked-out `antora.yml` is a build-time stub: it declares the component and carries none of the ~900 resolved attributes (dependency versions, javadoc locations), and the sample sources `include-code::` reads do not live in the docs subtree either. The authored half alone converts cleanly while silently losing every included snippet.
 
-Where the generated half comes from depends on the version's **layout era** (ADR-0004). An archive era takes it from the content zip Spring publishes to Maven Central. A synthesized era has no such zip, so `fetch-upstream.ts` rebuilds it from what the release tag does carry — the static attributes file, the dependency BOM build script and `gradle.properties` — plus the published jars shipping `spring-configuration-metadata.json`.
+Where the generated half comes from depends on the version's **layout era** (ADR-0004). An archive era takes it from the content zip Spring publishes to Maven Central. A synthesized era has no such zip, so `fetch-upstream.ts` rebuilds it: the sample tree and the attribute inputs come from the tag itself (the static attributes file, the dependency BOM build script, `gradle.properties`), while Maven Central supplies the jars shipping `spring-configuration-metadata.json` and the BOMs that build script imports, which is where the managed dependency versions resolve from.
 
 **This makes buildability a property of upstream's layout and publishing, not of the converter**, and the two interact. `spring-boot-docs` is published to Maven Central for 2.2.x-2.4.2 and then again from 4.0.8, so the 3.3-3.5 line has no content archive and is reconstructed instead. 4.0.0 moved the component to `documentation/`, and 4.0.0-4.0.7 are archive-less on that new path, which neither route covers — so they are refused. 4.1.0 is tagged with its archive not yet published; that is a publication fact rather than a layout one, so it is left to detection rather than frozen into an era boundary. `detect-upstream-versions.ts` checks each candidate's required artifacts — the content zip for an archive era, the metadata jars for a synthesized one — before reporting it, so the nightly workflow does not file issues for versions nobody can build.
 
@@ -280,7 +279,7 @@ These constraints must hold; violating them is a regression, not a style prefere
 
 | Layer        | What                                                                  | Where                                       |
 | ------------ | --------------------------------------------------------------------- | ------------------------------------------- |
-| Unit         | One file per `scripts/` module — pure logic against its own inputs     | `tests/unit/*.test.ts`                      |
+| Unit         | Pure logic of a `scripts/` module, against its own inputs              | `tests/unit/*.test.ts`                      |
 | Schema       | `manifest.json` round-trips schema validation                         | `tests/unit/manifest.test.ts`               |
 | Integration  | Fixture upstream tree → full archive → checksum verification          | `tests/integration/*.test.ts`               |
 | Determinism  | Same fixture run twice produces byte-identical output                 | `tests/integration/determinism.test.ts`     |
