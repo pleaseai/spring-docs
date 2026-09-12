@@ -203,7 +203,7 @@ code-folding extension's `<span class="fold-block">` wrappers.
 | Component root | `spring-boot-project/spring-boot-docs/src/docs/antora` | `documentation/spring-boot-docs/src/docs/antora` |
 | Dependency BOM script | `spring-boot-project/spring-boot-dependencies/build.gradle` | `platform/spring-boot-dependencies/build.gradle` |
 | Content archives on Maven Central | **none** | `root-aggregate-content` |
-| Pages produced | 145 | 246 |
+| Pages produced | 141-147 | 246 |
 
 `antora.yml` first appears at **v3.3.0**; 3.2 and older ship the pre-Antora
 `src/docs/asciidoc` layout, which this pipeline cannot classify.

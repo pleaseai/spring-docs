@@ -77,7 +77,38 @@ export function parseArgs(argv: readonly string[]): Args {
 }
 
 /**
- * Whether every remote artifact a version's build reads has been published.
+ * Maximum HEAD requests in flight against Maven Central at once.
+ *
+ * The bound is the point: a synthesized-era version needs eight artifacts, so a
+ * first run over the whole 3.3-3.5 line probes a few hundred URLs. Issuing them
+ * one at a time costs about a minute of CI; issuing them all at once is rude to
+ * a host this pipeline does not own.
+ */
+const PROBE_CONCURRENCY = 8
+
+/** One artifact to probe, and the version whose build reads it. */
+interface Probe {
+  readonly version: string
+  readonly url: string
+}
+
+/**
+ * Whether a single remote artifact has been published.
+ *
+ * @throws if the URL cannot be reached, so a network fault is never mistaken for
+ * an unpublished version.
+ */
+async function artifactPublished(url: string): Promise<boolean> {
+  const response = await fetch(url, { method: 'HEAD' })
+  if (response.status === 404)
+    return false
+  if (!response.ok)
+    throw new Error(`HEAD ${url} → ${response.status} ${response.statusText}`)
+  return true
+}
+
+/**
+ * Split the versions whose artifacts are all published from those still missing one.
  *
  * Upstream tags a release long before — and sometimes without ever — publishing
  * the artifacts this pipeline reads: 4.1.0 is tagged but has no content archive.
@@ -86,18 +117,41 @@ export function parseArgs(argv: readonly string[]): Args {
  * wastes a human's time, so availability is checked here rather than left for
  * `fetch-upstream.ts` to hit as a 404.
  *
- * @throws if a URL cannot be reached, so a network fault is never mistaken for
- * an unpublished version.
+ * Every probe runs, even once a version is known to be missing one artifact: the
+ * bounded pool is what makes the whole sweep cheap, and short-circuiting a single
+ * version inside it would save nothing measurable.
+ *
+ * @throws if any URL cannot be reached.
  */
-async function artifactsPublished(project: string, version: string): Promise<boolean> {
-  for (const url of requiredArtifactUrls(project, version)) {
-    const response = await fetch(url, { method: 'HEAD' })
-    if (response.status === 404)
-      return false
-    if (!response.ok)
-      throw new Error(`HEAD ${url} → ${response.status} ${response.statusText}`)
-  }
-  return true
+async function partitionByPublication(
+  project: string,
+  versions: readonly string[],
+): Promise<{ buildable: string[], unpublished: string[] }> {
+  const probes: Probe[] = versions.flatMap(version =>
+    requiredArtifactUrls(project, version).map(url => ({ version, url })),
+  )
+
+  const missingArtifact = new Set<string>()
+  let next = 0
+  const runners = Array.from(
+    { length: Math.min(PROBE_CONCURRENCY, probes.length) },
+    async () => {
+      for (let index = next++; index < probes.length; index = next++) {
+        const probe = probes[index]
+        if (probe === undefined)
+          return
+        if (!await artifactPublished(probe.url))
+          missingArtifact.add(probe.version)
+      }
+    },
+  )
+  await Promise.all(runners)
+
+  const buildable: string[] = []
+  const unpublished: string[] = []
+  for (const version of versions)
+    (missingArtifact.has(version) ? unpublished : buildable).push(version)
+  return { buildable, unpublished }
 }
 
 /** Tag names on a remote, without cloning it. */
@@ -135,14 +189,7 @@ async function main(): Promise<void> {
       const tags = await listRemoteTags(cloneUrlFor(project))
       const missing = missingVersions(catalog, project, tags)
 
-      const buildable: string[] = []
-      const unpublished: string[] = []
-      for (const version of missing) {
-        if (await artifactsPublished(project, version))
-          buildable.push(version)
-        else
-          unpublished.push(version)
-      }
+      const { buildable, unpublished } = await partitionByPublication(project, missing)
 
       const selected = args.limit === null ? buildable : buildable.slice(-args.limit)
       for (const version of selected) include.push({ project, version })

@@ -181,6 +181,14 @@ describe('resolveUpstream layout eras', () => {
     expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/not buildable/)
   })
 
+  test('treats an era ceiling as exclusive, so the ceiling itself is refused', () => {
+    // 4.0.0 is the only version that distinguishes `< until` from `<= until`:
+    // every other gap version is above the ceiling and refused either way. A
+    // ceiling read as inclusive would resolve 4.0.0 to the 3.x era and fetch a
+    // component path that does not exist at its tag.
+    expect(() => resolveUpstream('boot', '4.0.0')).toThrow(/not buildable/)
+  })
+
   test('names the buildable ranges when it refuses', () => {
     expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/3\.3\.0-<4\.0\.0, >= 4\.0\.8/)
   })
