@@ -114,6 +114,20 @@ describe('unpublishedArtifacts', () => {
     expect(peak).toBe(4)
   })
 
+  test('refuses a concurrency that would spawn no runner at all', async () => {
+    // Array.from({length: 0 | -1 | NaN}) yields no runners, so the sweep would
+    // resolve immediately with an empty `missing` set and report every artifact
+    // published without having asked about one.
+    for (const concurrency of [0, -1, Number.NaN, 1.5]) {
+      const fetcher = stub({ 'https://e.com/1.jar': 404 })
+
+      await expect(unpublishedArtifacts(urls, { fetchImpl: fetcher, concurrency }))
+        .rejects
+        .toThrow(RangeError)
+      expect(fetcher.calls).toEqual([])
+    }
+  })
+
   test('handles an empty list without spawning a runner', async () => {
     const fetcher = stub()
 

@@ -70,6 +70,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `lib/catalog-schema.ts`    | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                                             |
 | `lib/upstream-sources.ts`  | Per-project upstream coordinates — repo, tag, component path, content archives, javadoc + external component URLs, and the supported version floor. |
 | `lib/version-detect.ts`    | Pure diff of upstream tags against the catalog.                                                                                                   |
+| `lib/artifact-availability.ts` | Ask Maven Central whether the artifacts a version needs are published yet. Shared by the detect sweep and the fetch it gates, so the two cannot disagree. |
 | `lib/component-descriptor.ts` | The Antora component descriptor — the `name:` declared by a checked-out stub, and the `antora.yml` a synthesized era serializes in its place.  |
 | `lib/antora-attributes.ts` | Rebuild the descriptor's asciidoc attributes for an era that publishes no archive — a pure port of Spring's `AntoraAsciidocAttributes` (ADR-0004). |
 | `lib/bom-libraries.ts`     | Parse the `library(...)`/`links` DSL in Spring's dependency BOM build script. Pure text — evaluating it would mean running Gradle.              |

@@ -52,13 +52,20 @@ export async function artifactPublished(url: string, fetchImpl: Fetcher = fetch)
  * makes a whole sweep cheap, and short-circuiting inside it would save nothing
  * measurable while making the result depend on completion order.
  *
- * @throws if any URL cannot be reached.
+ * @throws if any URL cannot be reached, or if `concurrency` is not a positive
+ * integer.
  */
 export async function unpublishedArtifacts(
   urls: readonly string[],
   options: { readonly fetchImpl?: Fetcher, readonly concurrency?: number } = {},
 ): Promise<string[]> {
   const { fetchImpl = fetch, concurrency = PROBE_CONCURRENCY } = options
+  // A pool sized 0, -1 or NaN spawns no runner at all, so `missing` stays empty
+  // and the sweep reports every artifact published without asking about one —
+  // the single wrong answer this module exists to prevent. `number` does not
+  // exclude those, so refuse them here rather than return a silent all-clear.
+  if (!Number.isInteger(concurrency) || concurrency < 1)
+    throw new RangeError(`Probe concurrency must be a positive integer, got ${concurrency}`)
 
   const missing = new Set<string>()
   let next = 0
