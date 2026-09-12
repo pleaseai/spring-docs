@@ -1,0 +1,187 @@
+---
+title: "Spring Boot Application"
+source: "how-to:application.adoc"
+---
+
+<a id="howto.application"></a>
+
+# Spring Boot Application
+
+This section includes topics relating directly to Spring Boot applications.
+
+<a id="howto.application.failure-analyzer"></a>
+
+## Create Your Own FailureAnalyzer
+
+[`FailureAnalyzer`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/diagnostics/FailureAnalyzer.html) is a great way to intercept an exception on startup and turn it into a human-readable message, wrapped in a [`FailureAnalysis`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/diagnostics/FailureAnalysis.html).
+Spring Boot provides such an analyzer for application-context-related exceptions, JSR-303 validations, and more.
+You can also create your own.
+
+[`AbstractFailureAnalyzer`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/diagnostics/AbstractFailureAnalyzer.html) is a convenient extension of [`FailureAnalyzer`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/diagnostics/FailureAnalyzer.html) that checks the presence of a specified exception type in the exception to handle.
+You can extend from that so that your implementation gets a chance to handle the exception only when it is actually present.
+If, for whatever reason, you cannot handle the exception, return `null` to give another implementation a chance to handle the exception.
+
+[`FailureAnalyzer`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/diagnostics/FailureAnalyzer.html) implementations must be registered in `META-INF/spring.factories`.
+The following example registers `ProjectConstraintViolationFailureAnalyzer`:
+
+```properties
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+com.example.ProjectConstraintViolationFailureAnalyzer
+```
+
+> [!NOTE]
+> If you need access to the [`BeanFactory`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/beans/factory/BeanFactory.html) or the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html), declare them as constructor arguments in your [`FailureAnalyzer`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/diagnostics/FailureAnalyzer.html) implementation.
+
+<a id="howto.application.troubleshoot-auto-configuration"></a>
+
+## Troubleshoot Auto-configuration
+
+The Spring Boot auto-configuration tries its best to “do the right thing”, but sometimes things fail, and it can be hard to tell why.
+
+There is a really useful [`ConditionEvaluationReport`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/autoconfigure/condition/ConditionEvaluationReport.html) available in any Spring Boot [`ApplicationContext`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/ApplicationContext.html).
+You can see it if you enable `DEBUG` logging output.
+If you use the `spring-boot-actuator` (see the [actuator.adoc](actuator.md) section), there is also a `conditions` endpoint that renders the report in JSON.
+Use that endpoint to debug the application and see what features have been added (and which have not been added) by Spring Boot at runtime.
+
+Many more questions can be answered by looking at the source code and the API documentation.
+When reading the code, remember the following rules of thumb:
+
+- Look for classes called `*AutoConfiguration` and read their sources.
+Pay special attention to the `@Conditional*` annotations to find out what features they enable and when.
+Add `--debug` to the command line or the System property `-Ddebug` to get a log on the console of all the auto-configuration decisions that were made in your app.
+In a running application with actuator enabled, look at the `conditions` endpoint (`/actuator/conditions` or the JMX equivalent) for the same information.
+- Look for classes that are [`@ConfigurationProperties`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/context/properties/ConfigurationProperties.html) (such as [`ServerProperties`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/autoconfigure/web/ServerProperties.html)) and read from there the available external configuration options.
+The [`@ConfigurationProperties`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/context/properties/ConfigurationProperties.html) annotation has a `name` attribute that acts as a prefix to external properties.
+Thus, [`ServerProperties`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/autoconfigure/web/ServerProperties.html) has `prefix="server"` and its configuration properties are `server.port`, `server.address`, and others.
+In a running application with actuator enabled, look at the `configprops` endpoint.
+- Look for uses of the `bind` method on the [`Binder`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/context/properties/bind/Binder.html) to pull configuration values explicitly out of the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html) in a relaxed manner.
+It is often used with a prefix.
+- Look for [`@Value`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/beans/factory/annotation/Value.html) annotations that bind directly to the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html).
+- Look for [`@ConditionalOnExpression`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/autoconfigure/condition/ConditionalOnExpression.html) annotations that switch features on and off in response to SpEL expressions, normally evaluated with placeholders resolved from the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html).
+
+<a id="howto.application.customize-the-environment-or-application-context"></a>
+
+## Customize the Environment or ApplicationContext Before It Starts
+
+A [`SpringApplication`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/SpringApplication.html) has [`ApplicationListener`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/ApplicationListener.html) and [`ApplicationContextInitializer`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/ApplicationContextInitializer.html) implementations that are used to apply customizations to the context or environment.
+Spring Boot loads a number of such customizations for use internally from `META-INF/spring.factories`.
+There is more than one way to register additional customizations:
+
+- Programmatically, per application, by calling the `addListeners` and `addInitializers` methods on [`SpringApplication`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/SpringApplication.html) before you run it.
+- Declaratively, for all applications, by adding a `META-INF/spring.factories` and packaging a jar file that the applications all use as a library.
+
+The [`SpringApplication`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/SpringApplication.html) sends some special [`ApplicationEvents`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/test/context/event/ApplicationEvents.html) to the listeners (some even before the context is created) and then registers the listeners for events published by the [`ApplicationContext`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/ApplicationContext.html) as well.
+See [reference:features/spring-application.adoc#features.spring-application.application-events-and-listeners](../reference/features/spring-application.md#features.spring-application.application-events-and-listeners) in the “Spring Boot Features” section for a complete list.
+
+It is also possible to customize the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html) before the application context is refreshed by using [`EnvironmentPostProcessor`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/env/EnvironmentPostProcessor.html).
+Each implementation should be registered in `META-INF/spring.factories`, as shown in the following example:
+
+```
+org.springframework.boot.env.EnvironmentPostProcessor=com.example.YourEnvironmentPostProcessor
+```
+
+The implementation can load arbitrary files and add them to the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html).
+For instance, the following example loads a YAML configuration file from the classpath:
+
+#### Java
+
+```java
+import java.io.IOException;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.env.EnvironmentPostProcessor;
+import org.springframework.boot.env.YamlPropertySourceLoader;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.PropertySource;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.util.Assert;
+
+public class MyEnvironmentPostProcessor implements EnvironmentPostProcessor {
+
+	private final YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
+
+	@Override
+	public void postProcessEnvironment(ConfigurableEnvironment environment, SpringApplication application) {
+		Resource path = new ClassPathResource("com/example/myapp/config.yml");
+		PropertySource<?> propertySource = loadYaml(path);
+		environment.getPropertySources().addLast(propertySource);
+	}
+
+	private PropertySource<?> loadYaml(Resource path) {
+		Assert.isTrue(path.exists(), () -> "Resource " + path + " does not exist");
+		try {
+			return this.loader.load("custom-resource", path).get(0);
+		}
+		catch (IOException ex) {
+			throw new IllegalStateException("Failed to load yaml configuration from " + path, ex);
+		}
+	}
+
+}
+```
+
+#### Kotlin
+
+```kotlin
+import org.springframework.boot.SpringApplication
+import org.springframework.boot.env.EnvironmentPostProcessor
+import org.springframework.boot.env.YamlPropertySourceLoader
+import org.springframework.core.env.ConfigurableEnvironment
+import org.springframework.core.env.PropertySource
+import org.springframework.core.io.ClassPathResource
+import org.springframework.core.io.Resource
+import org.springframework.util.Assert
+import java.io.IOException
+
+class MyEnvironmentPostProcessor : EnvironmentPostProcessor {
+
+	private val loader = YamlPropertySourceLoader()
+
+	override fun postProcessEnvironment(environment: ConfigurableEnvironment, application: SpringApplication) {
+		val path: Resource = ClassPathResource("com/example/myapp/config.yml")
+		val propertySource = loadYaml(path)
+		environment.propertySources.addLast(propertySource)
+	}
+
+	private fun loadYaml(path: Resource): PropertySource<*> {
+		Assert.isTrue(path.exists()) { "Resource $path does not exist" }
+		return try {
+			loader.load("custom-resource", path)[0]
+		} catch (ex: IOException) {
+			throw IllegalStateException("Failed to load yaml configuration from $path", ex)
+		}
+	}
+
+}
+
+```
+
+> [!TIP]
+> The [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html) has already been prepared with all the usual property sources that Spring Boot loads by default.
+> It is therefore possible to get the location of the file from the environment.
+> The preceding example adds the `custom-resource` property source at the end of the list so that a key defined in any of the usual other locations takes precedence.
+> A custom implementation may define another order.
+
+> [!CAUTION]
+> While using [`@PropertySource`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/annotation/PropertySource.html) on your [`@SpringBootApplication`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/autoconfigure/SpringBootApplication.html) may seem to be a convenient way to load a custom resource in the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html), we do not recommend it.
+> Such property sources are not added to the [`Environment`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/core/env/Environment.html) until the application context is being refreshed.
+> This is too late to configure certain properties such as `logging.*` and `spring.main.*` which are read before refresh begins.
+
+<a id="howto.application.context-hierarchy"></a>
+
+## Build an ApplicationContext Hierarchy (Adding a Parent or Root Context)
+
+You can use the [`SpringApplicationBuilder`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/builder/SpringApplicationBuilder.html) class to create parent/child [`ApplicationContext`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/ApplicationContext.html) hierarchies.
+See [reference:features/spring-application.adoc#features.spring-application.fluent-builder-api](../reference/features/spring-application.md#features.spring-application.fluent-builder-api) in the “Spring Boot Features” section for more information.
+
+<a id="howto.application.non-web-application"></a>
+
+## Create a Non-web Application
+
+Not all Spring applications have to be web applications (or web services).
+If you want to execute some code in a `main` method but also bootstrap a Spring application to set up the infrastructure to use, you can use the [`SpringApplication`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/SpringApplication.html) features of Spring Boot.
+A [`SpringApplication`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/SpringApplication.html) changes its [`ApplicationContext`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/ApplicationContext.html) class, depending on whether it thinks it needs a web application or not.
+The first thing you can do to help it is to leave server-related dependencies (such as the servlet API) off the classpath.
+If you cannot do that (for example, if you run two applications from the same code base) then you can explicitly call `setWebApplicationType(WebApplicationType.NONE)` on your [`SpringApplication`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/SpringApplication.html) instance or set the `applicationContextClass` property (through the Java API or with external properties).
+Application code that you want to run as your business logic can be implemented as a [`CommandLineRunner`](https://docs.spring.io/spring-boot/3.3.13/api/java/org/springframework/boot/CommandLineRunner.html) and dropped into the context as a [`@Bean`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/context/annotation/Bean.html) definition.

@@ -1,0 +1,381 @@
+---
+title: "JMS"
+source: "reference:messaging/jms.adoc"
+---
+
+<a id="messaging.jms"></a>
+
+# JMS
+
+The [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html) interface provides a standard method of creating a [`Connection`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/Connection.html) for interacting with a JMS broker.
+Although Spring needs a [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html) to work with JMS, you generally need not use it directly yourself and can instead rely on higher level messaging abstractions.
+(See the [relevant section](https://docs.spring.io/spring-framework/reference/6.1/integration/jms.html) of the Spring Framework reference documentation for details.)
+Spring Boot also auto-configures the necessary infrastructure to send and receive messages.
+
+<a id="messaging.jms.activemq"></a>
+
+## ActiveMQ "Classic" Support
+
+When [ActiveMQ "Classic"](https://activemq.apache.org/components/classic) is available on the classpath, Spring Boot can configure a [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html).
+
+> [!NOTE]
+> If you use `spring-boot-starter-activemq`, the necessary dependencies to connect to an ActiveMQ "Classic" instance are provided, as is the Spring infrastructure to integrate with JMS.
+
+ActiveMQ "Classic" configuration is controlled by external configuration properties in `spring.activemq.*`.
+By default, ActiveMQ "Classic" is auto-configured to use the [TCP transport](https://activemq.apache.org/tcp-transport-reference), connecting by default to `tcp://localhost:61616`. The following example shows how to change the default broker URL:
+
+#### Properties
+
+```properties
+spring.activemq.broker-url=tcp://192.168.1.210:9876
+spring.activemq.user=admin
+spring.activemq.password=secret
+```
+
+#### YAML
+
+```yaml
+spring:
+  activemq:
+    broker-url: "tcp://192.168.1.210:9876"
+    user: "admin"
+    password: "secret"
+```
+
+By default, a [`CachingConnectionFactory`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/connection/CachingConnectionFactory.html) wraps the native [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html) with sensible settings that you can control by external configuration properties in `spring.jms.*`:
+
+#### Properties
+
+```properties
+spring.jms.cache.session-cache-size=5
+```
+
+#### YAML
+
+```yaml
+spring:
+  jms:
+    cache:
+      session-cache-size: 5
+```
+
+If you’d rather use native pooling, you can do so by adding a dependency to `org.messaginghub:pooled-jms` and configuring the [`JmsPoolConnectionFactory`](https://javadoc.io/doc/org.messaginghub/pooled-jms/3.1.7/org/messaginghub/pooled/jms/JmsPoolConnectionFactory.html) accordingly, as shown in the following example:
+
+#### Properties
+
+```properties
+spring.activemq.pool.enabled=true
+spring.activemq.pool.max-connections=50
+```
+
+#### YAML
+
+```yaml
+spring:
+  activemq:
+    pool:
+      enabled: true
+      max-connections: 50
+```
+
+> [!TIP]
+> See [`ActiveMQProperties`](https://docs.spring.io/spring-boot/3.3.11/api/java/org/springframework/boot/autoconfigure/jms/activemq/ActiveMQProperties.html) for more of the supported options.
+> You can also register an arbitrary number of beans that implement [`ActiveMQConnectionFactoryCustomizer`](https://docs.spring.io/spring-boot/3.3.11/api/java/org/springframework/boot/autoconfigure/jms/activemq/ActiveMQConnectionFactoryCustomizer.html) for more advanced customizations.
+
+By default, ActiveMQ "Classic" creates a destination if it does not yet exist so that destinations are resolved against their provided names.
+
+<a id="messaging.jms.artemis"></a>
+
+## ActiveMQ Artemis Support
+
+Spring Boot can auto-configure a [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html) when it detects that [ActiveMQ Artemis](https://activemq.apache.org/components/artemis/) is available on the classpath.
+If the broker is present, an embedded broker is automatically started and configured (unless the mode property has been explicitly set).
+The supported modes are `embedded` (to make explicit that an embedded broker is required and that an error should occur if the broker is not available on the classpath) and `native` (to connect to a broker using the `netty` transport protocol).
+When the latter is configured, Spring Boot configures a [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html) that connects to a broker running on the local machine with the default settings.
+
+> [!NOTE]
+> If you use `spring-boot-starter-artemis`, the necessary dependencies to connect to an existing ActiveMQ Artemis instance are provided, as well as the Spring infrastructure to integrate with JMS.
+> Adding `org.apache.activemq:artemis-jakarta-server` to your application lets you use embedded mode.
+
+ActiveMQ Artemis configuration is controlled by external configuration properties in `spring.artemis.*`.
+For example, you might declare the following section in `application.properties`:
+
+#### Properties
+
+```properties
+spring.artemis.mode=native
+spring.artemis.broker-url=tcp://192.168.1.210:9876
+spring.artemis.user=admin
+spring.artemis.password=secret
+```
+
+#### YAML
+
+```yaml
+spring:
+  artemis:
+    mode: native
+    broker-url: "tcp://192.168.1.210:9876"
+    user: "admin"
+    password: "secret"
+```
+
+When embedding the broker, you can choose if you want to enable persistence and list the destinations that should be made available.
+These can be specified as a comma-separated list to create them with the default options, or you can define bean(s) of type [`JMSQueueConfiguration`](https://javadoc.io/doc/org.apache.activemq/artemis-jms-server/2.33.0/org/apache/activemq/artemis/jms/server/config/JMSQueueConfiguration.html) or [`TopicConfiguration`](https://javadoc.io/doc/org.apache.activemq/artemis-jms-server/2.33.0/org/apache/activemq/artemis/jms/server/config/TopicConfiguration.html), for advanced queue and topic configurations, respectively.
+
+By default, a [`CachingConnectionFactory`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/connection/CachingConnectionFactory.html) wraps the native [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html) with sensible settings that you can control by external configuration properties in `spring.jms.*`:
+
+#### Properties
+
+```properties
+spring.jms.cache.session-cache-size=5
+```
+
+#### YAML
+
+```yaml
+spring:
+  jms:
+    cache:
+      session-cache-size: 5
+```
+
+If you’d rather use native pooling, you can do so by adding a dependency on `org.messaginghub:pooled-jms` and configuring the [`JmsPoolConnectionFactory`](https://javadoc.io/doc/org.messaginghub/pooled-jms/3.1.7/org/messaginghub/pooled/jms/JmsPoolConnectionFactory.html) accordingly, as shown in the following example:
+
+#### Properties
+
+```properties
+spring.artemis.pool.enabled=true
+spring.artemis.pool.max-connections=50
+```
+
+#### YAML
+
+```yaml
+spring:
+  artemis:
+    pool:
+      enabled: true
+      max-connections: 50
+```
+
+See [`ArtemisProperties`](https://docs.spring.io/spring-boot/3.3.11/api/java/org/springframework/boot/autoconfigure/jms/artemis/ArtemisProperties.html) for more supported options.
+
+No JNDI lookup is involved, and destinations are resolved against their names, using either the `name` attribute in the ActiveMQ Artemis configuration or the names provided through configuration.
+
+<a id="messaging.jms.jndi"></a>
+
+## Using a JNDI ConnectionFactory
+
+If you are running your application in an application server, Spring Boot tries to locate a JMS [`ConnectionFactory`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ConnectionFactory.html) by using JNDI.
+By default, the `java:/JmsXA` and `java:/XAConnectionFactory` location are checked.
+You can use the `spring.jms.jndi-name` property if you need to specify an alternative location, as shown in the following example:
+
+#### Properties
+
+```properties
+spring.jms.jndi-name=java:/MyConnectionFactory
+```
+
+#### YAML
+
+```yaml
+spring:
+  jms:
+    jndi-name: "java:/MyConnectionFactory"
+```
+
+<a id="messaging.jms.sending"></a>
+
+## Sending a Message
+
+Spring’s [`JmsTemplate`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/core/JmsTemplate.html) is auto-configured, and you can autowire it directly into your own beans, as shown in the following example:
+
+#### Java
+
+```java
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyBean {
+
+	private final JmsTemplate jmsTemplate;
+
+	public MyBean(JmsTemplate jmsTemplate) {
+		this.jmsTemplate = jmsTemplate;
+	}
+	public void someMethod() {
+		this.jmsTemplate.convertAndSend("hello");
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+import org.springframework.jms.core.JmsTemplate
+import org.springframework.stereotype.Component
+
+@Component
+class MyBean(private val jmsTemplate: JmsTemplate) {
+	fun someMethod() {
+		jmsTemplate.convertAndSend("hello")
+	}
+}
+```
+
+> [!NOTE]
+> [`JmsMessagingTemplate`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/core/JmsMessagingTemplate.html) can be injected in a similar manner.
+> If a [`DestinationResolver`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/support/destination/DestinationResolver.html) or a [`MessageConverter`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/support/converter/MessageConverter.html) bean is defined, it is associated automatically to the auto-configured [`JmsTemplate`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/core/JmsTemplate.html).
+
+<a id="messaging.jms.receiving"></a>
+
+## Receiving a Message
+
+When the JMS infrastructure is present, any bean can be annotated with [`@JmsListener`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/annotation/JmsListener.html) to create a listener endpoint.
+If no [`JmsListenerContainerFactory`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/config/JmsListenerContainerFactory.html) has been defined, a default one is configured automatically.
+If a [`DestinationResolver`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/support/destination/DestinationResolver.html), a [`MessageConverter`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/support/converter/MessageConverter.html), or a [`ExceptionListener`](https://jakarta.ee/specifications/messaging/3.1/apidocs/jakarta.messaging/jakarta/jms/ExceptionListener.html) beans are defined, they are associated automatically with the default factory.
+
+By default, the default factory is transactional.
+If you run in an infrastructure where a [`JtaTransactionManager`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/transaction/jta/JtaTransactionManager.html) is present, it is associated to the listener container by default.
+If not, the `sessionTransacted` flag is enabled.
+In that latter scenario, you can associate your local data store transaction to the processing of an incoming message by adding [`@Transactional`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/transaction/annotation/Transactional.html) on your listener method (or a delegate thereof).
+This ensures that the incoming message is acknowledged, once the local transaction has completed.
+This also includes sending response messages that have been performed on the same JMS session.
+
+The following component creates a listener endpoint on the `someQueue` destination:
+
+#### Java
+
+```java
+import org.springframework.jms.annotation.JmsListener;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyBean {
+
+	@JmsListener(destination = "someQueue")
+	public void processMessage(String content) {
+		// ...
+	}
+
+}
+```
+
+#### Kotlin
+
+```kotlin
+import org.springframework.jms.annotation.JmsListener
+import org.springframework.stereotype.Component
+
+@Component
+class MyBean {
+
+	@JmsListener(destination = "someQueue")
+	fun processMessage(content: String?) {
+		// ...
+	}
+
+}
+```
+
+> [!TIP]
+> See the [`@EnableJms`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/annotation/EnableJms.html) API documentation for more details.
+
+If you need to create more [`JmsListenerContainerFactory`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/config/JmsListenerContainerFactory.html) instances or if you want to override the default, Spring Boot provides a [`DefaultJmsListenerContainerFactoryConfigurer`](https://docs.spring.io/spring-boot/3.3.11/api/java/org/springframework/boot/autoconfigure/jms/DefaultJmsListenerContainerFactoryConfigurer.html) that you can use to initialize a [`DefaultJmsListenerContainerFactory`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/config/DefaultJmsListenerContainerFactory.html) with the same settings as the one that is auto-configured.
+
+For instance, the following example exposes another factory that uses a specific [`MessageConverter`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/support/converter/MessageConverter.html):
+
+#### Java
+
+```java
+import jakarta.jms.ConnectionFactory;
+
+import org.springframework.boot.autoconfigure.jms.DefaultJmsListenerContainerFactoryConfigurer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jms.config.DefaultJmsListenerContainerFactory;
+
+@Configuration(proxyBeanMethods = false)
+public class MyJmsConfiguration {
+
+	@Bean
+	public DefaultJmsListenerContainerFactory myFactory(DefaultJmsListenerContainerFactoryConfigurer configurer) {
+		DefaultJmsListenerContainerFactory factory = new DefaultJmsListenerContainerFactory();
+		ConnectionFactory connectionFactory = getCustomConnectionFactory();
+		configurer.configure(factory, connectionFactory);
+		factory.setMessageConverter(new MyMessageConverter());
+		return factory;
+	}
+
+	private ConnectionFactory getCustomConnectionFactory() {
+		return ...
+	}
+
+}
+```
+
+#### Kotlin
+
+```kotlin
+import jakarta.jms.ConnectionFactory
+import org.springframework.boot.autoconfigure.jms.DefaultJmsListenerContainerFactoryConfigurer
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import org.springframework.jms.config.DefaultJmsListenerContainerFactory
+
+@Configuration(proxyBeanMethods = false)
+class MyJmsConfiguration {
+
+	@Bean
+	fun myFactory(configurer: DefaultJmsListenerContainerFactoryConfigurer): DefaultJmsListenerContainerFactory {
+		val factory = DefaultJmsListenerContainerFactory()
+		val connectionFactory = getCustomConnectionFactory()
+		configurer.configure(factory, connectionFactory)
+		factory.setMessageConverter(MyMessageConverter())
+		return factory
+	}
+
+	fun getCustomConnectionFactory() : ConnectionFactory? {
+		return ...
+	}
+
+}
+```
+
+Then you can use the factory in any [`@JmsListener`](https://docs.spring.io/spring-framework/docs/6.1.x/javadoc-api/org/springframework/jms/annotation/JmsListener.html)-annotated method as follows:
+
+#### Java
+
+```java
+import org.springframework.jms.annotation.JmsListener;
+import org.springframework.stereotype.Component;
+
+@Component
+public class MyBean {
+
+	@JmsListener(destination = "someQueue", containerFactory = "myFactory")
+	public void processMessage(String content) {
+		// ...
+	}
+
+}
+```
+
+#### Kotlin
+
+```kotlin
+import org.springframework.jms.annotation.JmsListener
+import org.springframework.stereotype.Component
+
+@Component
+class MyBean {
+
+	@JmsListener(destination = "someQueue", containerFactory = "myFactory")
+	fun processMessage(content: String?) {
+		// ...
+	}
+
+}
+```

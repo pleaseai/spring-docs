@@ -1,0 +1,32 @@
+---
+title: "Configuration Classes"
+source: "reference:using/configuration-classes.adoc"
+---
+
+<a id="using.configuration-classes"></a>
+
+# Configuration Classes
+
+Spring Boot favors Java-based configuration.
+Although it is possible to use [`SpringApplication`](https://docs.spring.io/spring-boot/3.4.3/api/java/org/springframework/boot/SpringApplication.html) with XML sources, we generally recommend that your primary source be a single [`@Configuration`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/Configuration.html) class.
+Usually the class that defines the `main` method is a good candidate as the primary [`@Configuration`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/Configuration.html).
+
+> [!TIP]
+> Many Spring configuration examples have been published on the Internet that use XML configuration.
+> If possible, always try to use the equivalent Java-based configuration.
+> Searching for `Enable*` annotations can be a good starting point.
+
+<a id="using.configuration-classes.importing-additional-configuration"></a>
+
+## Importing Additional Configuration Classes
+
+You need not put all your [`@Configuration`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/Configuration.html) into a single class.
+The [`@Import`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/Import.html) annotation can be used to import additional configuration classes.
+Alternatively, you can use [`@ComponentScan`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/ComponentScan.html) to automatically pick up all Spring components, including [`@Configuration`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/Configuration.html) classes.
+
+<a id="using.configuration-classes.importing-xml-configuration"></a>
+
+## Importing XML Configuration
+
+If you absolutely must use XML based configuration, we recommend that you still start with a [`@Configuration`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/Configuration.html) class.
+You can then use an [`@ImportResource`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/ImportResource.html) annotation to load XML configuration files.
