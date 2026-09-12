@@ -40,7 +40,7 @@ When reading the code or the spec for the first time, start here:
 | `.please/docs/knowledge/tech-stack.md`                   | Runtime, language, conversion library choices with rationale                                        |
 | [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) | CI entry — typecheck + lint + `validate-catalog` + test on every PR and push to main                |
 | [`scripts/validate-catalog.ts`](./scripts/validate-catalog.ts) | Tooling entry — runs the catalog zod schema; CI gate that guards `catalog.json` shape              |
-| [`scripts/fetch-upstream.ts`](./scripts/fetch-upstream.ts) | Pipeline entry — sparse-checkout one upstream `(project, tag)` pair and merge its published content archives |
+| [`scripts/fetch-upstream.ts`](./scripts/fetch-upstream.ts) | Pipeline entry — sparse-checkout one upstream `(project, tag)` pair and obtain its generated half, by published archive or reconstruction |
 | [`scripts/convert.ts`](./scripts/convert.ts)             | Pipeline entry — AsciiDoc/Antora → Markdown conversion                                              |
 | [`scripts/package-release.ts`](./scripts/package-release.ts) | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum                          |
 | [`scripts/update-catalog.ts`](./scripts/update-catalog.ts) | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`                  |
@@ -59,7 +59,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | File                       | Role                                                                                                                                             |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `validate-catalog.ts`      | Validate `catalog.json` against the canonical zod schema. CI gate.                                                                                |
-| `fetch-upstream.ts`        | Pipeline entry — sparse-checkout one upstream `(project, tag)` docs subtree, merge Spring's published content archives, write a provenance sidecar. |
+| `fetch-upstream.ts`        | Pipeline entry — sparse-checkout one upstream `(project, tag)` docs subtree, merge or reconstruct its generated half per the layout era, write a provenance sidecar. |
 | `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `_index.md`.                          |
 | `package-release.ts`       | Pipeline entry — produce a reproducible `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
 | `update-catalog.ts`        | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`.                                                                 |
@@ -70,11 +70,15 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `lib/upstream-sources.ts`  | Per-project upstream coordinates — repo, tag, component path, content archives, javadoc + external component URLs, and the supported version floor. |
 | `lib/version-detect.ts`    | Pure diff of upstream tags against the catalog.                                                                                                   |
 | `lib/component-descriptor.ts` | The Antora component descriptor — the `name:` declared by a checked-out stub, and the `antora.yml` a synthesized era serializes in its place.  |
+| `lib/antora-attributes.ts` | Rebuild the descriptor's asciidoc attributes for an era that publishes no archive — a pure port of Spring's `AntoraAsciidocAttributes` (ADR-0004). |
+| `lib/bom-libraries.ts`     | Parse the `library(...)`/`links` DSL in Spring's dependency BOM build script. Pure text — evaluating it would mean running Gradle.              |
+| `lib/reject-symlinks.ts`   | Refuse a symlink or a non-regular file in any tree copied into the content source, including the tree's own root.                                |
 | `lib/release-name.ts`      | The `<project>-<version>` split, shared by packaging and promotion.                                                                               |
 | `lib/output-layout.ts`     | Where each converted page lands, and the collision guard that keeps the tree platform-independent.                                                 |
 | `lib/markdown-converter.ts`| Block-level conversion: walks the resolved Asciidoctor AST and emits Markdown. **All block conversion logic lives here.**                          |
 | `lib/inline-html.ts`       | Inline-level conversion: the restricted HTML Asciidoctor returns for inline content → Markdown, including external component link rewriting.       |
 | `lib/manifest.ts`          | `manifest.json` schema + builder, and the content checksum. Owns the public schema; changes require an ADR.                                       |
+| `lib/generated-file-targets.ts` | Refuse a converted tree that already occupies a path packaging generates (`NOTICE`, `LICENSE`), which would split dry-run from real-run.     |
 | `lib/catalog-update.ts`    | Pure `catalog.json` update — refuses to repoint an existing tag (releases are immutable).                                                          |
 | `lib/release-state.ts`     | Pure decision of which release phases a re-run still owes.                                                                                        |
 | `lib/notice.ts`            | Builds the per-release `NOTICE` attribution text, pinned to the upstream commit.                                                                   |
@@ -160,13 +164,15 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
     ┌─────────────────────┴─────────────────────┐
     │                                           │
   github.com/spring-projects/<repo>:<tag>   Maven Central
-  (sparse checkout of the docs subtree)     <artifact>-<version>-<classifier>.zip
-    │                                           │
-    │  the authored AsciiDoc component          │  the generated half: the resolved
-    │                                           │  antora.yml + sample source tree
+  (sparse checkout of the docs subtree)     archive era:     the content zip
+    │                                       synthesized era: the metadata jars
+    │  the authored AsciiDoc component          │
+    │  — plus, for a synthesized era, the       │  the generated half: the resolved
+    │    build inputs it is rebuilt from        │  antora.yml + sample source tree
     └─────────────────────┬─────────────────────┘
-                          │ merge, promote modules/antora.yml,
-                          │ commit as a self-contained git repo
+                          │ merge the archive, or rebuild the generated
+                          │ half from the tag (ADR-0004); promote
+                          │ modules/antora.yml; commit as its own git repo
                           │ scripts/fetch-upstream.ts
                           ▼
         dist/upstream/<project>-<version>/        + <project>-<version>.upstream.json
@@ -208,9 +214,11 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
         (@pleaseai/spring, Cursor, Continue, RAG, ...)
 ```
 
-Both upstream halves are required. The checked-out `antora.yml` is a build-time stub; only the published archive carries the resolved attributes (dependency versions, javadoc locations) and the sample sources that `include-code::` reads, so fetching without it produces pages that convert cleanly while silently losing every included snippet.
+Both upstream halves are required. The checked-out `antora.yml` is a build-time stub: it declares the component and carries none of the ~900 resolved attributes (dependency versions, javadoc locations), and the sample sources `include-code::` reads do not live in the docs subtree either. The authored half alone converts cleanly while silently losing every included snippet.
 
-**This makes buildability a property of upstream's publishing, not of the converter.** Spring publishes `spring-boot-docs` to Maven Central for 2.2.x-2.4.2 and then not again until 4.0.8, so 4.0.0-4.0.7 and 4.1.0 are tagged releases that can never be built here. `detect-upstream-versions.ts` checks each candidate's archives before reporting it, so the nightly workflow does not file issues for versions nobody can build.
+Where the generated half comes from depends on the version's **layout era** (ADR-0004). An archive era takes it from the content zip Spring publishes to Maven Central. A synthesized era has no such zip, so `fetch-upstream.ts` rebuilds it from what the release tag does carry — the static attributes file, the dependency BOM build script and `gradle.properties` — plus the published jars shipping `spring-configuration-metadata.json`.
+
+**This makes buildability a property of upstream's layout and publishing, not of the converter**, and the two interact. `spring-boot-docs` is published to Maven Central for 2.2.x-2.4.2 and then again from 4.0.8, so the 3.3-3.5 line has no content archive and is reconstructed instead. 4.0.0 moved the component to `documentation/`, and 4.0.0-4.0.7 are archive-less on that new path, which neither route covers — so they are refused. 4.1.0 is tagged with its archive not yet published; that is a publication fact rather than a layout one, so it is left to detection rather than frozen into an era boundary. `detect-upstream-versions.ts` checks each candidate's required artifacts — the content zip for an archive era, the metadata jars for a synthesized one — before reporting it, so the nightly workflow does not file issues for versions nobody can build.
 
 
 **Determinism guarantee**: Same upstream commit + same `scripts/` SHA = byte-identical Markdown output and identical archive checksum. This is the load-bearing property of the entire system.
@@ -272,7 +280,7 @@ These constraints must hold; violating them is a regression, not a style prefere
 
 | Layer        | What                                                                  | Where                                       |
 | ------------ | --------------------------------------------------------------------- | ------------------------------------------- |
-| Unit         | One test per conversion rule (input AsciiDoc → expected Markdown)     | `tests/unit/antora-rules/*.test.ts`         |
+| Unit         | One file per `scripts/` module — pure logic against its own inputs     | `tests/unit/*.test.ts`                      |
 | Schema       | `manifest.json` round-trips schema validation                         | `tests/unit/manifest.test.ts`               |
 | Integration  | Fixture upstream tree → full archive → checksum verification          | `tests/integration/*.test.ts`               |
 | Determinism  | Same fixture run twice produces byte-identical output                 | `tests/integration/determinism.test.ts`     |
@@ -282,7 +290,7 @@ Coverage target: **>80% for new code**. Coverage is informational; the load-bear
 ### Configuration
 
 - **Coverage window** (which versions per project to build) lives in `.github/workflows/matrix-build.yml`.
-- **Conversion rules** live in `scripts/lib/antora-rules.ts`. There is no external rule configuration file.
+- **Conversion rules** live in `scripts/lib/markdown-converter.ts` (block level) and `scripts/lib/inline-html.ts` (inline level). There is no external rule configuration file.
 - **No environment variables** beyond `GITHUB_TOKEN` (for `gh` CLI) and standard CI vars.
 
 ### Security & Supply Chain
