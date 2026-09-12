@@ -284,7 +284,7 @@ These constraints must hold; violating them is a regression, not a style prefere
 | Unit        | Pure logic of a `scripts/` module, against its own inputs    | `tests/unit/*.test.ts`                                                        |
 | Schema      | `manifest.json` round-trips schema validation                | `tests/unit/manifest.test.ts`                                                 |
 | Integration | Fixture upstream tree → full archive → checksum verification | `tests/integration/*.test.ts`                                                 |
-| Determinism | Same fixture run twice produces byte-identical output        | `tests/unit/markdown-converter.test.ts`, `tests/integration/pipeline.test.ts` |
+| Determinism | Same input run twice produces byte-identical output          | `tests/unit/markdown-converter.test.ts`, `tests/integration/pipeline.test.ts` |
 
 Coverage target: **>80% for new code**. Coverage is informational; the load-bearing quality signal is the conversion-output validation suite (link check, schema check, size sanity).
 
