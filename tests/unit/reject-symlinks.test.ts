@@ -18,6 +18,39 @@ describe('assertNoSymlinks', () => {
     }
   })
 
+  test('rejects a symlinked root rather than walking the link target', async () => {
+    // `readdir` follows a symlinked directory, so a root that is itself a link
+    // would be reported clean on the strength of a tree it does not name. A
+    // sparse checkout materializes a mode 120000 blob as a real symlink, so an
+    // upstream tag storing the component root as a link reaches this case.
+    const root = await mkdtemp(join(tmpdir(), 'reject-symlinks-root-'))
+    try {
+      const real = join(root, 'real')
+      await mkdir(real)
+      await writeFile(join(real, 'index.adoc'), 'content')
+      const link = join(root, 'link')
+      await symlink(real, link)
+
+      await expect(assertNoSymlinks(link)).rejects.toThrow(link)
+    }
+    finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test('rejects a root that is not a directory at all', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'reject-symlinks-file-'))
+    try {
+      const file = join(root, 'antora.yml')
+      await writeFile(file, 'name: boot\n')
+
+      await expect(assertNoSymlinks(file)).rejects.toThrow(/non-directory/)
+    }
+    finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   test('rejects a symlink anywhere in the tree, naming its path', async () => {
     const root = await mkdtemp(join(tmpdir(), 'reject-symlinks-dirty-'))
     try {

@@ -69,6 +69,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `lib/catalog-schema.ts`    | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                                             |
 | `lib/upstream-sources.ts`  | Per-project upstream coordinates — repo, tag, component path, content archives, javadoc + external component URLs, and the supported version floor. |
 | `lib/version-detect.ts`    | Pure diff of upstream tags against the catalog.                                                                                                   |
+| `lib/component-descriptor.ts` | The Antora component descriptor — the `name:` declared by a checked-out stub, and the `antora.yml` a synthesized era serializes in its place.  |
 | `lib/release-name.ts`      | The `<project>-<version>` split, shared by packaging and promotion.                                                                               |
 | `lib/output-layout.ts`     | Where each converted page lands, and the collision guard that keeps the tree platform-independent.                                                 |
 | `lib/markdown-converter.ts`| Block-level conversion: walks the resolved Asciidoctor AST and emits Markdown. **All block conversion logic lives here.**                          |

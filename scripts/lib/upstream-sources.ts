@@ -26,6 +26,14 @@ export interface ContentArchive {
   readonly url: string
 }
 
+/** One published jar whose `META-INF` carries configuration-property metadata. */
+export interface MetadataJar {
+  /** Maven artifact id, which is also the partial directory it is dropped into. */
+  readonly artifact: string
+  /** Absolute download URL. */
+  readonly url: string
+}
+
 /** Everything needed to acquire one `(project, version)` pair. */
 export interface UpstreamCoordinates {
   /** Catalog project key, e.g. `boot`. */
@@ -48,6 +56,17 @@ export interface UpstreamCoordinates {
    * Empty for a synthesized era, which has none to merge.
    */
   readonly archives: readonly ContentArchive[]
+  /**
+   * Published jars supplying the configuration-property metadata a synthesized
+   * era drops in as partials.
+   *
+   * Empty for an archive era, which gets that metadata inside the zip.
+   *
+   * Resolved here rather than at the download site so the availability gate and
+   * the download cannot disagree about where an artifact lives — the same
+   * single-sourcing {@link archives} already gives the archive era.
+   */
+  readonly metadataJars: readonly MetadataJar[]
   /**
    * Repo-relative paths the sparse checkout must materialize.
    *
@@ -329,6 +348,13 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
       }))
     : []
 
+  const metadataJars = era.assembly.descriptor === 'synthesized'
+    ? era.assembly.synthesis.metadataArtifacts.map(artifact => ({
+        artifact,
+        url: mavenJarUrl(definition.mavenGroupPath, artifact, version),
+      }))
+    : []
+
   return {
     project,
     version,
@@ -338,6 +364,7 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
     componentPath: era.componentPath,
     assembly: era.assembly,
     archives,
+    metadataJars,
     checkoutPaths: checkoutPathsFor(era),
     javadocLocation: definition.javadocLocationFor(version),
     externalComponents: definition.externalComponentsFor(version),
@@ -370,17 +397,13 @@ function checkoutPathsFor(era: LayoutEra): readonly string[] {
  * @throws if the project is not supported or the version is not buildable.
  */
 export function requiredArtifactUrls(project: string, version: string): readonly string[] {
-  const definition = PROJECTS[project]
-  if (!definition)
-    throw new Error(`Unknown project "${project}". Supported: ${supportedProjects().join(', ')}`)
-
+  // Both lists are built by `resolveUpstream`, which is also what the download
+  // side reads — so the gate cannot check a URL the fetch will not request.
+  // `resolveUpstream` raises the unknown-project error itself.
   const upstream = resolveUpstream(project, version)
-  if (upstream.assembly.descriptor === 'archive')
-    return upstream.archives.map(archive => archive.url)
-
-  return upstream.assembly.synthesis.metadataArtifacts.map(artifact =>
-    mavenJarUrl(definition.mavenGroupPath, artifact, version),
-  )
+  return upstream.assembly.descriptor === 'archive'
+    ? upstream.archives.map(archive => archive.url)
+    : upstream.metadataJars.map(jar => jar.url)
 }
 
 /**
