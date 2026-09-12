@@ -1,0 +1,34 @@
+scripts/lib/bom-libraries.ts
+  s_d835e4018f0b05::t_a957cc9cfaa75e 131-141,143-144
+  s_d835e4018f0b05::t_beda58dc1d7def 142
+tests/unit/bom-libraries.test.ts
+  s_d835e4018f0b05::t_ac673426d7c377 4,78-97
+  s_d835e4018f0b05::t_5c9318fbcd66ea 98-99
+tests/unit/antora-attributes.test.ts
+  s_d835e4018f0b05::t_158113b5786429 198-219
+  s_d835e4018f0b05::t_7ee2a5660bb4f4 220-245
+  s_d835e4018f0b05::t_3d879176f0dff5 246-268
+scripts/lib/antora-attributes.ts
+  s_d835e4018f0b05::t_55ecc50340b9b6 280,284-285,293,296-297,300,308-309
+  s_d835e4018f0b05::t_c601561c09494e 18,210,213,333,335-338,345,349-352,355
+  s_d835e4018f0b05::t_a99c8f49fc677d 294-295,298-299
+  s_d835e4018f0b05::t_bb23d72fa60ef8 329-331,339-344,346-347,353-354,356-362,364,366,370
+scripts/fetch-upstream.ts
+  s_d835e4018f0b05::t_d482a02374d00c 253-262,278-283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "3c510fa9fd50a5f54364318295daf4bb2dfd1f79",
+  "prompts": {},
+  "sessions": {
+    "s_d835e4018f0b05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2bbe8cb-48ac-4bf8-915d-1b383bdcb970",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
