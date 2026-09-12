@@ -99,44 +99,9 @@ const MANAGED_VERSION_ATTRIBUTES: readonly {
   { attribute: 'pulsar-client-reactive-api', library: 'Pulsar Reactive', groupId: 'org.apache.pulsar', artifactId: 'pulsar-client-reactive-api' },
 ]
 
-/**
- * Testcontainers modules the 3.4 line turns into `version-testcontainers-*`.
- *
- * Era-specific upstream behaviour: 3.4's static properties file references these,
- * 3.5 dropped them. They are resolved for every synthesized version because the
- * Testcontainers BOM has to be fetched either way, and an attribute nothing reads
- * costs nothing.
- */
-const TESTCONTAINERS_MODULES: readonly string[] = [
-  'activemq',
-  'cassandra',
-  'clickhouse',
-  'couchbase',
-  'elasticsearch',
-  'grafana',
-  'jdbc',
-  'kafka',
-  'mariadb',
-  'mongodb',
-  'mssqlserver',
-  'mysql',
-  'neo4j',
-  'oracle-xe',
-  'oracle-free',
-  'postgresql',
-  'pulsar',
-  'rabbitmq',
-  'redpanda',
-  'r2dbc',
-]
-
-/** The `groupId` every Testcontainers module shares. */
-const TESTCONTAINERS_GROUP = 'org.testcontainers'
-
 /** BOM libraries whose imported BOMs have to be resolved for the attributes above. */
 const VERSION_SOURCE_LIBRARIES: readonly string[] = [
   'Spring Data Bom',
-  'Testcontainers',
   ...new Set(MANAGED_VERSION_ATTRIBUTES.map(managed => managed.library)),
 ]
 
@@ -182,14 +147,6 @@ export function synthesizeAttributes(sources: AttributeSources): SynthesizedAttr
     const snapshot = version.endsWith('-SNAPSHOT') ? '-SNAPSHOT' : ''
     internal.set(`antoraversion-${name}`, majorMinor + snapshot)
     internal.set(`dotxversion-${name}`, `${majorMinor}.x`)
-  }
-
-  for (const module of TESTCONTAINERS_MODULES) {
-    setIfPresent(
-      attributes,
-      `version-testcontainers-${module}`,
-      managedVersion(`${TESTCONTAINERS_GROUP}:${module}`),
-    )
   }
 
   for (const managed of MANAGED_VERSION_ATTRIBUTES) {

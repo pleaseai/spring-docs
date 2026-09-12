@@ -266,8 +266,15 @@ A module's version is therefore resolved two ways: through the BOM it is importe
 when the library lists it under `modules = [...]` instead, as 3.3-3.4 do for Pulsar
 Reactive — from the declaring library's own version.
 
-3.4 also generates `version-testcontainers-*` attributes that 3.5 dropped, so the
-Testcontainers BOM has to be resolved for the 3.4 line.
+The Testcontainers BOM is not a version source, despite an early reading of the 3.4 line
+that had it emitting `version-testcontainers-<module>` attributes. Every surface upstream
+offers refutes that: 0 references in `antora-asciidoc-attributes.properties` at v3.3.0,
+v3.4.13 and v3.5.16; 0 across the 157 authored pages at v3.5.16; no such code in
+`AntoraAsciidocAttributes.java` at any of those tags; and 0 consumers in the published 4.0.8
+and 4.1.1 descriptors, which do reference `{version-jackson-databind}` — the control that
+proves the search worked. The only testcontainers version attributes upstream emits are
+`version-testcontainers`, from the library loop, and `version-testcontainers-redis-module`,
+from a separate BOM library. Neither needs the Testcontainers BOM fetched.
 
 ### Measured result across the range
 
@@ -276,12 +283,12 @@ Each version converts with zero unresolved attributes, `configprop:` macros or
 
 | Version | attributes | pages |
 |---|---|---|
-| 3.3.0 | 557 | 141 |
-| 3.3.13 | 886 | 147 |
-| 3.4.0 | 877 | 147 |
-| 3.4.13 | 893 | 146 |
-| 3.5.0 | 881 | 147 |
-| 3.5.16 | 895 | 146 |
+| 3.3.0 | 538 | 141 |
+| 3.3.13 | 867 | 147 |
+| 3.4.0 | 857 | 147 |
+| 3.4.13 | 873 | 146 |
+| 3.5.0 | 861 | 147 |
+| 3.5.16 | 875 | 146 |
 
 ### Residual gap
 

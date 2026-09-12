@@ -46,7 +46,7 @@ release tag, plus artifacts Maven Central does publish:
 | Missing input | Reconstructed from |
 |---|---|
 | `ROOT:example$` sample tree | `spring-boot-docs/src/main`, in the checkout — the same directory the Gradle build copies |
-| ~560-900 asciidoc attributes | `antora-asciidoc-attributes.properties` + the dependency BOM's `library`/`links` DSL + `gradle.properties`, all in the checkout |
+| ~540-880 asciidoc attributes | `antora-asciidoc-attributes.properties` + the dependency BOM's `library`/`links` DSL + `gradle.properties`, all in the checkout |
 | Managed dependency versions | the BOMs the build script imports (`spring-data-bom`, `jackson-bom`, `pulsar-bom`, …), fetched from Maven Central |
 | `spring-configuration-metadata.json` | `META-INF/` of the eight published `spring-boot-*` jars that carry it |
 
