@@ -266,10 +266,11 @@ A module's version is therefore resolved two ways: through the BOM it is importe
 when the library lists it under `modules = [...]` instead, as 3.3-3.4 do for Pulsar
 Reactive — from the declaring library's own version.
 
-The Testcontainers BOM is not a version source, despite an early reading of the 3.4 line
-that had it emitting `version-testcontainers-<module>` attributes. Every surface upstream
-offers refutes that: 0 references in `antora-asciidoc-attributes.properties` at v3.3.0,
-v3.4.13 and v3.5.16; 0 across the 157 authored pages at v3.5.16; no such code in
+The Testcontainers BOM is not a version source, despite an early reading of the 3.4 line that
+had it emitting `version-testcontainers-<module>` attributes. Every surface upstream offers
+refutes that: 0 references in `antora-asciidoc-attributes.properties` at v3.3.0, v3.4.13 and
+v3.5.16; 0 across all 157 authored `.adoc` files at v3.5.16 — the 145 under `pages/` plus every
+partial and `nav.adoc`, a wider net than the 146 pages the build produces; no such code in
 `AntoraAsciidocAttributes.java` at any of those tags; and 0 consumers in the published 4.0.8
 and 4.1.1 descriptors, which do reference `{version-jackson-databind}` — the control that
 proves the search worked. The only testcontainers version attributes upstream emits are
