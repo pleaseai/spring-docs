@@ -45,6 +45,7 @@ When reading the code or the spec for the first time, start here:
 | [`scripts/package-release.ts`](./scripts/package-release.ts) | Pipeline entry — produce `tar.gz` + `manifest.json` + SHA-256 checksum                          |
 | [`scripts/update-catalog.ts`](./scripts/update-catalog.ts) | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`                  |
 | [`.please/docs/decisions/0002-antora-as-a-library.md`](./.please/docs/decisions/0002-antora-as-a-library.md) | Why conversion delegates to Antora + Spring's own extensions rather than reimplementing them |
+| [`.please/docs/decisions/0004-synthesize-3x-component.md`](./.please/docs/decisions/0004-synthesize-3x-component.md) | Why an era that publishes no content archive is reconstructed from the release tag rather than refused |
 | [`.github/workflows/matrix-build.yml`](./.github/workflows/matrix-build.yml) | CI entry — orchestrates N projects × M versions in parallel                       |
 | [`.github/workflows/release.yml`](./.github/workflows/release.yml) | CI entry — a `<project>-<version>` tag push builds, publishes and records the release |
 
