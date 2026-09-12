@@ -29,8 +29,9 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { parseManagedVersions, synthesizeAttributes, versionSourceBoms } from './lib/antora-attributes.ts'
+import { componentNameOf, renderDescriptor } from './lib/component-descriptor.ts'
 import { assertNoSymlinks } from './lib/reject-symlinks.ts'
-import { mavenJarUrl, resolveUpstream } from './lib/upstream-sources.ts'
+import { resolveUpstream } from './lib/upstream-sources.ts'
 
 export interface Args {
   readonly project: string
@@ -104,6 +105,20 @@ async function checkoutComponent(
   return run(['git', 'rev-parse', 'FETCH_HEAD^{commit}'], workDir)
 }
 
+/**
+ * Copy a tree into the content source, refusing anything but regular files and
+ * directories.
+ *
+ * The guard is bound to the copy rather than left as a separate call beside it,
+ * because a separate call is one a later copy can simply not make — which is how
+ * it came to cover the expanded archive and neither of the two trees taken from
+ * the git checkout.
+ */
+export async function copyIntoContentSource(source: string, dest: string): Promise<void> {
+  await assertNoSymlinks(source)
+  await cp(source, dest, { recursive: true, force: true })
+}
+
 /** Download one published archive and expand it over the component root. */
 async function mergeArchive(url: string, componentRoot: string, workDir: string): Promise<void> {
   const zipPath = join(workDir, 'archive.zip')
@@ -113,10 +128,7 @@ async function mergeArchive(url: string, componentRoot: string, workDir: string)
   const expanded = join(workDir, 'expanded')
   await rm(expanded, { recursive: true, force: true })
   await run(['unzip', '-o', '-q', zipPath, '-d', expanded], workDir)
-  // Reject before merging: a symlink in the archive would otherwise be
-  // preserved into the committed content source (see reject-symlinks.ts).
-  await assertNoSymlinks(expanded)
-  await cp(expanded, componentRoot, { recursive: true, force: true })
+  await copyIntoContentSource(expanded, componentRoot)
   await rm(zipPath, { force: true })
 }
 
@@ -171,40 +183,6 @@ async function download(url: string): Promise<Buffer> {
   if (!response.ok)
     throw new Error(`GET ${url} → ${response.status} ${response.statusText}`)
   return Buffer.from(await response.arrayBuffer())
-}
-
-/**
- * Serialize a component descriptor.
- *
- * Every attribute value is single-quoted: they carry `:`, `{`, `#` and `%`, each
- * of which changes meaning in a bare YAML scalar. Keys are plain identifiers by
- * construction, so they need no quoting.
- */
-function renderDescriptor(
-  name: string,
-  version: string,
-  hasNav: boolean,
-  attributes: Readonly<Record<string, string>>,
-): string {
-  const lines = [`name: ${name}`, `version: '${version}'`]
-  if (hasNav)
-    lines.push('nav:', '- nav.adoc')
-  lines.push('asciidoc:', '  attributes:')
-  for (const [key, value] of Object.entries(attributes))
-    lines.push(`    ${key}: '${value.replaceAll('\'', '\'\'')}'`)
-  return `${lines.join('\n')}\n`
-}
-
-/** The `name:` entry of a component descriptor. */
-const COMPONENT_NAME = /^name:[ \t]*(\S+)/m
-
-/** The component name declared by the checked-out `antora.yml` stub. */
-async function componentNameOf(componentRoot: string): Promise<string> {
-  const stub = await readFile(join(componentRoot, 'antora.yml'), 'utf8')
-  const name = COMPONENT_NAME.exec(stub)?.[1]
-  if (name === undefined)
-    throw new Error(`No component name in ${join(componentRoot, 'antora.yml')}`)
-  return name
 }
 
 /**
@@ -294,14 +272,14 @@ async function fetchManagedVersions(
  * from this directory. Without it every one of the corpus's code includes
  * resolves to nothing — silently, as an empty tab group.
  */
-async function copyExamples(
+export async function copyExamples(
   synthesis: SynthesisSources,
   checkout: string,
   componentRoot: string,
 ): Promise<void> {
   const examples = join(componentRoot, 'modules', 'ROOT', 'examples')
   await mkdir(examples, { recursive: true })
-  await cp(join(checkout, synthesis.examplesPath), examples, { recursive: true, force: true })
+  await copyIntoContentSource(join(checkout, synthesis.examplesPath), examples)
 }
 
 /**
@@ -314,28 +292,26 @@ async function copyExamples(
  */
 async function addConfigurationMetadata(
   upstream: UpstreamCoordinates,
-  synthesis: SynthesisSources,
   componentRoot: string,
   workDir: string,
 ): Promise<void> {
   const partials = join(componentRoot, 'modules', 'ROOT', 'partials')
 
-  for (const artifact of synthesis.metadataArtifacts) {
-    const jarPath = join(workDir, `${artifact}.jar`)
-    await writeFile(
-      jarPath,
-      await download(mavenJarUrl('org/springframework/boot', artifact, upstream.version)),
-    )
+  // The same list `requiredArtifactUrls` gates on, so a version detection called
+  // buildable cannot 404 here on a URL the two sides spelled differently.
+  for (const jar of upstream.metadataJars) {
+    const jarPath = join(workDir, `${jar.artifact}.jar`)
+    await writeFile(jarPath, await download(jar.url))
     const metadata = await run(
       ['unzip', '-p', jarPath, 'META-INF/spring-configuration-metadata.json'],
       workDir,
     )
-    await mkdir(join(partials, artifact), { recursive: true })
-    await writeFile(join(partials, artifact, 'spring-configuration-metadata.json'), metadata)
+    await mkdir(join(partials, jar.artifact), { recursive: true })
+    await writeFile(join(partials, jar.artifact, 'spring-configuration-metadata.json'), metadata)
     await rm(jarPath, { force: true })
   }
 
-  console.log(`  Added metadata from ${synthesis.metadataArtifacts.length} published jars`)
+  console.log(`  Added metadata from ${upstream.metadataJars.length} published jars`)
 }
 
 async function main(): Promise<void> {
@@ -363,7 +339,7 @@ async function main(): Promise<void> {
 
     await rm(outDir, { recursive: true, force: true })
     await mkdir(outDir, { recursive: true })
-    await cp(join(workDir, upstream.componentPath), outDir, { recursive: true })
+    await copyIntoContentSource(join(workDir, upstream.componentPath), outDir)
 
     if (upstream.assembly.descriptor === 'archive') {
       for (const archive of upstream.archives) {
@@ -377,7 +353,7 @@ async function main(): Promise<void> {
       const { synthesis } = upstream.assembly
       await copyExamples(synthesis, workDir, outDir)
       await writeSynthesizedDescriptor(upstream, synthesis, workDir, outDir)
-      await addConfigurationMetadata(upstream, synthesis, outDir, workDir)
+      await addConfigurationMetadata(upstream, outDir, workDir)
     }
     await initContentSource(outDir)
 

@@ -1,14 +1,25 @@
 /**
- * Guard against symlink escapes in a downloaded, expanded archive.
+ * Guard against symlink escapes in a tree about to be copied into the content source.
  *
- * `unzip` recreates symlink entries in a zip as real filesystem symlinks, and
- * `fetch-upstream.ts` then `cp`s the expanded tree into the committed Antora
- * content source with `{ recursive: true, force: true }` — which preserves
- * symlinks rather than following them (Bun's `cp` defaults to
- * `dereference: false`, verified empirically). A link under a page module
- * could point anywhere on the runner, and nothing upstream of this checks for
- * it: `mergeArchive` only verifies `response.ok`, with no checksum or
- * signature against what Maven Central served.
+ * `fetch-upstream.ts` `cp`s three trees into the committed Antora content
+ * source with `{ recursive: true, force: true }`, which preserves symlinks
+ * rather than following them (Bun's `cp` defaults to `dereference: false`,
+ * verified empirically). A link under a page module could point anywhere on the
+ * runner, and `initContentSource` runs `git add -A`, which stores it as a mode
+ * 120000 entry the aggregator later reads.
+ *
+ * Two sources reach that copy, and neither is verified:
+ *
+ *   - the expanded archive — `unzip` recreates a zip's symlink entries as real
+ *     filesystem symlinks, and `mergeArchive` only checks `response.ok`, with no
+ *     checksum or signature against what Maven Central served
+ *   - the git checkout — the component root and, for a synthesized era, the
+ *     examples tree, both taken from the upstream release tag
+ *
+ * No supported tag carries such an entry today (`spring-projects/spring-boot` at
+ * v3.3.0, v3.4.0, v3.5.0 and v3.5.16 has none, repo-wide), so this is a guard
+ * against an upstream compromise or layout change rather than a live defect —
+ * which is exactly why all three copies should hold the same invariant.
  */
 
 import { readdir } from 'node:fs/promises'
@@ -28,10 +39,10 @@ export async function assertNoSymlinks(root: string): Promise<void> {
   for (const entry of entries) {
     const path = join(root, entry.name)
     if (entry.isSymbolicLink())
-      throw new Error(`Refusing to merge a symlink from a downloaded archive: ${path}`)
+      throw new Error(`Refusing to copy a symlink into the content source: ${path}`)
     if (entry.isDirectory())
       await assertNoSymlinks(path)
     else if (!entry.isFile())
-      throw new Error(`Refusing to merge a non-regular file from a downloaded archive: ${path}`)
+      throw new Error(`Refusing to copy a non-regular file into the content source: ${path}`)
   }
 }

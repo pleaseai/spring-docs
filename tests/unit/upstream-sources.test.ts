@@ -218,6 +218,33 @@ describe('resolveUpstream layout eras', () => {
   })
 })
 
+describe('metadataJars', () => {
+  test('a synthesized era carries the jars whose metadata it drops in as partials', () => {
+    const { metadataJars } = resolveUpstream('boot', '3.5.16')
+
+    expect(metadataJars.length).toBeGreaterThan(0)
+    for (const jar of metadataJars) {
+      expect(jar.url).toBe(
+        `https://repo1.maven.org/maven2/org/springframework/boot/${jar.artifact}/3.5.16/${jar.artifact}-3.5.16.jar`,
+      )
+    }
+  })
+
+  test('an archive era has none, because the zip already carries that metadata', () => {
+    expect(resolveUpstream('boot', '4.1.1').metadataJars).toEqual([])
+  })
+
+  test('is the very list the availability gate checks', () => {
+    // These two must not be able to disagree about where an artifact lives:
+    // `detect-upstream-versions.ts` offers a version as buildable from the gate's
+    // URLs, and `fetch-upstream.ts` then downloads from the coordinates'. Built
+    // from one source in `resolveUpstream`, a group path cannot change on only
+    // one side and turn a buildable version into a 404 mid-fetch.
+    expect(resolveUpstream('boot', '3.5.16').metadataJars.map(jar => jar.url))
+      .toEqual([...requiredArtifactUrls('boot', '3.5.16')])
+  })
+})
+
 describe('requiredArtifactUrls', () => {
   test('an archive era depends on its content zips', () => {
     expect(requiredArtifactUrls('boot', '4.1.1')).toEqual([
