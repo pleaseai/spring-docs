@@ -324,12 +324,22 @@ function finalize(
       resolved[name] = value
   }
 
-  return {
-    attributes: resolved,
-    // Code-unit order rather than `localeCompare`: attribute names are ASCII, and
-    // a locale-dependent collation would order this list differently per machine.
-    unresolved: [...withheld].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
-  }
+  return { attributes: resolved, unresolved: [...withheld].sort(byCodeUnit) }
+}
+
+/**
+ * Order two attribute names by code unit.
+ *
+ * Not `localeCompare`, which SonarJS S2871 suggests: these names are ASCII, and
+ * locale collation would order this list by the machine's ICU data rather than
+ * reproducibly.
+ */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b)
+    return -1
+  if (a > b)
+    return 1
+  return 0
 }
 
 function setIfPresent(attributes: Map<string, string>, name: string, value: string | undefined): void {
