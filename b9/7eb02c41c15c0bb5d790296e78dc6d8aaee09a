@@ -1,0 +1,19 @@
+.please/docs/knowledge/upstream-antora.md
+  s_d835e4018f0b05::t_d5634408e50b3b 269-273
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "b97eb02c41c15c0bb5d790296e78dc6d8aaee09a",
+  "prompts": {},
+  "sessions": {
+    "s_d835e4018f0b05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2bbe8cb-48ac-4bf8-915d-1b383bdcb970",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
