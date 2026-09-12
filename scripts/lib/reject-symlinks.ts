@@ -22,26 +22,41 @@
  * which is exactly why all three copies should hold the same invariant.
  */
 
-import { readdir } from 'node:fs/promises'
+import { lstat, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /**
- * Recursively assert that every entry under `root` is a regular file or a
- * directory — never a symlink or anything else (device, socket, FIFO, …).
+ * Assert that `root` and everything under it is a regular file or a directory —
+ * never a symlink or anything else (device, socket, FIFO, …).
  *
- * `Dirent` entries reflect the type collected during the directory scan
- * itself, without following symlinks, so no separate `lstat` is needed.
+ * `root` is classified separately from its contents. `Dirent` entries reflect
+ * the type collected during the directory scan itself, without following
+ * symlinks, so the entries need no `lstat` — but `readdir` *does* follow a
+ * symlinked root, which would walk the link's target and report the tree clean
+ * under a name that points elsewhere. A sparse checkout materializes a mode
+ * 120000 blob as a real symlink, so an upstream tag storing the component root
+ * or the examples path as a link reaches exactly that case.
  *
- * @throws on the first offending entry, naming its path.
+ * @throws on the first offending path, naming it.
  */
 export async function assertNoSymlinks(root: string): Promise<void> {
-  const entries = await readdir(root, { withFileTypes: true })
+  const stats = await lstat(root)
+  if (stats.isSymbolicLink())
+    throw new Error(`Refusing to copy a symlink into the content source: ${root}`)
+  if (!stats.isDirectory())
+    throw new Error(`Refusing to copy a non-directory into the content source: ${root}`)
+  await assertEntries(root)
+}
+
+/** The recursive half, for a directory already classified by its caller. */
+async function assertEntries(dir: string): Promise<void> {
+  const entries = await readdir(dir, { withFileTypes: true })
   for (const entry of entries) {
-    const path = join(root, entry.name)
+    const path = join(dir, entry.name)
     if (entry.isSymbolicLink())
       throw new Error(`Refusing to copy a symlink into the content source: ${path}`)
     if (entry.isDirectory())
-      await assertNoSymlinks(path)
+      await assertEntries(path)
     else if (!entry.isFile())
       throw new Error(`Refusing to copy a non-regular file into the content source: ${path}`)
   }

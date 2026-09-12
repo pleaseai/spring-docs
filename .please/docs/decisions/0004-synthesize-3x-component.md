@@ -141,6 +141,7 @@ The same three counters are zero for every minor across the range — 3.3.0, 3.3
 - `scripts/lib/upstream-sources.ts` — the layout eras this decision introduces.
 - `scripts/lib/antora-attributes.ts` — the `AntoraAsciidocAttributes` port.
 - `scripts/lib/bom-libraries.ts` — the BOM `library`/`links` DSL parser.
+- `scripts/lib/component-descriptor.ts` — the descriptor this decision rebuilds, read and written.
 - `scripts/fetch-upstream.ts` — the archive/synthesis branch.
 - ADR-0002 — the two-half content source this extends.
 - `.please/docs/knowledge/upstream-antora.md` — the measured upstream traps behind it.
