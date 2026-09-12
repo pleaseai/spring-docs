@@ -324,7 +324,12 @@ function finalize(
       resolved[name] = value
   }
 
-  return { attributes: resolved, unresolved: [...withheld].sort() }
+  return {
+    attributes: resolved,
+    // Code-unit order rather than `localeCompare`: attribute names are ASCII, and
+    // a locale-dependent collation would order this list differently per machine.
+    unresolved: [...withheld].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+  }
 }
 
 function setIfPresent(attributes: Map<string, string>, name: string, value: string | undefined): void {
