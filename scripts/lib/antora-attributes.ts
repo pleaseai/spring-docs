@@ -15,7 +15,7 @@
  */
 
 import type { BomLibrary, ImportedBom } from './bom-libraries.ts'
-import { parseBomLibraries, renderLink } from './bom-libraries.ts'
+import { hasUnconsumedSpecifier, parseBomLibraries, renderLink } from './bom-libraries.ts'
 
 /** Everything the reconstruction reads, as file contents. */
 export interface AttributeSources {
@@ -207,10 +207,10 @@ export function synthesizeAttributes(sources: AttributeSources): SynthesizedAttr
   attributes.set('build-and-artifact-release-type', `${attributes.get('build-type')}-release`)
 
   addJavaAttributes(attributes)
-  addLibraryLinkAttributes(attributes, libraries, versionOf)
+  const halfRendered = addLibraryLinkAttributes(attributes, libraries, versionOf)
   addStaticAttributes(attributes, sources.staticAttributes, internal)
 
-  return finalize(attributes)
+  return finalize(attributes, halfRendered)
 }
 
 /**
@@ -277,10 +277,12 @@ function addLibraryLinkAttributes(
   attributes: Map<string, string>,
   libraries: readonly BomLibrary[],
   versionOf: (library: BomLibrary) => string | undefined,
-): void {
+): ReadonlySet<string> {
   // Upstream collects package attributes separately and appends them after every
   // link, so a package attribute can reference a link defined by a later library.
   const packages = new Map<string, string>()
+  /** Links whose template held more specifiers than the version supplied values. */
+  const halfRendered = new Set<string>()
 
   for (const library of libraries) {
     const version = versionOf(library)
@@ -288,7 +290,14 @@ function addLibraryLinkAttributes(
       continue
     for (const link of library.links) {
       const name = `url-${link.rootName ?? library.linkRootName}-${link.name}`
-      attributes.set(name, renderLink(link.template, version))
+      const rendered = renderLink(link.template, version)
+      // Both the map and the set are keyed by attribute name, so a later library
+      // writing the same name has to clear an earlier mark as well as the value.
+      if (hasUnconsumedSpecifier(rendered))
+        halfRendered.add(name)
+      else
+        halfRendered.delete(name)
+      attributes.set(name, rendered)
       for (const packageName of link.packages)
         packages.set(javadocLocationName(packageName), `{${name}}`)
     }
@@ -296,6 +305,8 @@ function addLibraryLinkAttributes(
 
   for (const [name, value] of packages)
     attributes.set(name, value)
+
+  return halfRendered
 }
 
 /** Append the static properties file, resolving its internal references. */
@@ -315,24 +326,48 @@ function addStaticAttributes(
 /** Names of the internal placeholders that must never reach the descriptor. */
 const INTERNAL_PLACEHOLDER = /\{(?:antoraversion|dotxversion)-[a-z0-9-]+\}/
 
-/**
- * Drop attributes still carrying an unresolved internal placeholder.
- *
- * Attribute references to *other attributes* (`{code-spring-boot}/…`) are left
- * alone: Asciidoctor resolves those itself, and upstream emits them verbatim.
- */
-function finalize(attributes: ReadonlyMap<string, string>): SynthesizedAttributes {
-  const resolved: Record<string, string> = {}
-  const unresolved: string[] = []
+/** An attribute whose whole value is a reference to one other attribute. */
+const SOLE_REFERENCE = /^\{([a-z0-9-]+)\}$/
 
+/**
+ * Drop attributes that did not fully resolve, and name them.
+ *
+ * Two ways a value fails: an internal placeholder nothing supplied, and a link
+ * whose template held more format specifiers than the version had values —
+ * `halfRendered` carries the latter, because only the renderer can tell a
+ * leftover `%s` from one a static attribute legitimately contains.
+ *
+ * Withholding a link then orphans its `javadoc-location-*` aliases, whose whole
+ * value is `{that-link}`. Dropping the link alone would leave them pointing at an
+ * attribute the descriptor no longer defines, so the reference resolves to
+ * nothing and the dangling value reaches the reader anyway — the failure the
+ * withholding exists to prevent, one indirection later. They are withheld with it.
+ *
+ * Any *other* attribute reference (`{code-spring-boot}/…`) is left alone:
+ * Asciidoctor resolves those itself, and upstream emits them verbatim.
+ */
+function finalize(
+  attributes: ReadonlyMap<string, string>,
+  halfRendered: ReadonlySet<string>,
+): SynthesizedAttributes {
+  const withheld = new Set<string>()
   for (const [name, value] of attributes) {
-    if (INTERNAL_PLACEHOLDER.test(value))
-      unresolved.push(name)
-    else
+    if (halfRendered.has(name) || INTERNAL_PLACEHOLDER.test(value))
+      withheld.add(name)
+  }
+  for (const [name, value] of attributes) {
+    const target = SOLE_REFERENCE.exec(value)?.[1]
+    if (target !== undefined && withheld.has(target))
+      withheld.add(name)
+  }
+
+  const resolved: Record<string, string> = {}
+  for (const [name, value] of attributes) {
+    if (!withheld.has(name))
       resolved[name] = value
   }
 
-  return { attributes: resolved, unresolved: unresolved.sort() }
+  return { attributes: resolved, unresolved: [...withheld].sort() }
 }
 
 function setIfPresent(attributes: Map<string, string>, name: string, value: string | undefined): void {

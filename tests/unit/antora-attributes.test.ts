@@ -195,4 +195,75 @@ bom {
     expect(withoutSpringData.attributes['url-spring-data-geode-site'])
       .toBe('https://spring.io/projects/spring-data-geode')
   })
+
+  test('withholds a link whose template outnumbers the values the version supplies', () => {
+    // `componentInts()` keeps only the numeric parts, so a qualified version
+    // feeds two values to a three-specifier template and the third `%02d`
+    // survives rendering. A URL carrying a literal `%02d` reads as a working
+    // link, so it is withheld and named like any other half-rendered value.
+    const qualified = synthesizeAttributes(sources({
+      bomBuildScript: `
+bom {
+  library("Hibernate", "6.5.Final") {
+    links {
+      docs(version -> "https://hibernate.org/%02d.%02d.%02d/manual"
+        .formatted(version.componentInts()))
+    }
+  }
+}
+`,
+    }))
+
+    expect(qualified.unresolved).toContain('url-hibernate-docs')
+    expect(qualified.attributes['url-hibernate-docs']).toBeUndefined()
+  })
+
+  test('lets a later library overwrite an earlier half-rendered link of the same name', () => {
+    // Both the attribute map and the half-rendered set are keyed by attribute
+    // name, so the second `links("shared")` block wins the value — and has to
+    // clear the first block's mark too, or a valid URL stays withheld.
+    const reused = synthesizeAttributes(sources({
+      bomBuildScript: `
+bom {
+  library("First", "6.5.Final") {
+    links("shared") {
+      docs(version -> "https://example.com/%02d.%02d.%02d/manual"
+        .formatted(version.componentInts()))
+    }
+  }
+  library("Second", "1.2.3") {
+    links("shared") {
+      docs(version -> "https://example.com/%s/manual".formatted(version.toString()))
+    }
+  }
+}
+`,
+    }))
+
+    expect(reused.unresolved).not.toContain('url-shared-docs')
+    expect(reused.attributes['url-shared-docs']).toBe('https://example.com/1.2.3/manual')
+  })
+
+  test('withholds the package aliases of a withheld link, not just the link', () => {
+    // A `javadoc-location-*` alias is exactly `{url-…-javadoc}`. Dropping only
+    // the link would leave the alias pointing at an attribute the descriptor no
+    // longer defines, which reaches the reader as the dangling text withholding
+    // exists to prevent.
+    const orphaned = synthesizeAttributes(sources({
+      bomBuildScript: `
+bom {
+  library("Hibernate", "6.5.Final") {
+    links {
+      javadoc(version -> "https://hibernate.org/%02d.%02d.%02d/javadoc"
+        .formatted(version.componentInts()), "org.hibernate")
+    }
+  }
+}
+`,
+    }))
+
+    expect(orphaned.unresolved).toContain('url-hibernate-javadoc')
+    expect(orphaned.unresolved).toContain('javadoc-location-org-hibernate')
+    expect(orphaned.attributes['javadoc-location-org-hibernate']).toBeUndefined()
+  })
 })

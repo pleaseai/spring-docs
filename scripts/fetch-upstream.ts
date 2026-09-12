@@ -250,9 +250,16 @@ async function writeSynthesizedDescriptor(
  * Resolve every managed dependency version the attribute set needs.
  *
  * The build script imports a BOM for these instead of naming them, so each such
- * BOM is fetched from Maven Central and read. A BOM that cannot be fetched is
- * reported and skipped: the attributes it would have supplied are then withheld
- * by `synthesizeAttributes` rather than emitted half-resolved.
+ * BOM is fetched from Maven Central and read.
+ *
+ * A BOM that cannot be fetched fails the build. It used to be reported and
+ * skipped, on the reasoning that `synthesizeAttributes` would withhold the
+ * attributes it fed — but withholding is silent: an attribute that is never set
+ * cannot carry an unresolved placeholder, so it never reaches `unresolved` and
+ * nothing counts it. A transient Maven Central error would then publish pages
+ * with literal `{version-jackson-databind}` text and exit 0, which is the exact
+ * failure this whole reconstruction exists to remove. Every BOM reaching this
+ * loop is one the tag's own build script imports, so none of them is optional.
  */
 async function fetchManagedVersions(
   bomBuildScript: string,
@@ -268,8 +275,12 @@ async function fetchManagedVersions(
       Object.assign(versions, parseManagedVersions(pom, bom.version))
     }
     catch (error) {
-      console.warn(`  ${bom.artifactId} ${bom.version} unavailable: ${
-        error instanceof Error ? error.message : String(error)}`)
+      throw new Error(
+        `${bom.groupId}:${bom.artifactId}:${bom.version} supplies managed versions this `
+        + `component needs, and could not be read from ${url}: ${
+          error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      )
     }
   }
 

@@ -128,6 +128,20 @@ export function expandPackages(packages: readonly string[]): readonly string[] {
  */
 const FORMAT_SPECIFIER = /%(0(\d+))?([sd])/g
 
+/**
+ * Whether a rendered link still holds a specifier `renderLink` could not fill.
+ *
+ * `renderLink` leaves an unconsumed specifier in place rather than inventing a
+ * value for it, so the caller has to ask — a URL carrying a literal `%s` reads
+ * as a working link, which is worse than no attribute at all. This needs no
+ * upstream DSL change to reach: `componentInts()` keeps only numeric parts, so a
+ * qualified version like `1.0.Final` supplies fewer values than a template with
+ * three specifiers consumes.
+ */
+export function hasUnconsumedSpecifier(rendered: string): boolean {
+  return rendered.search(FORMAT_SPECIFIER) !== -1
+}
+
 /** Render one link template for a concrete version. */
 export function renderLink(template: LinkTemplate, version: string): string {
   if (template.kind === 'placeholder')

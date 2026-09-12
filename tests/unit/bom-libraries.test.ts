@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   expandPackages,
+  hasUnconsumedSpecifier,
   linkRootNameFor,
   parseBomLibraries,
   renderLink,
@@ -71,6 +72,28 @@ describe('renderLink', () => {
 
   test('leaves a specifier alone when no argument supplies it', () => {
     expect(renderLink({ kind: 'formatted', text: 'a/%s/%s', args: [] }, '1.0.0')).toBe('a/%s/%s')
+  })
+})
+
+describe('hasUnconsumedSpecifier', () => {
+  test('reports a link the renderer could not fill', () => {
+    expect(hasUnconsumedSpecifier(renderLink(
+      { kind: 'formatted', text: 'a/%s/%s', args: [] },
+      '1.0.0',
+    ))).toBe(true)
+  })
+
+  test('reports a padded specifier too', () => {
+    expect(hasUnconsumedSpecifier('c-06-02-%02d')).toBe(true)
+  })
+
+  test('accepts a fully rendered link', () => {
+    expect(hasUnconsumedSpecifier('https://example.com/1.0.0/api')).toBe(false)
+  })
+
+  test('does not mistake percent-encoding for a specifier', () => {
+    // `%2F` and friends are ordinary URL escapes; only `%s`/`%0Nd` are templates.
+    expect(hasUnconsumedSpecifier('https://example.com/a%2Fb?q=100%25')).toBe(false)
   })
 })
 
