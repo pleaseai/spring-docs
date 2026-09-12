@@ -16,26 +16,48 @@ on:
     tags:
       - '*-[0-9]+.[0-9]+.[0-9]+'
       - '*-[0-9]+.[0-9]+.[0-9]+\+*'
+  # Recovery path for a tag that exists but never ran: GitHub creates no push
+  # event for a tag beyond the third in one push, so a batch backfill strands
+  # every tag after the first three with no run and no way to re-trigger one.
+  # The tag stays the source of truth — this input only names which tag to run,
+  # and the run then decides what that tag still owes, exactly as a push does.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish, e.g. boot-4.1.1
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+# Keyed on the tag, not on `github.ref`: a dispatched run's ref is the branch it
+# was started from, so every dispatch would otherwise share one group and cancel
+# its predecessor's queue slot regardless of which release it is.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   publish:
-    name: Publish ${{ github.ref_name }}
+    name: Publish ${{ inputs.tag || github.ref_name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: write
       pull-requests: write
+    # `inputs.tag` is empty for a push event, so this resolves to the pushed tag
+    # there and to the dispatch input otherwise.
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          # The tag, explicitly: a dispatched run starts from a branch, and
+          # building the default branch's tree under a tag's name would publish
+          # content the tag does not describe.
+          ref: ${{ inputs.tag || github.ref_name }}
           # Full history, for the default branch rather than for the tag. Two
           # steps below need `origin/<default>`: the one that decides what this
           # run still owes, and the one that branches the catalog commit off it.
@@ -45,8 +67,6 @@ jobs:
 
       - name: Parse the tag
         id: tag
-        env:
-          TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           # Allowlist, not an emptiness test. These outputs become the shell
@@ -93,7 +113,6 @@ jobs:
         id: state
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
           PROJECT: ${{ steps.tag.outputs.project }}
           VERSION: ${{ steps.tag.outputs.version }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
@@ -155,7 +174,6 @@ jobs:
         if: steps.state.outputs.mode == 'register'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
           PROJECT: ${{ steps.tag.outputs.project }}
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
@@ -174,7 +192,6 @@ jobs:
         if: steps.state.outputs.mode == 'publish'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
           PROJECT: ${{ steps.tag.outputs.project }}
           VERSION: ${{ steps.tag.outputs.version }}
         run: |
@@ -195,7 +212,6 @@ jobs:
         if: steps.state.outputs.mode != 'complete'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
           PROJECT: ${{ steps.tag.outputs.project }}
           VERSION: ${{ steps.tag.outputs.version }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
