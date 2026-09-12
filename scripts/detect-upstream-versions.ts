@@ -19,7 +19,7 @@ import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { CatalogSchema } from './lib/catalog-schema.ts'
-import { cloneUrlFor, resolveUpstream, supportedProjects } from './lib/upstream-sources.ts'
+import { cloneUrlFor, requiredArtifactUrls, supportedProjects } from './lib/upstream-sources.ts'
 import { missingVersions, parseTagRefs } from './lib/version-detect.ts'
 
 export interface Args {
@@ -77,26 +77,81 @@ export function parseArgs(argv: readonly string[]): Args {
 }
 
 /**
- * Whether every content archive a version needs has been published.
+ * Maximum HEAD requests in flight against Maven Central at once.
  *
- * Upstream tags a release long before — and sometimes without ever — publishing
- * the `spring-boot-docs` archives this pipeline reads: 4.0.0-4.0.7 and 4.1.0 are
- * tagged but have no archive at all. Filing an issue for a version that cannot be
- * built wastes a human's time, so availability is checked here rather than left
- * for `fetch-upstream.ts` to hit as a 404.
+ * The bound is the point: a synthesized-era version needs eight artifacts, so a
+ * first run over the whole 3.3-3.5 line probes a few hundred URLs. Issuing them
+ * one at a time costs about a minute of CI; issuing them all at once is rude to
+ * a host this pipeline does not own.
+ */
+const PROBE_CONCURRENCY = 8
+
+/** One artifact to probe, and the version whose build reads it. */
+interface Probe {
+  readonly version: string
+  readonly url: string
+}
+
+/**
+ * Whether a single remote artifact has been published.
  *
- * @throws if a URL cannot be reached, so a network fault is never mistaken for
+ * @throws if the URL cannot be reached, so a network fault is never mistaken for
  * an unpublished version.
  */
-async function archivesPublished(project: string, version: string): Promise<boolean> {
-  for (const archive of resolveUpstream(project, version).archives) {
-    const response = await fetch(archive.url, { method: 'HEAD' })
-    if (response.status === 404)
-      return false
-    if (!response.ok)
-      throw new Error(`HEAD ${archive.url} → ${response.status} ${response.statusText}`)
-  }
+async function artifactPublished(url: string): Promise<boolean> {
+  const response = await fetch(url, { method: 'HEAD' })
+  if (response.status === 404)
+    return false
+  if (!response.ok)
+    throw new Error(`HEAD ${url} → ${response.status} ${response.statusText}`)
   return true
+}
+
+/**
+ * Split the versions whose artifacts are all published from those still missing one.
+ *
+ * Upstream tags a release long before — and sometimes without ever — publishing
+ * the artifacts this pipeline reads: 4.1.0 is tagged but has no content archive.
+ * Which artifacts matter depends on the version's layout era, so the list comes
+ * from `requiredArtifactUrls`. Filing an issue for a version that cannot be built
+ * wastes a human's time, so availability is checked here rather than left for
+ * `fetch-upstream.ts` to hit as a 404.
+ *
+ * Every probe runs, even once a version is known to be missing one artifact: the
+ * bounded pool is what makes the whole sweep cheap, and short-circuiting a single
+ * version inside it would save nothing measurable.
+ *
+ * @throws if any URL cannot be reached.
+ */
+async function partitionByPublication(
+  project: string,
+  versions: readonly string[],
+): Promise<{ buildable: string[], unpublished: string[] }> {
+  const probes: Probe[] = versions.flatMap(version =>
+    requiredArtifactUrls(project, version).map(url => ({ version, url })),
+  )
+
+  const missingArtifact = new Set<string>()
+  let next = 0
+  const runners = Array.from(
+    { length: Math.min(PROBE_CONCURRENCY, probes.length) },
+    async () => {
+      for (let index = next++; index < probes.length; index = next++) {
+        const probe = probes[index]
+        if (probe === undefined)
+          return
+        if (!await artifactPublished(probe.url))
+          missingArtifact.add(probe.version)
+      }
+    },
+  )
+  await Promise.all(runners)
+
+  const buildable: string[] = []
+  const unpublished: string[] = []
+  for (const version of versions)
+    (missingArtifact.has(version) ? unpublished : buildable).push(version)
+  return { buildable, unpublished }
 }
 
 /** Tag names on a remote, without cloning it. */
@@ -134,14 +189,7 @@ async function main(): Promise<void> {
       const tags = await listRemoteTags(cloneUrlFor(project))
       const missing = missingVersions(catalog, project, tags)
 
-      const buildable: string[] = []
-      const unpublished: string[] = []
-      for (const version of missing) {
-        if (await archivesPublished(project, version))
-          buildable.push(version)
-        else
-          unpublished.push(version)
-      }
+      const { buildable, unpublished } = await partitionByPublication(project, missing)
 
       const selected = args.limit === null ? buildable : buildable.slice(-args.limit)
       for (const version of selected) include.push({ project, version })
@@ -149,7 +197,7 @@ async function main(): Promise<void> {
       // stderr, so `--json` output stays machine-readable.
       if (unpublished.length > 0) {
         console.error(
-          `${project}: skipping ${unpublished.length} version(s) with no published content archive: ${unpublished.join(', ')}`,
+          `${project}: skipping ${unpublished.length} version(s) with unpublished upstream artifacts: ${unpublished.join(', ')}`,
         )
       }
 
