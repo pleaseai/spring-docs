@@ -1,0 +1,91 @@
+---
+title: "Structuring Your Code"
+source: "reference:using/structuring-your-code.adoc"
+---
+
+<a id="using.structuring-your-code"></a>
+
+# Structuring Your Code
+
+Spring Boot does not require any specific code layout to work.
+However, there are some best practices that help.
+
+> [!TIP]
+> If you wish to enforce a structure based on domains, take a look at [Spring Modulith](https://spring.io/projects/spring-modulith#overview).
+
+<a id="using.structuring-your-code.using-the-default-package"></a>
+
+## Using the “default” Package
+
+When a class does not include a `package` declaration, it is considered to be in the “default package”.
+The use of the “default package” is generally discouraged and should be avoided.
+It can cause particular problems for Spring Boot applications that use the [`@ComponentScan`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/ComponentScan.html), [`@ConfigurationPropertiesScan`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/context/properties/ConfigurationPropertiesScan.html), [`@EntityScan`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/autoconfigure/domain/EntityScan.html), or [`@SpringBootApplication`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/autoconfigure/SpringBootApplication.html) annotations, since every class from every jar is read.
+
+> [!TIP]
+> We recommend that you follow Java’s recommended package naming conventions and use a reversed domain name (for example, `com.example.project`).
+
+<a id="using.structuring-your-code.locating-the-main-class"></a>
+
+## Locating the Main Application Class
+
+We generally recommend that you locate your main application class in a root package above other classes.
+The [`@SpringBootApplication` annotation](using-the-springbootapplication-annotation.md) is often placed on your main class, and it implicitly defines a base “search package” for certain items.
+For example, if you are writing a JPA application, the package of the [`@SpringBootApplication`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/autoconfigure/SpringBootApplication.html) annotated class is used to search for [`@Entity`](https://jakarta.ee/specifications/persistence/3.1/apidocs/jakarta.persistence/jakarta/persistence/Entity.html) items.
+Using a root package also allows component scan to apply only on your project.
+
+> [!TIP]
+> If you do not want to use [`@SpringBootApplication`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/autoconfigure/SpringBootApplication.html), the [`@EnableAutoConfiguration`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/autoconfigure/EnableAutoConfiguration.html) and [`@ComponentScan`](https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/context/annotation/ComponentScan.html) annotations that it imports defines that behavior so you can also use those instead.
+
+The following listing shows a typical layout:
+
+```
+com
+ +- example
+     +- myapplication
+         +- MyApplication.java
+         |
+         +- customer
+         |   +- Customer.java
+         |   +- CustomerController.java
+         |   +- CustomerService.java
+         |   +- CustomerRepository.java
+         |
+         +- order
+             +- Order.java
+             +- OrderController.java
+             +- OrderService.java
+             +- OrderRepository.java
+```
+
+The `MyApplication.java` file would declare the `main` method, along with the basic [`@SpringBootApplication`](https://docs.spring.io/spring-boot/3.5.2/api/java/org/springframework/boot/autoconfigure/SpringBootApplication.html), as follows:
+
+#### Java
+
+```java
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class MyApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(MyApplication.class, args);
+	}
+
+}
+```
+
+#### Kotlin
+
+```kotlin
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.runApplication
+
+@SpringBootApplication
+class MyApplication
+
+fun main(args: Array<String>) {
+	runApplication<MyApplication>(*args)
+}
+
+```
