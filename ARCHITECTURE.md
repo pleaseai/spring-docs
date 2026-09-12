@@ -170,9 +170,10 @@ Workflow artifacts for the `please` plugin (specs, plans, ADRs, knowledge files)
     │  the authored component — and, for a      │  the generated half, or the
     │  synthesized era, its build inputs        │  inputs left to rebuild it
     └─────────────────────┬─────────────────────┘
-                          │ merge the archive, or rebuild the generated
-                          │ half from the tag (ADR-0004); promote
-                          │ modules/antora.yml; commit as its own git repo
+                          │ merge the archive and promote modules/antora.yml,
+                          │ or rebuild the generated half from the tag and
+                          │ synthesize antora.yml at the component root
+                          │ (ADR-0004); commit as its own git repo
                           │ scripts/fetch-upstream.ts
                           ▼
         dist/upstream/<project>-<version>/        + <project>-<version>.upstream.json
@@ -278,12 +279,12 @@ These constraints must hold; violating them is a regression, not a style prefere
 
 ### Testing
 
-| Layer        | What                                                                  | Where                                       |
-| ------------ | --------------------------------------------------------------------- | ------------------------------------------- |
-| Unit         | Pure logic of a `scripts/` module, against its own inputs              | `tests/unit/*.test.ts`                      |
-| Schema       | `manifest.json` round-trips schema validation                         | `tests/unit/manifest.test.ts`               |
-| Integration  | Fixture upstream tree → full archive → checksum verification          | `tests/integration/*.test.ts`               |
-| Determinism  | Same fixture run twice produces byte-identical output                 | `tests/integration/determinism.test.ts`     |
+| Layer       | What                                                         | Where                                                                         |
+| ----------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Unit        | Pure logic of a `scripts/` module, against its own inputs    | `tests/unit/*.test.ts`                                                        |
+| Schema      | `manifest.json` round-trips schema validation                | `tests/unit/manifest.test.ts`                                                 |
+| Integration | Fixture upstream tree → full archive → checksum verification | `tests/integration/*.test.ts`                                                 |
+| Determinism | Same fixture run twice produces byte-identical output        | `tests/unit/markdown-converter.test.ts`, `tests/integration/pipeline.test.ts` |
 
 Coverage target: **>80% for new code**. Coverage is informational; the load-bearing quality signal is the conversion-output validation suite (link check, schema check, size sanity).
 
