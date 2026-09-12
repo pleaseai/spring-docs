@@ -1,0 +1,20 @@
+.claude/skills/release-pipeline/SKILL.md
+  s_bef2d2e5325b2d::t_4dd2be54eb5c5b 18,21-44,53-58,62-63,81-87,89-92,98-101,176-178
+  s_bef2d2e5325b2d::t_e0097a8e691f38 140-146,185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "2b64261a4da834fa06c655d81dca3884242de191",
+  "prompts": {},
+  "sessions": {
+    "s_bef2d2e5325b2d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "89745a61-2bb0-4917-8435-598dfb3d554d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
