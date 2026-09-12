@@ -18,6 +18,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
+import { unpublishedArtifacts } from './lib/artifact-availability.ts'
 import { CatalogSchema } from './lib/catalog-schema.ts'
 import { cloneUrlFor, requiredArtifactUrls, supportedProjects } from './lib/upstream-sources.ts'
 import { missingVersions, parseTagRefs } from './lib/version-detect.ts'
@@ -76,35 +77,10 @@ export function parseArgs(argv: readonly string[]): Args {
   }
 }
 
-/**
- * Maximum HEAD requests in flight against Maven Central at once.
- *
- * The bound is the point: a synthesized-era version needs eight artifacts, so a
- * first run over the whole 3.3-3.5 line probes a few hundred URLs. Issuing them
- * one at a time costs about a minute of CI; issuing them all at once is rude to
- * a host this pipeline does not own.
- */
-const PROBE_CONCURRENCY = 8
-
 /** One artifact to probe, and the version whose build reads it. */
 interface Probe {
   readonly version: string
   readonly url: string
-}
-
-/**
- * Whether a single remote artifact has been published.
- *
- * @throws if the URL cannot be reached, so a network fault is never mistaken for
- * an unpublished version.
- */
-async function artifactPublished(url: string): Promise<boolean> {
-  const response = await fetch(url, { method: 'HEAD' })
-  if (response.status === 404)
-    return false
-  if (!response.ok)
-    throw new Error(`HEAD ${url} → ${response.status} ${response.statusText}`)
-  return true
 }
 
 /**
@@ -115,11 +91,8 @@ async function artifactPublished(url: string): Promise<boolean> {
  * Which artifacts matter depends on the version's layout era, so the list comes
  * from `requiredArtifactUrls`. Filing an issue for a version that cannot be built
  * wastes a human's time, so availability is checked here rather than left for
- * `fetch-upstream.ts` to hit as a 404.
- *
- * Every probe runs, even once a version is known to be missing one artifact: the
- * bounded pool is what makes the whole sweep cheap, and short-circuiting a single
- * version inside it would save nothing measurable.
+ * `fetch-upstream.ts` to hit as a 404 — which asks the same question of the same
+ * URLs through the same module, so the two cannot disagree.
  *
  * @throws if any URL cannot be reached.
  */
@@ -131,21 +104,10 @@ async function partitionByPublication(
     requiredArtifactUrls(project, version).map(url => ({ version, url })),
   )
 
-  const missingArtifact = new Set<string>()
-  let next = 0
-  const runners = Array.from(
-    { length: Math.min(PROBE_CONCURRENCY, probes.length) },
-    async () => {
-      for (let index = next++; index < probes.length; index = next++) {
-        const probe = probes[index]
-        if (probe === undefined)
-          return
-        if (!await artifactPublished(probe.url))
-          missingArtifact.add(probe.version)
-      }
-    },
+  const missing = new Set(await unpublishedArtifacts(probes.map(probe => probe.url)))
+  const missingArtifact = new Set(
+    probes.filter(probe => missing.has(probe.url)).map(probe => probe.version),
   )
-  await Promise.all(runners)
 
   const buildable: string[] = []
   const unpublished: string[] = []

@@ -18,10 +18,11 @@
  *
  * Exit codes:
  *   0 — source tree written
- *   1 — fetch, download or merge failed
+ *   1 — a required upstream artifact is unpublished, or fetch/download/merge failed
  *   2 — bad arguments
  */
 
+import type { Fetcher } from './lib/artifact-availability.ts'
 import type { SynthesisSources, UpstreamCoordinates } from './lib/upstream-sources.ts'
 import { Buffer } from 'node:buffer'
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
@@ -29,9 +30,10 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { parseManagedVersions, synthesizeAttributes, versionSourceBoms } from './lib/antora-attributes.ts'
+import { unpublishedArtifacts } from './lib/artifact-availability.ts'
 import { componentNameOf, renderDescriptor } from './lib/component-descriptor.ts'
 import { assertNoSymlinks } from './lib/reject-symlinks.ts'
-import { resolveUpstream } from './lib/upstream-sources.ts'
+import { requiredArtifactUrls, resolveUpstream } from './lib/upstream-sources.ts'
 
 export interface Args {
   readonly project: string
@@ -314,6 +316,40 @@ async function addConfigurationMetadata(
   console.log(`  Added metadata from ${upstream.metadataJars.length} published jars`)
 }
 
+/**
+ * Refuse a version whose upstream artifacts are not all published yet.
+ *
+ * The era model answers "where does this version's component live and how is its
+ * generated half assembled" — a permanent layout fact. Whether the artifacts that
+ * assembly reads have actually been published is a separate, mutable one: 4.1.0
+ * is tagged with no content archive today and may have one tomorrow. Encoding it
+ * as an era gap would refuse 4.1.0 forever (#19), so it is checked here instead.
+ *
+ * `detect-upstream-versions.ts` makes this same check before offering a version
+ * as buildable, which is why a version reaching this point normally passes. It
+ * runs anyway because a direct invocation bypasses detection entirely, and the
+ * alternative is a 404 partway through — after a clone, with a message about one
+ * jar rather than about the version.
+ */
+export async function assertArtifactsPublished(
+  upstream: UpstreamCoordinates,
+  fetchImpl?: Fetcher,
+): Promise<void> {
+  const missing = await unpublishedArtifacts(
+    requiredArtifactUrls(upstream.project, upstream.version),
+    { fetchImpl },
+  )
+  if (missing.length === 0)
+    return
+
+  throw new Error(
+    `${upstream.project} ${upstream.version} is tagged upstream but cannot be built yet: `
+    + `${missing.length} required artifact(s) are not published.\n`
+    + `${missing.map(url => `  ${url}`).join('\n')}\n`
+    + `This is a publication fact, not a layout one — it can change with no code change here.`,
+  )
+}
+
 async function main(): Promise<void> {
   // `resolveUpstream` rejects an unknown project, a non-GA version and one below
   // the supported floor — all bad *arguments*, so it is resolved inside this
@@ -334,6 +370,8 @@ async function main(): Promise<void> {
   const workDir = await mkdtemp(join(tmpdir(), 'spring-docs-fetch-'))
 
   try {
+    await assertArtifactsPublished(upstream)
+
     console.log(`Fetching ${upstream.repo}@${upstream.tag} (${upstream.componentPath})`)
     const commit = await checkoutComponent(upstream, workDir)
 
