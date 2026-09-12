@@ -1,0 +1,27 @@
+.please/docs/decisions/0004-synthesize-3x-component.md
+  s_d835e4018f0b05::t_f3243d92aa047b 144
+scripts/lib/reject-symlinks.ts
+  s_d835e4018f0b05::t_dff973f3c15fb0 25,29-30,32-38,40,43-53,55,59
+.please/docs/review/rejected-findings.jsonl
+  s_d835e4018f0b05::t_7f3d904a1a0f7e 6
+ARCHITECTURE.md
+  s_d835e4018f0b05::t_f3243d92aa047b 72
+tests/unit/reject-symlinks.test.ts
+  s_d835e4018f0b05::t_3c4335d29ea760 21-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "7ba870b5e082141ca364b8c1983676efc34f59ef",
+  "prompts": {},
+  "sessions": {
+    "s_d835e4018f0b05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a2bbe8cb-48ac-4bf8-915d-1b383bdcb970",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
