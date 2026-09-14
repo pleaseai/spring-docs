@@ -1,0 +1,25 @@
+scripts/lib/markdown-converter.ts
+  s_52dd89c62eab09::t_418685d19364d9 18-42,54-64,109-111,193-194,249-298,406-422,429-435
+  s_52dd89c62eab09::t_0749d5ef652a36 436
+tests/unit/markdown-converter.test.ts
+  s_52dd89c62eab09::t_418685d19364d9 279-416
+scripts/lib/inline-html.ts
+  s_52dd89c62eab09::t_418685d19364d9 113,408-416
+  s_52dd89c62eab09::t_f2e5d7df5a67d3 417
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "cf584ffb5ea6c148441857949934e813f41cd030",
+  "prompts": {},
+  "sessions": {
+    "s_52dd89c62eab09": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa1d40ce-19ad-405e-9ba6-e0341acaef0c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
