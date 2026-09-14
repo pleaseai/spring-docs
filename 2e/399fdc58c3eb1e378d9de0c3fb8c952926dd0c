@@ -1,0 +1,41 @@
+scripts/lib/reject-symlinks.ts
+  s_af3992aab3abb9::t_fbeadc26b01d01 137-140
+  s_af3992aab3abb9::t_becf0328782049 141-147
+  s_af3992aab3abb9::t_f4f4edc640008e 69-83,102-104,106-107,111,115
+  s_af3992aab3abb9::t_107e240e81b41e 68
+tests/unit/reject-symlinks.test.ts
+  s_af3992aab3abb9::t_8e894971f679ad 211
+  s_af3992aab3abb9::t_949d7a93c8684d 162,165
+  s_af3992aab3abb9::t_f42ccfde37add5 144
+  s_af3992aab3abb9::t_a8e1473ff2737d 127
+  s_af3992aab3abb9::t_1b2f0507150921 86-89
+  s_af3992aab3abb9::t_ecf2ae2b9c7adf 192-194
+  s_af3992aab3abb9::t_b67b9e9b73895a 252-254
+  s_af3992aab3abb9::t_a0d9407ef0acb8 219-251,255-268
+scripts/lib/upstream-sources.ts
+  s_af3992aab3abb9::t_0cb08a747968d9 175-177,179-183,185
+  s_af3992aab3abb9::t_e5e8aa6ad19173 359
+  s_af3992aab3abb9::t_027dce9a37743a 158
+  s_af3992aab3abb9::t_f0c6a7ba008bb2 15
+tests/unit/upstream-sources.test.ts
+  s_af3992aab3abb9::t_8ad250b20b54be 297-301
+.claude/skills/release-pipeline/SKILL.md
+  s_af3992aab3abb9::t_5b12044420b03f 34,38-39
+  s_af3992aab3abb9::t_b825f0cb384dfe 104-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "2e399fdc58c3eb1e378d9de0c3fb8c952926dd0c",
+  "prompts": {},
+  "sessions": {
+    "s_af3992aab3abb9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b97f0e4-753d-42f2-b51e-c0f204355eb4",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
