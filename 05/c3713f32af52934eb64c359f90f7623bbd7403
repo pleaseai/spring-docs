@@ -1,0 +1,21 @@
+.claude/skills/release-pipeline/SKILL.md
+  s_54a5c50f112a85::t_f17c808f7a2b34 100-102
+scripts/lib/upstream-sources.ts
+  s_54a5c50f112a85::t_1c170324931913 417-419
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "05c3713f32af52934eb64c359f90f7623bbd7403",
+  "prompts": {},
+  "sessions": {
+    "s_54a5c50f112a85": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e6f618a9-0f66-4bcf-8894-b40eac45c71b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
