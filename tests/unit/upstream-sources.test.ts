@@ -73,7 +73,7 @@ describe('resolveUpstream', () => {
 
 describe('supportedProjects', () => {
   test('lists the known projects', () => {
-    expect(supportedProjects()).toEqual(['boot'])
+    expect(supportedProjects()).toEqual(['boot', 'framework'])
   })
 })
 
@@ -261,5 +261,98 @@ describe('requiredArtifactUrls', () => {
     )
     // Publishes a jar but ships no configuration metadata (measured on 3.5.16).
     expect(urls.some(url => url.includes('/spring-boot-test/'))).toBe(false)
+  })
+})
+
+describe('framework', () => {
+  test('resolves to its component root with nothing to download', () => {
+    const upstream = resolveUpstream('framework', '6.2.14')
+
+    expect(upstream.repo).toBe('spring-projects/spring-framework')
+    expect(upstream.tag).toBe('v6.2.14')
+    expect(upstream.componentPath).toBe('framework-docs')
+    expect(upstream.assembly.descriptor).toBe('overlay')
+    // The whole point of the overlay era: the git tag carries everything.
+    expect(upstream.archives).toEqual([])
+    expect(upstream.metadataJars).toEqual([])
+    expect(requiredArtifactUrls('framework', '6.2.14')).toEqual([])
+  })
+
+  test('generates exactly the one attribute the Gradle build contributes', () => {
+    const { assembly } = resolveUpstream('framework', '6.2.14')
+    if (assembly.descriptor !== 'overlay')
+      throw new Error('expected an overlay assembly')
+
+    // `framework-docs.gradle` sets asciidocAttributes to ["spring-version": version]
+    // and `generateAntoraResources` depends on `generateAntoraYml` alone.
+    expect(assembly.generatedAttributes).toEqual({ 'spring-version': '6.2.14' })
+  })
+
+  test('declares the examples symlink so the copy guard can be kept strict', () => {
+    const { assembly } = resolveUpstream('framework', '6.2.14')
+    if (assembly.descriptor !== 'overlay')
+      throw new Error('expected an overlay assembly')
+
+    // A mode 120000 blob holding `../../../src`. Undeclared, it would fail
+    // `assertNoSymlinks`; declared, it is replaced by a real copy — pinned to
+    // the target it must resolve to, so retargeting it fails too.
+    expect(assembly.internalSymlinks).toEqual([
+      { path: 'modules/ROOT/examples/docs-src', target: 'src' },
+    ])
+  })
+
+  test('checks out the component root alone, symlink target included', () => {
+    // `framework-docs/src` is inside `framework-docs`, so one path covers both
+    // the component and the tree its examples symlink points at.
+    expect(resolveUpstream('framework', '6.2.14').checkoutPaths).toEqual(['framework-docs'])
+  })
+
+  test('pins images and javadoc to the exact version', () => {
+    const upstream = resolveUpstream('framework', '6.2.14')
+
+    // The reference site collapses a patch to its minor, so images are taken
+    // from the release tag, which serves the exact version or nothing.
+    expect(upstream.imageBase).toBe(
+      'https://raw.githubusercontent.com/spring-projects/spring-framework/v6.2.14'
+      + '/framework-docs/modules/ROOT/assets/images',
+    )
+    expect(upstream.javadocLocation).toBe(
+      'https://docs.spring.io/spring-framework/docs/6.2.14/javadoc-api',
+    )
+  })
+
+  test('maps no external components, because every xref stays in-component', () => {
+    expect(resolveUpstream('framework', '6.2.14').externalComponents).toEqual({})
+  })
+
+  test('refuses 6.0.x, which ships no Antora component at all', () => {
+    // `framework-docs/antora.yml` is a 404 at v6.0.0 and present from v6.1.0.
+    expect(() => resolveUpstream('framework', '6.0.9')).toThrow(/not buildable/)
+    expect(() => resolveUpstream('framework', '6.1.0')).not.toThrow()
+  })
+
+  test('runs one era with no ceiling, across the committed-attribute change', () => {
+    // v6.1.0 commits 31 lines of attributes and v6.2.0 onward commit 96, but
+    // the component path and the generated half are identical, so 7.x resolves
+    // through the same era rather than falling off the end of the table.
+    for (const version of ['6.1.0', '6.2.14', '7.0.4']) {
+      const upstream = resolveUpstream('framework', version)
+      expect(upstream.componentPath).toBe('framework-docs')
+      expect(upstream.assembly.descriptor).toBe('overlay')
+    }
+  })
+
+  test('orders versions from tags the same way the build does', () => {
+    expect(
+      supportedVersionsFromTags('framework', ['v6.0.9', 'v6.1.0', 'v6.2.14', 'v7.0.4', 'v7.1.0-M1']),
+    ).toEqual(['6.1.0', '6.2.14', '7.0.4'])
+  })
+})
+
+describe('boot image base', () => {
+  test('pins to the exact version, beside the javadoc location', () => {
+    expect(resolveUpstream('boot', '4.1.1').imageBase).toBe(
+      'https://docs.spring.io/spring-boot/4.1.1/_images',
+    )
   })
 })

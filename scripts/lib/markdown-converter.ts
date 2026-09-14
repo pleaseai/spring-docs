@@ -15,7 +15,31 @@ import type {
   AsciidoctorTable,
   AsciidoctorTableCell,
 } from './antora-types.ts'
-import { escapeHtmlAttribute, inlineHtmlToMarkdown } from './inline-html.ts'
+import { decodeEntities, escapeHtmlAttribute, inlineHtmlToMarkdown } from './inline-html.ts'
+
+/**
+ * The inline HTML of a node, as Asciidoctor actually hands it across.
+ *
+ * `getText()` and `getContent()` are declared to return a string, and for most
+ * nodes they do. A `ListItem` whose description carries only nested blocks does
+ * not: Asciidoctor returns Ruby `nil`, and Opal passes that over as an object
+ * carrying `call`/`apply` rather than converting it to `undefined`. A nullish
+ * fallback does not catch it — the object is neither `null` nor `undefined` — so it
+ * reached the entity decoder as a non-string and threw `text.replace is not a
+ * function`, with no page or node named.
+ *
+ * Every hand-written tab group has exactly that shape: `Java::` alone on its
+ * line, then `+`, then the listing. Spring Boot's corpus never hit it because
+ * `include-code::` generates its tab groups and fills the text in; Spring
+ * Framework writes them by hand, 1,932 times at v6.2.14.
+ *
+ * An empty string is the faithful reading — the description has no inline text,
+ * only blocks, and `renderDescription` already drops an empty chunk and renders
+ * the blocks.
+ */
+function asInlineHtml(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
 
 /** Inputs the converter needs beyond the document itself. */
 export interface ConvertOptions {
@@ -27,6 +51,17 @@ export interface ConvertOptions {
    * a dangling `#component:path` fragment.
    */
   readonly externalComponents?: Readonly<Record<string, string>>
+  /**
+   * Base URL of the project's published `_images/` directory, version-pinned.
+   *
+   * Image assets live in the component (`modules/ROOT/assets/images/`) but are
+   * not part of a release: the archives carry Markdown only. A relative link
+   * would therefore resolve to nothing once extracted. Pointing at the
+   * published site instead keeps the reference useful, which is the same rule
+   * {@link externalComponents} already applies to components this build does
+   * not produce.
+   */
+  readonly imageBase?: string
 }
 
 /** One converted page, plus everything the converter could not convert faithfully. */
@@ -70,6 +105,9 @@ const NEWLINE_RUN = /\s*\n\s*/g
  * `FoldDirectiveRx` in that extension so the markers never reach the output.
  */
 const FOLD_DIRECTIVE = /^[^\S\n]*\/\/ @fold:(?:on( \S[^\n]*)?|off)$/gm
+
+/** A trailing slash on a base URL, so joining never doubles it. */
+const TRAILING_SLASH = /\/+$/
 
 /** Heading level used for a block's own title, matching tab labels. */
 const BLOCK_TITLE_LEVEL = '#### '
@@ -152,8 +190,8 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
     warnings.add(line === undefined ? message : `${message} (line ${line})`)
   }
 
-  const inline = (html: string | undefined): string =>
-    inlineHtmlToMarkdown(html ?? '', {
+  const inline = (html: unknown): string =>
+    inlineHtmlToMarkdown(asInlineHtml(html), {
       externalComponents: options.externalComponents,
       onUnknownTag: tag => warnings.add(`unknown inline tag <${tag}>`),
     })
@@ -206,6 +244,56 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
       return head
     const padding = ' '.repeat(marker.length)
     return [head, ...nested.map(chunk => indent(chunk, padding))].join('\n\n')
+  }
+
+  /**
+   * A block image, linked to the project's published documentation site.
+   *
+   * The asset is real — it sits in `modules/ROOT/assets/images/` — but a release
+   * archive carries Markdown only, so a relative link would dangle the moment
+   * the archive is extracted. The published, version-pinned `_images/` URL is
+   * the one reference that resolves for every consumer, and it pins to the same
+   * version as the prose around it.
+   *
+   * Without a base URL the target is dropped rather than guessed at: an
+   * `![alt]()` with an empty destination reads as a broken image, while the alt
+   * text alone still tells a reader — or a model — what the diagram showed.
+   */
+  const renderImage = (node: AsciidoctorNode): string => {
+    const target = node.getAttribute('target')
+    const alt = node.getAttribute('alt')
+    const altText = typeof alt === 'string' ? inline(alt) : ''
+    if (typeof target !== 'string' || target === '') {
+      warn('image block with no target', node)
+      return altText === '' ? '' : `![${altText}]()`
+    }
+    if (options.imageBase === undefined) {
+      warn(`image "${target}" dropped: no published image base for this project`, node)
+      return altText === '' ? '' : `![${altText}]()`
+    }
+    return `![${altText}](${options.imageBase.replace(TRAILING_SLASH, '')}/${target})`
+  }
+
+  /**
+   * A `[literal]` block: preformatted text carrying no language.
+   *
+   * `getContent()`, not `getSource()` — the opposite of {@link renderListing},
+   * and for the opposite reason. A listing suppresses substitutions, so its raw
+   * source is the faithful text; a literal block applies them, so reading the
+   * source would leave AsciiDoc's own escapes in the output —
+   * `[literal,subs="verbatim,quotes"]` in `core/resources.adoc` writes
+   * `\*-context.xml` to render a literal `*`, and only the substituted content
+   * spells the path a reader should copy.
+   *
+   * That content is HTML-escaped text, so entities are decoded rather than run
+   * through the inline converter: a fence is verbatim, and building Markdown
+   * syntax inside one would emit link and emphasis markup that renders as
+   * itself.
+   */
+  const renderLiteral = (node: AsciidoctorNode): string => {
+    const body = decodeEntities(asInlineHtml(node.getContent()))
+    const fence = fenceFor(body)
+    return `${fence}\n${body}\n${fence}`
   }
 
   const renderList = (node: AsciidoctorNode, marker: string): string =>
@@ -315,11 +403,36 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
         return inline(node.getContent())
       case 'listing':
         return withTitle(node, renderListing(node))
+      case 'literal':
+        return withTitle(node, renderLiteral(node))
+      case 'floating_title': {
+        // `[discrete]`: a heading deliberately kept out of the section tree, so
+        // it owns no blocks — unlike `section`, there are no children to render
+        // after it. Its level follows the same convention, one deeper than
+        // Asciidoctor reports, so a discrete heading sits at the depth its
+        // surrounding prose implies.
+        //
+        // No anchor here: unlike `section`, this context is not excluded from
+        // the generic prepend in {@link renderBlock}, which already emits one
+        // immediately before this heading.
+        const level = Math.min(node.getLevel() + 1, MAX_HEADING_LEVEL)
+        return `${'#'.repeat(level)} ${inline(node.getTitle())}`
+      }
+      case 'image':
+        return withTitle(node, renderImage(node))
       case 'admonition':
         return renderAdmonition(node)
       case 'ulist':
         return renderList(node, '- ')
       case 'olist':
+        return renderList(node, '1. ')
+      case 'colist':
+        // A callout list: the `<1>`, `<2>` … entries under a listing. Rendered
+        // as an ordered list so the numbering keeps matching the `// <1>`
+        // markers, which survive in the fence because `renderListing` reads
+        // `getSource()`. Its items are ordinary `ListItem`s — measured over
+        // Spring Framework 6.2.14, every one carries inline text and no nested
+        // blocks — so the `olist` rendering applies unchanged.
         return renderList(node, '1. ')
       case 'dlist':
         return renderDefinitionList(node)

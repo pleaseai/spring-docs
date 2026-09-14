@@ -110,7 +110,7 @@ export function escapeHtmlAttribute(value: string): string {
 }
 
 /** Decode the HTML entities Asciidoctor emits, named and numeric alike. */
-function decodeEntities(text: string): string {
+export function decodeEntities(text: string): string {
   return text.replace(ENTITY, (match, body: string) => {
     if (body.startsWith('#')) {
       const hex = body[1] === 'x' || body[1] === 'X'
@@ -404,6 +404,16 @@ export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}):
           emit(`<${node.tag}>`)
           walk(node.children)
           emit(`</${node.tag}>`)
+          break
+        // A role carrier, never content of its own: `[.small]#…#` renders as
+        // `<span class="small">`. The role is presentational and has no GFM
+        // equivalent, so the wrapper is dropped and its children kept. Listed
+        // explicitly rather than left to `default`, which would report a known,
+        // deliberately-unwrapped tag as an unhandled construct on every page
+        // that carries one — 129 of Spring Framework 6.2.14's cross-stack
+        // "See equivalent in the Reactive stack" links alone.
+        case 'span':
+          walk(node.children)
           break
         default:
           onUnknownTag?.(node.tag)

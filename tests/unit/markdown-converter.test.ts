@@ -276,3 +276,141 @@ describe('determinism', () => {
     expect(convert(source).markdown).toBe(convert(source).markdown)
   })
 })
+
+describe('callout lists', () => {
+  test('renders as an ordered list, keeping the numbering the markers use', () => {
+    const { markdown, warnings } = convert(`
+[source,java]
+----
+route(); // <1>
+----
+<1> Create router using \`route()\`.
+<2> Then use it.
+`)
+
+    // The `// <1>` markers survive in the fence because listings are read from
+    // `getSource()`, so the list has to number the same way to stay readable.
+    expect(markdown).toContain('1. Create router using `route()`.')
+    expect(markdown).toContain('1. Then use it.')
+    expect(warnings).toEqual([])
+  })
+})
+
+describe('literal blocks', () => {
+  test('fences the substituted text, not the raw source', () => {
+    // Verbatim from `core/resources.adoc`: `\*` is AsciiDoc's escape for a
+    // literal `*`, and reading `getSource()` would keep the backslash and print
+    // a path nobody can copy.
+    const { markdown, warnings } = convert(`
+[literal,subs="verbatim,quotes"]
+----
+/WEB-INF/\\*-context.xml
+com/mycompany/\\**/applicationContext.xml
+----
+`)
+
+    // The rule under test is which accessor is read, so the assertion is that
+    // the escape is gone — not how Asciidoctor pairs the remaining `*` runs,
+    // which depends on the whole block and is its behaviour, not ours.
+    expect(markdown).toContain('/WEB-INF/*-context.xml')
+    expect(markdown).not.toContain('/WEB-INF/\\*-context.xml')
+    expect(markdown).toContain('```')
+    expect(warnings).toEqual([])
+  })
+
+  test('decodes entities rather than building Markdown inside the fence', () => {
+    const { markdown } = convert('....\na < b && c > d\n....')
+
+    expect(markdown).toContain('a < b && c > d')
+    expect(markdown).not.toContain('&lt;')
+  })
+})
+
+describe('discrete headings', () => {
+  test('renders the heading without opening a section', () => {
+    const { markdown, warnings } = convert(`
+== Real Section
+
+[discrete]
+=== Constructor argument index
+
+Body.
+`)
+
+    // Level 2 heading + 1, the same convention `section` uses.
+    expect(markdown).toContain('### Constructor argument index')
+    // Anchored exactly once: the generic prepend covers this context.
+    expect(markdown.match(/<a id="_constructor_argument_index"><\/a>/g)).toHaveLength(1)
+    expect(warnings).toEqual([])
+  })
+})
+
+describe('block images', () => {
+  test('links to the published, version-pinned image', () => {
+    const { markdown, warnings } = convert('image::message-flow.png[Message flow]', {
+      imageBase: 'https://docs.spring.io/spring-framework/reference/6.2.14/_images',
+    })
+
+    expect(markdown).toContain(
+      '![Message flow](https://docs.spring.io/spring-framework/reference/6.2.14/_images/message-flow.png)',
+    )
+    expect(warnings).toEqual([])
+  })
+
+  test('does not double a slash when the base carries one', () => {
+    const { markdown } = convert('image::a.png[]', { imageBase: 'https://example.test/_images/' })
+
+    expect(markdown).toContain('(https://example.test/_images/a.png)')
+  })
+
+  test('warns rather than guessing when no image base is configured', () => {
+    // A release archive carries Markdown only, so a relative link would dangle.
+    const { markdown, warnings } = convert('image::a.png[Diagram]')
+
+    expect(warnings.join(' ')).toContain('no published image base')
+    expect(markdown).toContain('![Diagram]()')
+  })
+})
+
+describe('role spans', () => {
+  test('keeps the content and drops the presentational wrapper', () => {
+    // `[.small]#…#` renders as <span class="small">, which has no GFM equivalent.
+    const { markdown, warnings } = convert('[.small]#just text#')
+
+    expect(markdown).toContain('just text')
+    expect(markdown).not.toContain('<span')
+    expect(warnings).toEqual([])
+  })
+})
+
+describe('tab groups written by hand', () => {
+  test('renders a description that carries only blocks', () => {
+    // `Java::` then `+` then the listing: the description has no inline text,
+    // and Asciidoctor returns Ruby nil for it, which crosses into JS as an
+    // object rather than undefined.
+    const { markdown, warnings } = convert(`
+[tabs]
+======
+Java::
++
+[source,java]
+----
+var x = 1;
+----
+
+Kotlin::
++
+[source,kotlin]
+----
+val x = 1
+----
+======
+`)
+
+    expect(markdown).toContain('#### Java')
+    expect(markdown).toContain('var x = 1;')
+    expect(markdown).toContain('#### Kotlin')
+    expect(markdown).toContain('val x = 1')
+    expect(warnings).toEqual([])
+  })
+})

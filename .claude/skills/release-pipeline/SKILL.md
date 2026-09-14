@@ -13,16 +13,30 @@ before answering "is X supported" — they answer different questions.
 
 | | |
 |---|---|
-| Projects | `boot` only |
+| Projects | `boot`, `framework` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Floor | `boot` → `minimumVersion: '4.0.8'` |
+| Floors | `boot` → 3.3.0 (synthesized) and 4.0.8+ (archive); `framework` → 6.1.0 (overlay) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
-The floor is not a compatibility guess: the pipeline needs the `spring-boot-docs`
+Each project is a sequence of **layout eras**, and an era's `assembly.descriptor` says where
+the generated half of the component comes from:
+
+| Descriptor | Generated half | Needs Maven Central | Used by |
+|---|---|---|---|
+| `archive` | the published content zip, merged over the checkout | yes — content zips | `boot` 4.0.8+ |
+| `synthesized` | rebuilt from the tag's BOM, attributes file and metadata jars | yes — metadata jars | `boot` 3.3-3.x |
+| `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no | `framework` 6.1+ |
+
+`overlay` is the cheapest to add and the one to reach for first on a new project: check what
+that project's `generateAntoraResources` actually produces. Spring Framework's is one
+attribute (`spring-version`), so nothing is downloaded at all.
+
+The archive era's floor is not a compatibility guess: the pipeline needs the `spring-boot-docs`
 `root-aggregate-content` zip from Maven Central, which upstream published for 2.2.x–2.4.2, then
 not again until 4.0.8. Tags without that archive (4.0.0–4.0.7, 4.1.0) can never be built, and
 `detect-upstream-versions.ts` HEAD-checks every candidate so they are skipped rather than
-offered.
+offered. The synthesized era's 3.3.0 floor has nothing to do with that zip — 3.3.x–3.x builds
+from the tag's BOM, attributes file and metadata jars instead.
 
 ## What is buildable right now
 
@@ -32,7 +46,9 @@ bun run scripts/detect-upstream-versions.ts --project boot --limit 5
 ```
 
 Read-only: it diffs upstream tags against `catalog.json` and writes nothing. Versions with no
-published content archive are reported on stderr and excluded from the result.
+published content archive are reported on stderr and excluded from the result — an overlay
+project has no required artifact at all, so being tagged upstream is the whole of being
+buildable there.
 
 ## Add a version of an existing project
 
@@ -62,21 +78,45 @@ against them first — treat it as a conversion change, not a config tweak.
 
 ## Add a new project
 
-Add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
+**First, decide the era.** Read the project's `antora.yml` and the Gradle or Maven task its
+`ext.collector` names. If the committed descriptor already carries its attributes and the task
+contributes only a version — as Spring Framework's does — it is an `overlay`, and nothing has
+to be downloaded. Only reach for `synthesized` when the build genuinely generates content, and
+for `archive` when Spring publishes a content zip to Maven Central (so far, Boot alone).
 
-- `repo`, `componentPath` (directory holding `antora.yml`), `tagPrefix`
-- `mavenGroupPath`, `mavenArtifact`, `archiveClassifiers` — the published content archives
-- `minimumVersion` — the oldest version whose archives exist and whose layout converts
+Then add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
+
+- `repo`, `tagPrefix`, and per era `componentPath` (the directory holding `antora.yml`), `since`
+  and optionally `until`
+- `assembly` — one of the three descriptors above. `archive` takes `archiveClassifiers`;
+  `synthesized` takes a `SynthesisSources`; `overlay` takes `generatedAttributesFor(version)`
+  and `internalSymlinks`
+- `mavenGroupPath` / `mavenArtifact` — only for a project with an archive or synthesized era;
+  omit them for an overlay-only project
 - `javadocLocationFor(version)` — retargets `javadoc:` macros, which otherwise dangle as
   `#api:java/...`
+- `imageBaseFor(version)` — the published, version-pinned `_images/` base. Block images are
+  linked there because a release archive carries Markdown only
 - `externalComponentsFor(version)` — Antora components referenced by `xref:` that this build
   does not produce, mapped to their published site
+
+**Declare any symlink the component ships.** `assertNoSymlinks` refuses every link reaching the
+content source; an era's `internalSymlinks` names each one's path and expected target, and
+replaces it with a real copy first — a link nobody declared still fails the copy, and a declared
+one resolving to a different target fails too. Spring Framework reaches its examples through
+`modules/ROOT/examples/docs-src` → `framework-docs/src`.
+
+**Expect the converter to be incomplete for a new corpus.** Spring Boot's corpus does not
+exercise every AsciiDoc construct: adding Spring Framework surfaced hand-written tab groups
+(`Java::` / `+` / listing, whose description is Ruby `nil`), `colist`, `literal`,
+`floating_title`, block images and role `<span>`s — none of which Boot uses. Run `--strict` and
+add a rule per construct.
 
 Then:
 
 - extend `tests/unit/upstream-sources.test.ts`
 - add the upstream attribution to `NOTICE`
-- update the README support table
+- update the support table above and the fetch step in `README.md`
 
 **Project key constraint**: `release.yml`'s tag allowlist accepts lowercase segments that each
 start with a letter (`data-jpa` yes, `abc-4` no). That encodes the invariant
