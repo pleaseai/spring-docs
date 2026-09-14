@@ -19,8 +19,8 @@ const GA_VERSION = /^\d+\.\d+\.\d+$/
 /** Published Spring Boot documentation site. */
 const SPRING_BOOT_DOCS = 'https://docs.spring.io/spring-boot'
 
-/** Published Spring Framework documentation site. */
-const SPRING_FRAMEWORK_DOCS = 'https://docs.spring.io/spring-framework'
+/** Spring Framework sources served straight from a release tag. */
+const SPRING_FRAMEWORK_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-framework'
 
 /** Maven Central base for released Spring artifacts. */
 const MAVEN_CENTRAL = 'https://repo1.maven.org/maven2'
@@ -362,11 +362,16 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
     // later version adding the macro should resolve rather than dangle.
     javadocLocationFor: version =>
       `https://docs.spring.io/spring-framework/docs/${version}/javadoc-api`,
-    // Verified 2026-09-14: the version-pinned form answers 200, e.g.
-    // .../reference/6.2.14/_images/message-flow-simple-broker.png. Spring
-    // Framework's reference site is versioned under `reference/`, unlike Boot's,
-    // which is versioned at the project root.
-    imageBaseFor: version => `${SPRING_FRAMEWORK_DOCS}/reference/${version}/_images`,
+    // Images come from the release tag, not the reference site: docs.spring.io
+    // collapses a patch to its minor (`/reference/6.2.14/_images/…` answers a
+    // 301 to `/reference/6.2/_images/…`, verified 2026-09-14), so a URL built
+    // from a catalog version is pinned in appearance only and serves whatever
+    // that minor currently publishes — or nothing, as with 6.1, where
+    // `/reference/6.1.0/_images/container-magic.png` 404s while the asset is
+    // present in the tag. The raw path is the component's own `assets/images`,
+    // which `image::` names resolve against unchanged.
+    imageBaseFor: version =>
+      `${SPRING_FRAMEWORK_RAW}/v${version}/framework-docs/modules/ROOT/assets/images`,
   },
 }
 

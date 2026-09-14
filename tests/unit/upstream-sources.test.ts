@@ -307,8 +307,11 @@ describe('framework', () => {
   test('pins images and javadoc to the exact version', () => {
     const upstream = resolveUpstream('framework', '6.2.14')
 
+    // The reference site collapses a patch to its minor, so images are taken
+    // from the release tag, which serves the exact version or nothing.
     expect(upstream.imageBase).toBe(
-      'https://docs.spring.io/spring-framework/reference/6.2.14/_images',
+      'https://raw.githubusercontent.com/spring-projects/spring-framework/v6.2.14'
+      + '/framework-docs/modules/ROOT/assets/images',
     )
     expect(upstream.javadocLocation).toBe(
       'https://docs.spring.io/spring-framework/docs/6.2.14/javadoc-api',
