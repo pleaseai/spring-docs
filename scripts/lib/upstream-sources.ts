@@ -414,8 +414,9 @@ export function mavenJarUrl(groupPath: string, artifact: string, version: string
 /**
  * The era that built a given version.
  *
- * Eras are declared oldest first, so the last one whose floor the version meets
- * is the match.
+ * Eras are declared oldest first with disjoint ranges, and the first one whose
+ * range contains the version — `since` inclusive, `until` exclusive — is the
+ * match. Two overlapping declarations would resolve to the older one.
  *
  * @returns the era, or `undefined` when the version predates every era.
  */

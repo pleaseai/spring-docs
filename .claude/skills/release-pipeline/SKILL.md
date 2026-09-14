@@ -97,8 +97,9 @@ produces first. Converting 3.5.16's checkout without the generated half exited 0
 justified the synthesized era, and an unresolved-attribute count is the check for any new one.
 
 An era needs `since`, an optional exclusive `until`, `componentPath`, and an `assembly` —
-one of the three descriptors above. Declare eras oldest first; `eraFor` takes the last one
-whose floor the version meets.
+one of the three descriptors above. Declare eras oldest first and keep their ranges disjoint:
+`eraFor` returns the first declared era whose range contains the version (`since` inclusive,
+`until` exclusive), so two overlapping declarations resolve to the older one, not the newer.
 
 ## Add a new project
 
