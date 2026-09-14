@@ -15,28 +15,42 @@ before answering "is X supported" — they answer different questions.
 |---|---|
 | Projects | `boot`, `framework` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Floors | `boot` → 3.3.0 (synthesized) and 4.0.8+ (archive); `framework` → 6.1.0 (overlay) |
+| Buildable ranges | `boot` → `3.3.0`–`<4.0.0` (synthesized) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
-Each project is a sequence of **layout eras**, and an era's `assembly.descriptor` says where
-the generated half of the component comes from:
+A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
+pins the component path and how the *generated* half of the component is obtained, because one
+without the other yields a tree that classifies but converts wrongly:
 
-| Descriptor | Generated half | Needs Maven Central | Used by |
-|---|---|---|---|
-| `archive` | the published content zip, merged over the checkout | yes — content zips | `boot` 4.0.8+ |
-| `synthesized` | rebuilt from the tag's BOM, attributes file and metadata jars | yes — metadata jars | `boot` 3.3-3.x |
-| `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no | `framework` 6.1+ |
+| Era | Component path | `assembly.descriptor` | Generated half comes from | Needs Maven Central |
+|---|---|---|---|---|
+| `boot` `3.3.0` – `<4.0.0` | `spring-boot-project/spring-boot-docs/src/docs/antora` | `synthesized` | rebuilt from the tag (`SynthesisSources`) plus the eight published `spring-boot-*` jars carrying configuration-property metadata | yes — metadata jars |
+| `boot` `>= 4.0.8` | `documentation/spring-boot-docs/src/docs/antora` | `archive` | the published `root-aggregate-content` zip, merged over the checkout | yes — content zips |
+| `framework` `>= 6.1.0` | `framework-docs` | `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no |
 
 `overlay` is the cheapest to add and the one to reach for first on a new project: check what
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
 attribute (`spring-version`), so nothing is downloaded at all.
 
-The archive era's floor is not a compatibility guess: the pipeline needs the `spring-boot-docs`
-`root-aggregate-content` zip from Maven Central, which upstream published for 2.2.x–2.4.2, then
-not again until 4.0.8. Tags without that archive (4.0.0–4.0.7, 4.1.0) can never be built, and
-`detect-upstream-versions.ts` HEAD-checks every candidate so they are skipped rather than
-offered. The synthesized era's 3.3.0 floor has nothing to do with that zip — 3.3.x–3.x builds
-from the tag's BOM, attributes file and metadata jars instead.
+Eras are deliberately **not contiguous**, and `eraFor` returns `undefined` between them:
+
+- **3.2 and older** predate the Antora component (`antora.yml` first appears at v3.3.0).
+- **4.0.0–4.0.7** moved to the 4.x path but publish no content archive, so they belong to
+  neither era and are refused rather than fetched from a path their tag does not have.
+- **3.3–3.x archives exist but are unreachable** — Spring's
+  `sync-to-maven-central/artifacts.spec` excludes `spring-boot-docs` from the sync, and
+  `repo.spring.io` returns 401 anonymously. Hence synthesis rather than download.
+- **4.1.0** is a *publication* fact, not a layout one: it is inside the archive era but its
+  zip is unpublished, so it is probed over the network (below) instead of being encoded as an
+  unbuildable range that would keep refusing it after upstream publishes.
+
+The archive era's floor is not a compatibility guess either: upstream published that zip for
+2.2.x–2.4.2, then not again until 4.0.8. The synthesized era's 3.3.0 floor has nothing to do
+with it — 3.3.x–3.x rebuilds from the tag's BOM, attributes file and metadata jars instead.
+
+3.x releases omit the generated appendix (auto-configuration listings and configuration-property
+tables, ~101 pages) — it is a Gradle build output with no published equivalent. The prose corpus
+is complete.
 
 ## What is buildable right now
 
@@ -45,14 +59,18 @@ bun run scripts/detect-upstream-versions.ts            # all supported projects
 bun run scripts/detect-upstream-versions.ts --project boot --limit 5
 ```
 
-Read-only: it diffs upstream tags against `catalog.json` and writes nothing. Versions with no
-published content archive are reported on stderr and excluded from the result — an overlay
-project has no required artifact at all, so being tagged upstream is the whole of being
-buildable there.
+Read-only: it diffs upstream tags against `catalog.json` and writes nothing. Era membership is
+checked first (`supportedVersionsFromTags`), then every URL `requiredArtifactUrls` names for
+that version is HEAD-probed through `unpublishedArtifacts` (bounded at `PROBE_CONCURRENCY`, 8) —
+content zips for an archive era, metadata jars for a synthesized one, and nothing at all for an
+overlay era, where being tagged upstream is the whole of being buildable. Versions missing an
+artifact are reported on stderr and excluded. `fetch-upstream.ts` runs the same gate, so a build
+fails before cloning rather than on a 404 partway through.
 
 ## Add a version of an existing project
 
-No code change. Detection already covers every GA tag at or above the floor.
+No code change, as long as the version falls inside an existing era. Detection already covers
+every such GA tag.
 
 1. Verify conversion — locally, or with the **Matrix Build** workflow (`workflow_dispatch`,
    inputs `project` (blank = all) and `limit` (default 3)). It publishes nothing; archives are
@@ -70,11 +88,18 @@ No code change. Detection already covers every GA tag at or above the floor.
 Priority and Importance issue fields. It builds nothing on purpose — a new upstream line can
 change the documentation layout, so a human decides.
 
-### Going below the floor
+### A version outside every era
 
-Lowering `minimumVersion` only helps where the archive exists. 4.0.0–4.0.7 and 4.1.0 have none.
-2.2.x–2.4.2 do, but their documentation layout differs, so the converter has to be validated
-against them first — treat it as a conversion change, not a config tweak.
+Adding an era is a conversion change, not a config tweak: measure what the checkout alone
+produces first. Converting 3.5.16's checkout without the generated half exited 0 with 145 pages
+— and 350 unresolved attributes, 837 unresolved `configprop:` macros and 326 silently empty
+`include-code::` tab groups, which reach the output as literal text. That measurement is what
+justified the synthesized era, and an unresolved-attribute count is the check for any new one.
+
+An era needs `since`, an optional exclusive `until`, `componentPath`, and an `assembly` —
+one of the three descriptors above. Declare eras oldest first and keep their ranges disjoint:
+`eraFor` returns the first declared era whose range contains the version (`since` inclusive,
+`until` exclusive), so two overlapping declarations resolve to the older one, not the newer.
 
 ## Add a new project
 
@@ -86,13 +111,16 @@ for `archive` when Spring publishes a content zip to Maven Central (so far, Boot
 
 Then add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
 
-- `repo`, `tagPrefix`, and per era `componentPath` (the directory holding `antora.yml`), `since`
-  and optionally `until`
-- `assembly` — one of the three descriptors above. `archive` takes `archiveClassifiers`;
-  `synthesized` takes a `SynthesisSources`; `overlay` takes `generatedAttributesFor(version)`
-  and `internalSymlinks`
-- `mavenGroupPath` / `mavenArtifact` — only for a project with an archive or synthesized era;
-  omit them for an overlay-only project
+- `repo`, `tagPrefix`
+- `eras` — one or more `LayoutEra`, oldest first (see above); the first `since` is the floor.
+  Each era carries `since`, an optional exclusive `until`, and `componentPath` (the directory
+  holding `antora.yml`) — the component path and the archive classifiers live inside an era,
+  not on the project
+- `assembly` — one of the three descriptors above, per era. `archive` takes
+  `archiveClassifiers`; `synthesized` takes a `SynthesisSources`; `overlay` takes
+  `generatedAttributesFor(version)` and `internalSymlinks`
+- `mavenGroupPath` / `mavenArtifact` — where its published artifacts live; only for a project
+  with an archive or synthesized era, omit them for an overlay-only project
 - `javadocLocationFor(version)` — retargets `javadoc:` macros, which otherwise dangle as
   `#api:java/...`
 - `imageBaseFor(version)` — the published, version-pinned `_images/` base. Block images are
@@ -145,6 +173,13 @@ git tag boot-4.1.1 && git push origin boot-4.1.1
 Merge that pull request to finish the release — consumers resolve through `catalog.json`.
 Permissions needed: `contents: write` + `pull-requests: write` on the default `GITHUB_TOKEN`.
 
+**Release one version at a time.** Every catalog branch is cut from the default branch, so two
+releases whose pull requests are open together both rewrite the same `projects` object and the
+second conflicts. Merge each before tagging the next; if two are already open, merge one and
+re-run the other tag's workflow, which recreates its branch from the default branch. The catalog
+pull request also gets no `ci.yml` run — GitHub does not trigger workflows for a pull request
+created with `GITHUB_TOKEN`.
+
 ## Correct a published archive
 
 Tags are immutable: never delete or move one. Publish `boot-4.1.1+rebuild.1` instead; the
@@ -174,10 +209,13 @@ from different input and must not be indexed. Publish a `+rebuild.N` tag in that
 
 | Path | Role |
 |---|---|
-| `scripts/lib/upstream-sources.ts` | project definitions, floors, version comparison |
+| `scripts/lib/upstream-sources.ts` | project definitions, layout eras, version comparison |
+| `scripts/lib/artifact-availability.ts` | bounded HEAD probing of required Maven artifacts |
+| `scripts/lib/antora-attributes.ts`, `bom-libraries.ts`, `component-descriptor.ts` | the synthesized era's reconstruction of the generated component |
 | `scripts/detect-upstream-versions.ts` | what upstream has that the catalog lacks |
 | `scripts/release-mode.ts` | which phase a re-run still owes |
 | `.github/actions/build-release/action.yml` | fetch → convert → package, shared by both builds |
 | `.github/workflows/matrix-build.yml` | parallel verification builds, publishes nothing |
 | `.github/workflows/release.yml` | tag-triggered publish + catalog pull request |
 | `.github/workflows/nightly-detect.yml` | files an issue per missing GA version |
+| `.please/docs/decisions/0004-synthesize-3x-component.md` | why eras exist, and what the synthesized era reconstructs |
