@@ -86,7 +86,8 @@ async function assertEntries(dir: string): Promise<void> {
  * @param declared component-root-relative paths, each of which must be a
  * symlink resolving inside `componentRoot`.
  * @throws if a declared path is absent, is not a symlink, is broken, escapes
- * the component, or contains the link itself.
+ * the component, contains the link itself, or names a tree that carries a
+ * symlink of its own.
  */
 export async function materializeDeclaredSymlinks(
   componentRoot: string,
@@ -121,6 +122,12 @@ export async function materializeDeclaredSymlinks(
     const parent = await realpath(dirname(link))
     if (parent === target || parent.startsWith(target + sep))
       throw new Error(`Refusing to follow a symlink that contains itself: ${relative}`)
+
+    // The copy below dereferences, so it would follow a symlink *nested* in the
+    // target and land its content as an ordinary file — which the check on the
+    // copy then passes, the link having stopped being one. The source tree has
+    // to be inspected while its entries are still links.
+    await assertNoSymlinks(target)
 
     await rm(link)
     await cp(target, link, { recursive: true, dereference: true })

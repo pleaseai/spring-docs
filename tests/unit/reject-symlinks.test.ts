@@ -168,6 +168,34 @@ describe('materializeDeclaredSymlinks', () => {
     }
   })
 
+  test('refuses a link whose target tree carries a symlink of its own', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'materialize-nested-'))
+    try {
+      const outside = join(root, 'outside')
+      await mkdir(outside, { recursive: true })
+      await writeFile(join(outside, 'secret.txt'), 'not ours')
+
+      const component = join(root, 'component')
+      await mkdir(join(component, 'src', 'main'), { recursive: true })
+      // The declared link resolves inside the component, but the tree it names
+      // hides one pointing out of it. The copy dereferences, so without a check
+      // on the source the escape would land as ordinary file content and the
+      // check on the copy would find nothing left to refuse.
+      await symlink(outside, join(component, 'src', 'main', 'escape'))
+      await mkdir(join(component, 'modules', 'ROOT', 'examples'), { recursive: true })
+      const link = join(component, 'modules', 'ROOT', 'examples', 'docs-src')
+      await symlink('../../../src', link)
+
+      await expect(materializeDeclaredSymlinks(component, ['modules/ROOT/examples/docs-src']))
+        .rejects
+        .toThrow(/escape/)
+      expect((await lstat(link)).isSymbolicLink()).toBe(true)
+    }
+    finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
   test('refuses a broken link rather than copying nothing', async () => {
     const root = await mkdtemp(join(tmpdir(), 'materialize-broken-'))
     try {
