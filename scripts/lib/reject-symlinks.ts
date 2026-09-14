@@ -66,6 +66,22 @@ async function assertEntries(dir: string): Promise<void> {
 }
 
 /**
+ * One symlink an era's layout is known to ship, named by both its path and the
+ * target it is expected to resolve to.
+ *
+ * Pinning the target alongside the path is what lets upstream retargeting the
+ * link — repointing it at some other in-component tree without moving or
+ * removing it — surface as a build failure too, rather than being silently
+ * followed to wherever it now leads.
+ */
+export interface DeclaredSymlink {
+  /** Component-root-relative path of the symlink itself. */
+  readonly path: string
+  /** Component-root-relative path the link is expected to resolve to. */
+  readonly target: string
+}
+
+/**
  * Replace a symlink the component legitimately ships with a real copy of what
  * it points at, so the tree reaching {@link assertNoSymlinks} carries none.
  *
@@ -83,19 +99,20 @@ async function assertEntries(dir: string): Promise<void> {
  *
  * @param componentRoot the checked-out component root, which also bounds where
  * a link may point.
- * @param declared component-root-relative paths, each of which must be a
- * symlink resolving inside `componentRoot`.
+ * @param declared paths and expected targets, both component-root-relative;
+ * each path must be a symlink resolving to its paired target inside
+ * `componentRoot`.
  * @throws if a declared path is absent, is not a symlink, is broken, escapes
- * the component, contains the link itself, or names a tree that carries a
- * symlink of its own.
+ * the component, resolves to somewhere other than its declared target,
+ * contains the link itself, or names a tree that carries a symlink of its own.
  */
 export async function materializeDeclaredSymlinks(
   componentRoot: string,
-  declared: readonly string[],
+  declared: readonly DeclaredSymlink[],
 ): Promise<void> {
   const realRoot = await realpath(componentRoot)
 
-  for (const relative of declared) {
+  for (const { path: relative, target: expectedTarget } of declared) {
     const link = join(componentRoot, relative)
 
     const stats = await lstat(link).catch(() => undefined)
@@ -114,6 +131,17 @@ export async function materializeDeclaredSymlinks(
     if (target !== realRoot && !target.startsWith(realRoot + sep)) {
       throw new Error(
         `Refusing to follow a symlink out of the component: ${relative} → ${target}`,
+      )
+    }
+
+    // Resolved, not compared as text: the declared target is a path inside the
+    // component, and an absent one cannot be what the link resolves to — so it
+    // falls into the same mismatch rather than escaping as a raw ENOENT.
+    const expected = await realpath(join(realRoot, expectedTarget)).catch(() => undefined)
+    if (target !== expected) {
+      throw new Error(
+        `Declared symlink was retargeted: ${relative} was expected to resolve to `
+        + `${expectedTarget} but resolves to ${target}`,
       )
     }
 

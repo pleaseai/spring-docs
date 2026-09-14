@@ -31,11 +31,12 @@ the generated half of the component comes from:
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
 attribute (`spring-version`), so nothing is downloaded at all.
 
-Boot's floor is not a compatibility guess: the pipeline needs the `spring-boot-docs`
+The archive era's floor is not a compatibility guess: the pipeline needs the `spring-boot-docs`
 `root-aggregate-content` zip from Maven Central, which upstream published for 2.2.x–2.4.2, then
 not again until 4.0.8. Tags without that archive (4.0.0–4.0.7, 4.1.0) can never be built, and
 `detect-upstream-versions.ts` HEAD-checks every candidate so they are skipped rather than
-offered.
+offered. The synthesized era's 3.3.0 floor has nothing to do with that zip — 3.3.x–3.x builds
+from the tag's BOM, attributes file and metadata jars instead.
 
 ## What is buildable right now
 
@@ -100,8 +101,9 @@ Then add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
   does not produce, mapped to their published site
 
 **Declare any symlink the component ships.** `assertNoSymlinks` refuses every link reaching the
-content source; an era's `internalSymlinks` names the ones to replace with a real copy first,
-and a link nobody declared still fails the copy. Spring Framework reaches its examples through
+content source; an era's `internalSymlinks` names each one's path and expected target, and
+replaces it with a real copy first — a link nobody declared still fails the copy, and a declared
+one resolving to a different target fails too. Spring Framework reaches its examples through
 `modules/ROOT/examples/docs-src` → `framework-docs/src`.
 
 **Expect the converter to be incomplete for a new corpus.** Spring Boot's corpus does not

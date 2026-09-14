@@ -294,8 +294,11 @@ describe('framework', () => {
       throw new Error('expected an overlay assembly')
 
     // A mode 120000 blob holding `../../../src`. Undeclared, it would fail
-    // `assertNoSymlinks`; declared, it is replaced by a real copy.
-    expect(assembly.internalSymlinks).toEqual(['modules/ROOT/examples/docs-src'])
+    // `assertNoSymlinks`; declared, it is replaced by a real copy — pinned to
+    // the target it must resolve to, so retargeting it fails too.
+    expect(assembly.internalSymlinks).toEqual([
+      { path: 'modules/ROOT/examples/docs-src', target: 'src' },
+    ])
   })
 
   test('checks out the component root alone, symlink target included', () => {

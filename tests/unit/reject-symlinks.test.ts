@@ -83,7 +83,10 @@ describe('materializeDeclaredSymlinks', () => {
   test('replaces the link with a real copy, leaving the tree copyable', async () => {
     const component = await componentWithExamplesLink()
     try {
-      await materializeDeclaredSymlinks(component, ['modules/ROOT/examples/docs-src'])
+      await materializeDeclaredSymlinks(
+        component,
+        [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
+      )
 
       // The whole point: what was a link is now a directory, so the strict copy
       // guard passes over the component without being relaxed.
@@ -121,7 +124,7 @@ describe('materializeDeclaredSymlinks', () => {
       await mkdir(component, { recursive: true })
       await symlink(outside, join(component, 'escape'))
 
-      await expect(materializeDeclaredSymlinks(component, ['escape']))
+      await expect(materializeDeclaredSymlinks(component, [{ path: 'escape', target: 'escape' }]))
         .rejects
         .toThrow(/out of the component/)
     }
@@ -138,7 +141,7 @@ describe('materializeDeclaredSymlinks', () => {
       // `nested/self` -> the component root, which `nested` sits inside.
       await symlink('..', join(component, 'nested', 'self'))
 
-      await expect(materializeDeclaredSymlinks(component, ['nested/self']))
+      await expect(materializeDeclaredSymlinks(component, [{ path: 'nested/self', target: '.' }]))
         .rejects
         .toThrow(/contains itself/)
     }
@@ -156,10 +159,10 @@ describe('materializeDeclaredSymlinks', () => {
 
       // Upstream turning the link into a regular file is a layout change a
       // person should see, not one to absorb silently.
-      await expect(materializeDeclaredSymlinks(component, ['docs-src']))
+      await expect(materializeDeclaredSymlinks(component, [{ path: 'docs-src', target: 'docs-src' }]))
         .rejects
         .toThrow(/not a symlink/)
-      await expect(materializeDeclaredSymlinks(component, ['gone']))
+      await expect(materializeDeclaredSymlinks(component, [{ path: 'gone', target: 'gone' }]))
         .rejects
         .toThrow(/absent/)
     }
@@ -186,7 +189,9 @@ describe('materializeDeclaredSymlinks', () => {
       const link = join(component, 'modules', 'ROOT', 'examples', 'docs-src')
       await symlink('../../../src', link)
 
-      await expect(materializeDeclaredSymlinks(component, ['modules/ROOT/examples/docs-src']))
+      await expect(
+        materializeDeclaredSymlinks(component, [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }]),
+      )
         .rejects
         .toThrow(/escape/)
       expect((await lstat(link)).isSymbolicLink()).toBe(true)
@@ -203,12 +208,62 @@ describe('materializeDeclaredSymlinks', () => {
       await mkdir(component, { recursive: true })
       await symlink('./nowhere', join(component, 'dangling'))
 
-      await expect(materializeDeclaredSymlinks(component, ['dangling']))
+      await expect(materializeDeclaredSymlinks(component, [{ path: 'dangling', target: 'dangling' }]))
         .rejects
         .toThrow(/broken/)
     }
     finally {
       await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test('refuses a link upstream retargeted at a different in-component tree', async () => {
+    // Upstream repointing the link without moving or removing it — adding and
+    // moving are already covered above — must surface too, or the build would
+    // silently absorb whatever the link now happens to point at.
+    const root = await mkdtemp(join(tmpdir(), 'materialize-retarget-'))
+    try {
+      const component = join(root, 'component')
+      await mkdir(join(component, 'src'), { recursive: true })
+      await mkdir(join(component, 'other'), { recursive: true })
+      await symlink('other', join(component, 'docs-src'))
+
+      await expect(
+        materializeDeclaredSymlinks(component, [{ path: 'docs-src', target: 'src' }]),
+      )
+        .rejects
+        .toThrow(/retargeted/)
+    }
+    finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  test('materializes only the declared link, leaving an undeclared one to fail the guard', async () => {
+    // The production shape for framework-docs: one declared link, and every
+    // other symlink must still fail. A regression where materialize scanned
+    // and auto-copied every symlink instead of only the declared paths would
+    // pass a suite that never exercised both together.
+    const component = await componentWithExamplesLink()
+    try {
+      // Outside the declared link's target tree (`src`), so materializing
+      // `docs-src` does not walk over this one and throw for the wrong reason.
+      await mkdir(join(component, 'modules', 'ROOT', 'pages'), { recursive: true })
+      const outside = join(component, '..', 'outside.adoc')
+      await writeFile(outside, 'not ours')
+      await symlink(outside, join(component, 'modules', 'ROOT', 'pages', 'undeclared.adoc'))
+
+      await materializeDeclaredSymlinks(
+        component,
+        [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
+      )
+
+      const link = join(component, 'modules', 'ROOT', 'examples', 'docs-src')
+      expect((await lstat(link)).isSymbolicLink()).toBe(false)
+      await expect(assertNoSymlinks(component)).rejects.toThrow(/undeclared\.adoc/)
+    }
+    finally {
+      await rm(join(component, '..'), { recursive: true, force: true })
     }
   })
 })

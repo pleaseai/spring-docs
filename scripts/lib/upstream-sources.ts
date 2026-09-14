@@ -12,6 +12,7 @@
  */
 
 import type { Attributes } from './component-descriptor.ts'
+import type { DeclaredSymlink } from './reject-symlinks.ts'
 
 /** Plain `major.minor.patch`; anything else is a pre-release. */
 const GA_VERSION = /^\d+\.\d+\.\d+$/
@@ -154,7 +155,7 @@ export type ComponentAssembly
     | {
       readonly descriptor: 'overlay'
       readonly generatedAttributes: Attributes
-      readonly internalSymlinks: readonly string[]
+      readonly internalSymlinks: readonly DeclaredSymlink[]
     }
 
 /**
@@ -171,14 +172,17 @@ type EraAssembly
       readonly descriptor: 'overlay'
       readonly generatedAttributesFor: (version: string) => Attributes
       /**
-       * Component-root-relative symlinks this layout ships, to be replaced by
-       * real copies of what they point at before the tree is copied in.
+       * Component-root-relative symlinks this layout ships, each paired with
+       * its expected component-root-relative target, to be replaced by real
+       * copies of what they point at before the tree is copied in.
        *
-       * Declared rather than discovered: an undeclared link still fails the
-       * copy guard, so upstream adding or retargeting one surfaces as a build
-       * failure instead of being silently followed.
+       * Declared rather than discovered, and pinned by target as well as path:
+       * an undeclared link still fails the copy guard, and a declared one
+       * resolving anywhere but its pinned target fails too, so upstream
+       * adding, moving or retargeting one surfaces as a build failure instead
+       * of being silently followed.
        */
-      readonly internalSymlinks: readonly string[]
+      readonly internalSymlinks: readonly DeclaredSymlink[]
     }
 
 /**
@@ -352,7 +356,7 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
           // present at v6.1.0 and v6.2.14 alike. It resolves to
           // `framework-docs/src`, inside the checked-out component, so it is
           // replaced by a real copy rather than followed at read time.
-          internalSymlinks: ['modules/ROOT/examples/docs-src'],
+          internalSymlinks: [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
         },
       },
     ],
