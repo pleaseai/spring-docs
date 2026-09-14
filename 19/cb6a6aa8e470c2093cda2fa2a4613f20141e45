@@ -1,0 +1,23 @@
+scripts/lib/reject-symlinks.ts
+  s_af3992aab3abb9::t_24bb51a79e06b8 89-90
+  s_af3992aab3abb9::t_c058ff98d39548 126-131
+tests/unit/reject-symlinks.test.ts
+  s_af3992aab3abb9::t_47d770e5a50cdf 171-191,193-198
+  s_af3992aab3abb9::t_0a6e567f843b0c 192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "19cb6a6aa8e470c2093cda2fa2a4613f20141e45",
+  "prompts": {},
+  "sessions": {
+    "s_af3992aab3abb9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6b97f0e4-753d-42f2-b51e-c0f204355eb4",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
