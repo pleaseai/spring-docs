@@ -24,6 +24,18 @@ export type AttributeValue = string | boolean | number
 export type Attributes = Readonly<Record<string, AttributeValue>>
 
 /**
+ * Single-quote a string for YAML.
+ *
+ * A single-quoted scalar ends at its next quote, so an embedded one has to be
+ * written doubled — the form the parser reads back as the single character.
+ * Every value this module quotes comes from a checked-in descriptor upstream
+ * owns, so none of them is ours to assume quote-free.
+ */
+function quoteYaml(value: string): string {
+  return `'${value.replaceAll('\'', '\'\'')}'`
+}
+
+/**
  * Serialize one attribute value.
  *
  * Strings are single-quoted: they carry `:`, `{`, `#` and `%`, each of which
@@ -32,7 +44,7 @@ export type Attributes = Readonly<Record<string, AttributeValue>>
  * string `"false"`.
  */
 function renderValue(value: AttributeValue): string {
-  return typeof value === 'string' ? `'${value.replaceAll('\'', '\'\'')}'` : String(value)
+  return typeof value === 'string' ? quoteYaml(value) : String(value)
 }
 
 /**
@@ -105,13 +117,13 @@ export function overlayDescriptor(
 
   const lines = [`name: ${fields.name}`, `version: '${version}'`]
   if (fields.title !== undefined)
-    lines.push(`title: '${fields.title.replaceAll('\'', '\'\'')}'`)
+    lines.push(`title: ${quoteYaml(fields.title)}`)
   if (fields.startPage !== undefined)
-    lines.push(`start_page: '${fields.startPage}'`)
+    lines.push(`start_page: ${quoteYaml(fields.startPage)}`)
   if (fields.nav.length > 0) {
     lines.push('nav:')
     for (const entry of fields.nav)
-      lines.push(`- '${entry}'`)
+      lines.push(`- ${quoteYaml(entry)}`)
   }
 
   const attributes = { ...fields.attributes, ...generated }

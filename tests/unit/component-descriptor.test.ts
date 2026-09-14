@@ -183,6 +183,19 @@ asciidoc:
     expect(out).toContain('quoted: \'it\'\'s\'')
   })
 
+  test('escapes a quote inside start_page and a nav entry', () => {
+    // These reach us from a descriptor upstream commits, same as the title, so
+    // an apostrophe in a page name would otherwise close the scalar early.
+    const out = overlayDescriptor(
+      'name: x\nversion: true\nstart_page: ROOT:it\'s.adoc\nnav:\n- contributor\'s-guide.adoc\n',
+      '1.0.0',
+      {},
+    )
+
+    expect(out).toContain('start_page: \'ROOT:it\'\'s.adoc\'')
+    expect(out).toContain('- \'contributor\'\'s-guide.adoc\'')
+  })
+
   test('survives a descriptor with no asciidoc block at all', () => {
     // Spring AI's committed descriptor carries none.
     const out = overlayDescriptor('name: ai\nversion: true\ntitle: Spring AI\n', '2.0.0', {
