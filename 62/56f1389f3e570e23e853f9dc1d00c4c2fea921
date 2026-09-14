@@ -1,0 +1,68 @@
+scripts/lib/upstream-sources.ts
+  s_52dd89c62eab09::t_996301172a913b 568
+  s_52dd89c62eab09::t_9c836f5b18a29d 22-24,103-111,232-233,310,365-369,494
+  s_52dd89c62eab09::t_f2feb9dba850ff 210,216-226
+  s_52dd89c62eab09::t_9f60bd83d2281a 154-158,173-181
+  s_52dd89c62eab09::t_00ea5821b07367 543-546
+  s_52dd89c62eab09::t_b831ea419f8fc7 351-355
+  s_52dd89c62eab09::t_16cc080b9c1b91 312-350,356-364
+  s_52dd89c62eab09::t_24948ffae20733 506-510
+  s_52dd89c62eab09::t_05a2058ecf0908 115
+  s_52dd89c62eab09::t_442d22d8b2bbf0 9-11,14
+  s_52dd89c62eab09::t_7dcbd7d366ae2d 63
+  s_52dd89c62eab09::t_1a7e1a430568ec 70-71
+  s_52dd89c62eab09::t_a41cca95af09ec 564-567,569-571,580-587
+  s_52dd89c62eab09::t_58b5fa77458b1f 466-467,477,488,498-505,511-539
+  s_52dd89c62eab09::t_b99f6e5e226ba0 144-150,159-172,182
+  s_52dd89c62eab09::t_37c1f946827493 15,311,540
+scripts/lib/component-descriptor.ts
+  s_52dd89c62eab09::t_a231af7e40446a 18
+  s_52dd89c62eab09::t_83a8b0bc6f86b4 4-8,15,17,19-42,48,55,59-117,120-121,123-166
+  s_52dd89c62eab09::t_996301172a913b 118-119,122,167-168
+tests/unit/reject-symlinks.test.ts
+  s_52dd89c62eab09::t_a231af7e40446a 125-126,142-143,160-161,163-164,179-180
+  s_52dd89c62eab09::t_996301172a913b 181-186
+  s_52dd89c62eab09::t_cb2ccd81fec391 2,5,70-124,127-141,144-159,162,165-178
+scripts/convert.ts
+  s_52dd89c62eab09::t_9c836f5b18a29d 189
+tests/unit/upstream-sources.test.ts
+  s_52dd89c62eab09::t_26c55e99520673 266-352
+  s_52dd89c62eab09::t_9d458e0d4a9122 76
+README.md
+  s_52dd89c62eab09::t_7dbf95b86fbae4 180
+scripts/fetch-upstream.ts
+  s_52dd89c62eab09::t_4c21f1f7179971 30,39-40
+  s_52dd89c62eab09::t_a8b360a9ec26ba 412-417,419-442
+  s_52dd89c62eab09::t_6e8b5b13bb5220 10,12,15-18
+  s_52dd89c62eab09::t_2cc3573872061c 235-259
+  s_52dd89c62eab09::t_a6053af43b6704 234
+.claude/skills/release-pipeline/SKILL.md
+  s_52dd89c62eab09::t_7dbf95b86fbae4 16,18,21-32
+  s_52dd89c62eab09::t_a72dc70611a023 34,48-50,80-94,97-98,102-112,117
+  s_52dd89c62eab09::t_eb38dc49eb2786 33
+tests/unit/component-descriptor.test.ts
+  s_52dd89c62eab09::t_996301172a913b 202-203
+  s_52dd89c62eab09::t_61854368558065 5,90-201
+scripts/lib/reject-symlinks.ts
+  s_52dd89c62eab09::t_1ad3c95eae0c0e 28-29,67-127
+  s_52dd89c62eab09::t_996301172a913b 128-129
+  s_52dd89c62eab09::t_9bc35f974ec3c7 19-25
+tests/unit/detect-upstream-versions.test.ts
+  s_52dd89c62eab09::t_9d458e0d4a9122 8,19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "6256f1389f3e570e23e853f9dc1d00c4c2fea921",
+  "prompts": {},
+  "sessions": {
+    "s_52dd89c62eab09": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fa1d40ce-19ad-405e-9ba6-e0341acaef0c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
