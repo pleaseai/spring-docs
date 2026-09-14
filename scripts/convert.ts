@@ -186,6 +186,7 @@ async function main(): Promise<void> {
       const sourcePath = `${page.src.module}:${page.src.relative}`
       const result = convertDocument(doc, {
         externalComponents: upstream.externalComponents,
+        imageBase: upstream.imageBase,
         sourcePath,
       })
 

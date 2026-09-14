@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { componentNameOf, renderDescriptor } from '../../scripts/lib/component-descriptor.ts'
+import { componentNameOf, overlayDescriptor, renderDescriptor } from '../../scripts/lib/component-descriptor.ts'
 
 describe('renderDescriptor', () => {
   test('renders name, quoted version and the attribute block', () => {
@@ -85,5 +85,119 @@ describe('componentNameOf', () => {
 
   test('throws when the stub declares no name, naming the file it read', async () => {
     await expect(nameOf('version: true\n')).rejects.toThrow(/antora\.yml/)
+  })
+})
+
+describe('overlayDescriptor', () => {
+  /** The shape `io.spring.antora.generate-antora-yml` merges into. */
+  const CHECKED_IN = `name: framework
+version: true
+title: Spring Framework
+nav:
+  - modules/ROOT/nav.adoc
+ext:
+  collector:
+    run:
+      command: gradlew :framework-docs:generateAntoraResources
+      local: true
+    scan:
+      dir: ./build/generated-antora-resources
+asciidoc:
+  attributes:
+    attribute-missing: 'warn'
+    include-java: 'example$docs-src/main/java/org/springframework/docs'
+    docs-spring: "{docs-site}/spring-framework/docs/{spring-version}"
+`
+
+  test('resolves the version placeholder the build would have filled in', () => {
+    const out = overlayDescriptor(CHECKED_IN, '6.2.14', {})
+
+    // `version: true` means "take it from the build"; nothing downstream
+    // resolves it, so it has to be replaced here.
+    expect(out).toContain('version: \'6.2.14\'')
+    expect(out).not.toContain('version: true')
+  })
+
+  test('keeps every committed attribute', () => {
+    const out = overlayDescriptor(CHECKED_IN, '6.2.14', {})
+
+    // Rebuilding from scratch, as the synthesized era does, would drop these.
+    expect(out).toContain('attribute-missing: \'warn\'')
+    expect(out).toContain('include-java: \'example$docs-src/main/java/org/springframework/docs\'')
+    expect(out).toContain('docs-spring: \'{docs-site}/spring-framework/docs/{spring-version}\'')
+  })
+
+  test('adds the generated attributes alongside them', () => {
+    expect(overlayDescriptor(CHECKED_IN, '6.2.14', { 'spring-version': '6.2.14' }))
+      .toContain('spring-version: \'6.2.14\'')
+  })
+
+  test('lets a generated attribute win over a committed one, as the plugin does', () => {
+    // The Gradle plugin applies `asciidocAttributes` on top of the file's own.
+    const out = overlayDescriptor(CHECKED_IN, '6.2.14', { 'attribute-missing': 'skip' })
+
+    expect(out).toContain('attribute-missing: \'skip\'')
+    expect(out).not.toContain('attribute-missing: \'warn\'')
+  })
+
+  test('preserves the component name, title and nav', () => {
+    const out = overlayDescriptor(CHECKED_IN, '6.2.14', {})
+
+    expect(out).toContain('name: framework')
+    expect(out).toContain('title: \'Spring Framework\'')
+    expect(out).toContain('- \'modules/ROOT/nav.adoc\'')
+  })
+
+  test('drops the collector, whose command is what this era avoids running', () => {
+    const out = overlayDescriptor(CHECKED_IN, '6.2.14', {})
+
+    expect(out).not.toContain('collector')
+    expect(out).not.toContain('gradlew')
+  })
+
+  test('drops prerelease, since only GA versions are built', () => {
+    const out = overlayDescriptor('name: ai\nversion: true\nprerelease: true\n', '2.0.0', {})
+
+    expect(out).not.toContain('prerelease')
+  })
+
+  test('writes a boolean attribute bare, so Antora still reads it as unset', () => {
+    // Quoting it would set the attribute to the truthy string "false".
+    const out = overlayDescriptor(
+      'name: data-jpa\nversion: true\nasciidoc:\n  attributes:\n    include-xml-namespaces: false\n',
+      '4.1.1',
+      {},
+    )
+
+    expect(out).toContain('include-xml-namespaces: false')
+    expect(out).not.toContain('\'false\'')
+  })
+
+  test('escapes a quote inside an attribute value', () => {
+    const out = overlayDescriptor(
+      'name: x\nversion: true\nasciidoc:\n  attributes:\n    quoted: "it\'s"\n',
+      '1.0.0',
+      {},
+    )
+
+    expect(out).toContain('quoted: \'it\'\'s\'')
+  })
+
+  test('survives a descriptor with no asciidoc block at all', () => {
+    // Spring AI's committed descriptor carries none.
+    const out = overlayDescriptor('name: ai\nversion: true\ntitle: Spring AI\n', '2.0.0', {
+      'spring-ai-version': '2.0.0',
+    })
+
+    expect(out).toContain('name: ai')
+    expect(out).toContain('spring-ai-version: \'2.0.0\'')
+  })
+
+  test('refuses a descriptor with no component name', () => {
+    expect(() => overlayDescriptor('version: true\n', '1.0.0', {})).toThrow(/component name/)
+  })
+
+  test('refuses a descriptor that is not a mapping', () => {
+    expect(() => overlayDescriptor('- one\n- two\n', '1.0.0', {})).toThrow(/mapping/)
   })
 })

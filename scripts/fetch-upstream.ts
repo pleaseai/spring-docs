@@ -7,11 +7,15 @@
  * authored half. Where the generated half comes from depends on the version's
  * layout era (ADR-0004):
  *
- *   - archive era (4.0.8+): the content archives Spring publishes to Maven
+ *   - archive era (Boot 4.0.8+): the content archives Spring publishes to Maven
  *     Central, carrying the resolved descriptor and the `example$` sample tree
- *   - synthesized era (3.3-3.x): those archives are excluded from the Maven
+ *   - synthesized era (Boot 3.3-3.x): those archives are excluded from the Maven
  *     Central sync, so the same inputs are rebuilt from the tag plus the
  *     published jars carrying configuration-property metadata
+ *   - overlay era (Framework 6.1+): the tag already carries a complete
+ *     descriptor and its own examples, so nothing is fetched — the committed
+ *     `antora.yml` is topped up with the version and the attributes the build
+ *     would have contributed
  *
  * Usage:
  *   bun run scripts/fetch-upstream.ts boot 4.1.1 --out dist/upstream
@@ -23,6 +27,7 @@
  */
 
 import type { Fetcher } from './lib/artifact-availability.ts'
+import type { Attributes } from './lib/component-descriptor.ts'
 import type { SynthesisSources, UpstreamCoordinates } from './lib/upstream-sources.ts'
 import { Buffer } from 'node:buffer'
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
@@ -31,8 +36,8 @@ import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { parseManagedVersions, synthesizeAttributes, versionSourceBoms } from './lib/antora-attributes.ts'
 import { unpublishedArtifacts } from './lib/artifact-availability.ts'
-import { componentNameOf, renderDescriptor } from './lib/component-descriptor.ts'
-import { assertNoSymlinks } from './lib/reject-symlinks.ts'
+import { componentNameOf, overlayDescriptor, renderDescriptor } from './lib/component-descriptor.ts'
+import { assertNoSymlinks, materializeDeclaredSymlinks } from './lib/reject-symlinks.ts'
 import { requiredArtifactUrls, resolveUpstream } from './lib/upstream-sources.ts'
 
 export interface Args {
@@ -227,6 +232,32 @@ async function writeSynthesizedDescriptor(
 }
 
 /**
+ * Overlay the checked-in component descriptor with the version and the
+ * attributes the upstream build would have contributed.
+ *
+ * Unlike the synthesized era, the checked-out `antora.yml` here is not a stub —
+ * Spring Framework commits all 96 lines of its attributes and generates exactly
+ * one. So this rewrites the file in place, preserving what it already carries,
+ * rather than replacing it.
+ */
+async function writeOverlaidDescriptor(
+  upstream: UpstreamCoordinates,
+  generated: Attributes,
+  componentRoot: string,
+): Promise<void> {
+  const path = join(componentRoot, 'antora.yml')
+  await writeFile(
+    path,
+    overlayDescriptor(await readFile(path, 'utf8'), upstream.version, generated),
+  )
+  const names = Object.keys(generated)
+  console.log(
+    `  Overlaid ${names.length} generated attribute(s) onto the checked-in descriptor`
+    + `${names.length > 0 ? `: ${names.join(', ')}` : ''}`,
+  )
+}
+
+/**
  * Resolve every managed dependency version the attribute set needs.
  *
  * The build script imports a BOM for these instead of naming them, so each such
@@ -377,21 +408,38 @@ async function main(): Promise<void> {
 
     await rm(outDir, { recursive: true, force: true })
     await mkdir(outDir, { recursive: true })
-    await copyIntoContentSource(join(workDir, upstream.componentPath), outDir)
 
-    if (upstream.assembly.descriptor === 'archive') {
-      for (const archive of upstream.archives) {
-        console.log(`Merging ${archive.classifier}`)
-        await mergeArchive(archive.url, outDir, workDir)
-      }
-      await promoteDescriptor(outDir)
+    const checkedOutComponent = join(workDir, upstream.componentPath)
+    if (upstream.assembly.descriptor === 'overlay') {
+      // Before the copy, not after: `copyIntoContentSource` refuses every
+      // symlink, so a declared one has to become a real tree while it can still
+      // be resolved against the checkout it points into.
+      await materializeDeclaredSymlinks(checkedOutComponent, upstream.assembly.internalSymlinks)
     }
-    else {
-      console.log('Reconstructing the generated half of the component')
-      const { synthesis } = upstream.assembly
-      await copyExamples(synthesis, workDir, outDir)
-      await writeSynthesizedDescriptor(upstream, synthesis, workDir, outDir)
-      await addConfigurationMetadata(upstream, outDir, workDir)
+    await copyIntoContentSource(checkedOutComponent, outDir)
+
+    switch (upstream.assembly.descriptor) {
+      case 'archive': {
+        for (const archive of upstream.archives) {
+          console.log(`Merging ${archive.classifier}`)
+          await mergeArchive(archive.url, outDir, workDir)
+        }
+        await promoteDescriptor(outDir)
+        break
+      }
+      case 'synthesized': {
+        console.log('Reconstructing the generated half of the component')
+        const { synthesis } = upstream.assembly
+        await copyExamples(synthesis, workDir, outDir)
+        await writeSynthesizedDescriptor(upstream, synthesis, workDir, outDir)
+        await addConfigurationMetadata(upstream, outDir, workDir)
+        break
+      }
+      case 'overlay': {
+        console.log('Overlaying the checked-in component descriptor')
+        await writeOverlaidDescriptor(upstream, upstream.assembly.generatedAttributes, outDir)
+        break
+      }
     }
     await initContentSource(outDir)
 

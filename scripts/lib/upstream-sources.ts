@@ -6,14 +6,21 @@
  * One Antora content source is assembled from the component root, sparse-checked
  * out from the release tag, plus the generated half of the component. Where that
  * generated half comes from depends on the version's layout era (ADR-0004):
- * published content zips for 4.0.8+, reconstruction from the tag for 3.3-3.x.
+ * published content zips for Boot 4.0.8+, reconstruction from the tag for Boot
+ * 3.3-3.x, and — where a project commits a descriptor its build only tops up —
+ * an overlay of the checked-in one.
  */
+
+import type { Attributes } from './component-descriptor.ts'
 
 /** Plain `major.minor.patch`; anything else is a pre-release. */
 const GA_VERSION = /^\d+\.\d+\.\d+$/
 
 /** Published Spring Boot documentation site. */
 const SPRING_BOOT_DOCS = 'https://docs.spring.io/spring-boot'
+
+/** Published Spring Framework documentation site. */
+const SPRING_FRAMEWORK_DOCS = 'https://docs.spring.io/spring-framework'
 
 /** Maven Central base for released Spring artifacts. */
 const MAVEN_CENTRAL = 'https://repo1.maven.org/maven2'
@@ -53,14 +60,15 @@ export interface UpstreamCoordinates {
   /**
    * Published archives to merge over the checked-out component root.
    *
-   * Empty for a synthesized era, which has none to merge.
+   * Empty for a synthesized or overlay era, neither of which has one to merge.
    */
   readonly archives: readonly ContentArchive[]
   /**
    * Published jars supplying the configuration-property metadata a synthesized
    * era drops in as partials.
    *
-   * Empty for an archive era, which gets that metadata inside the zip.
+   * Empty for an archive era, which gets that metadata inside the zip, and for
+   * an overlay era, whose project publishes none.
    *
    * Resolved here rather than at the download site so the availability gate and
    * the download cannot disagree about where an artifact lives — the same
@@ -92,10 +100,19 @@ export interface UpstreamCoordinates {
    * the link useful instead of emitting a fragment that resolves nowhere.
    */
   readonly externalComponents: Readonly<Record<string, string>>
+  /**
+   * Base URL of this version's published `_images/` directory.
+   *
+   * Image assets ship inside the component but not inside a release archive,
+   * which carries Markdown only — so block images are linked to the published
+   * site rather than to a path that would not survive extraction. Pinned to the
+   * exact version, like every other reference this pipeline emits.
+   */
+  readonly imageBase: string
 }
 
 /** Where an era's component descriptor and generated content come from. */
-export type DescriptorSource = 'archive' | 'synthesized'
+export type DescriptorSource = 'archive' | 'synthesized' | 'overlay'
 
 /**
  * Repo-relative inputs used to rebuild what Spring's Gradle build would have
@@ -124,10 +141,45 @@ export interface SynthesisSources {
   readonly metadataArtifacts: readonly string[]
 }
 
-/** How one era's component content is assembled. */
+/**
+ * How one era's component content is assembled, as resolved for one version.
+ *
+ * Pure data — {@link resolveUpstream} has already evaluated anything that
+ * depended on the version, so a coordinate set can be serialized into the
+ * release manifest.
+ */
 export type ComponentAssembly
   = | { readonly descriptor: 'archive', readonly archiveClassifiers: readonly string[] }
     | { readonly descriptor: 'synthesized', readonly synthesis: SynthesisSources }
+    | {
+      readonly descriptor: 'overlay'
+      readonly generatedAttributes: Attributes
+      readonly internalSymlinks: readonly string[]
+    }
+
+/**
+ * How an era declares its assembly, before a version is known.
+ *
+ * Identical to {@link ComponentAssembly} except for the overlay era, whose
+ * generated attributes are a function of the version — `spring-version` is the
+ * version — and so cannot be spelled in a static era table.
+ */
+type EraAssembly
+  = | { readonly descriptor: 'archive', readonly archiveClassifiers: readonly string[] }
+    | { readonly descriptor: 'synthesized', readonly synthesis: SynthesisSources }
+    | {
+      readonly descriptor: 'overlay'
+      readonly generatedAttributesFor: (version: string) => Attributes
+      /**
+       * Component-root-relative symlinks this layout ships, to be replaced by
+       * real copies of what they point at before the tree is copied in.
+       *
+       * Declared rather than discovered: an undeclared link still fails the
+       * copy guard, so upstream adding or retargeting one surfaces as a build
+       * failure instead of being silently followed.
+       */
+      readonly internalSymlinks: readonly string[]
+    }
 
 /**
  * One documentation layout era of an upstream project.
@@ -155,19 +207,30 @@ interface LayoutEra {
   /** Repo-relative path of the Antora component root (holds `antora.yml`). */
   readonly componentPath: string
   /** How the generated half of the component is obtained. */
-  readonly assembly: ComponentAssembly
+  readonly assembly: EraAssembly
 }
 
 /** Static definition of a supported upstream project. */
 interface ProjectDefinition {
   readonly repo: string
-  readonly mavenGroupPath: string
-  readonly mavenArtifact: string
+  /**
+   * Maven coordinates of the artifact publishing this project's content
+   * archives or metadata jars.
+   *
+   * Absent for a project none of whose eras reads Maven Central — an overlay
+   * era needs nothing but the git checkout. {@link resolveUpstream} refuses an
+   * archive or synthesized era declared without them rather than building a URL
+   * around `undefined`.
+   */
+  readonly mavenGroupPath?: string
+  readonly mavenArtifact?: string
   readonly externalComponentsFor: (version: string) => Readonly<Record<string, string>>
   /** Prefix the upstream repository puts in front of a version to form a tag. */
   readonly tagPrefix: string
   /** Layout eras, oldest first. The first one's `since` is the supported floor. */
   readonly eras: readonly [LayoutEra, ...LayoutEra[]]
+  /** Maps a catalog version to its published `_images/` base URL. */
+  readonly imageBaseFor: (version: string) => string
   /** Maps a catalog version to its published aggregated javadoc base URL. */
   readonly javadocLocationFor: (version: string) => string
 }
@@ -244,6 +307,66 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
       },
     ],
     javadocLocationFor: version => `${SPRING_BOOT_DOCS}/${version}/api/java`,
+    imageBaseFor: version => `${SPRING_BOOT_DOCS}/${version}/_images`,
+  },
+
+  framework: {
+    repo: 'spring-projects/spring-framework',
+    // No Maven coordinates: every era here is an overlay, assembled entirely
+    // from the git checkout. Spring Framework publishes no Antora content
+    // archive to Maven Central — `org/springframework/spring-docs` does not
+    // exist there (probed 2026-09-14).
+    //
+    // Every xref in the corpus is intra-component: `xref:<component>:` does not
+    // occur once across the 456 pages of v6.2.14, so there is no unbuilt
+    // component for a reference to dangle into.
+    externalComponentsFor: () => ({}),
+    tagPrefix: 'v',
+    eras: [
+      {
+        // v6.1.0 is where `framework-docs/antora.yml` first appears; v6.0.0
+        // returns 404 for it. One era runs from there with no ceiling: v6.1.0
+        // commits 31 lines of attributes and v6.2.0 onward commit 96, but that
+        // is committed *content*, not layout — the component path, the examples
+        // symlink and the single generated attribute are identical at v6.1.0,
+        // v6.2.14, v7.0.0 and v7.0.4.
+        since: '6.1.0',
+        componentPath: 'framework-docs',
+        assembly: {
+          descriptor: 'overlay',
+          // `framework-docs.gradle` is the whole story, unchanged across the
+          // range:
+          //
+          //   tasks.named("generateAntoraYml") {
+          //     asciidocAttributes = provider({ ["spring-version": project.version] })
+          //   }
+          //   tasks.register("generateAntoraResources") { dependsOn 'generateAntoraYml' }
+          //
+          // `generateAntoraResources` depends on `generateAntoraYml` and nothing
+          // else, so one attribute is the entire generated half of the
+          // component. The `example$docs-src` tree `include-code::` resolves
+          // against is a symlink to `framework-docs/src`, already inside the
+          // checkout, so unlike Boot there is nothing to copy or download.
+          generatedAttributesFor: version => ({ 'spring-version': version }),
+          // `example$docs-src` is a mode 120000 blob holding `../../../src`,
+          // present at v6.1.0 and v6.2.14 alike. It resolves to
+          // `framework-docs/src`, inside the checked-out component, so it is
+          // replaced by a real copy rather than followed at read time.
+          internalSymlinks: ['modules/ROOT/examples/docs-src'],
+        },
+      },
+    ],
+    // Retargets `javadoc:` macros. The corpus contains none at v6.2.14 — it
+    // links Javadoc through the committed `{api-spring-framework}` attribute
+    // instead — but the playbook sets `javadoc-location` unconditionally, and a
+    // later version adding the macro should resolve rather than dangle.
+    javadocLocationFor: version =>
+      `https://docs.spring.io/spring-framework/docs/${version}/javadoc-api`,
+    // Verified 2026-09-14: the version-pinned form answers 200, e.g.
+    // .../reference/6.2.14/_images/message-flow-simple-broker.png. Spring
+    // Framework's reference site is versioned under `reference/`, unlike Boot's,
+    // which is versioned at the project root.
+    imageBaseFor: version => `${SPRING_FRAMEWORK_DOCS}/reference/${version}/_images`,
   },
 }
 
@@ -340,8 +463,8 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
     ? era.assembly.archiveClassifiers.map(classifier => ({
         classifier,
         url: mavenArchiveUrl(
-          definition.mavenGroupPath,
-          definition.mavenArtifact,
+          mavenGroupPathOf(definition, project),
+          mavenArtifactOf(definition, project),
           version,
           classifier,
         ),
@@ -351,7 +474,7 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
   const metadataJars = era.assembly.descriptor === 'synthesized'
     ? era.assembly.synthesis.metadataArtifacts.map(artifact => ({
         artifact,
-        url: mavenJarUrl(definition.mavenGroupPath, artifact, version),
+        url: mavenJarUrl(mavenGroupPathOf(definition, project), artifact, version),
       }))
     : []
 
@@ -362,18 +485,65 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
     cloneUrl: `https://github.com/${definition.repo}.git`,
     tag: `${definition.tagPrefix}${version}`,
     componentPath: era.componentPath,
-    assembly: era.assembly,
+    assembly: resolveAssembly(era.assembly, version),
     archives,
     metadataJars,
     checkoutPaths: checkoutPathsFor(era),
     javadocLocation: definition.javadocLocationFor(version),
     externalComponents: definition.externalComponentsFor(version),
+    imageBase: definition.imageBaseFor(version),
   }
+}
+
+/**
+ * Evaluate an era's assembly against one version.
+ *
+ * Only the overlay era has anything to evaluate; the other two are already the
+ * data they declare.
+ */
+function resolveAssembly(assembly: EraAssembly, version: string): ComponentAssembly {
+  return assembly.descriptor === 'overlay'
+    ? {
+        descriptor: 'overlay',
+        generatedAttributes: assembly.generatedAttributesFor(version),
+        internalSymlinks: assembly.internalSymlinks,
+      }
+    : assembly
+}
+
+/**
+ * The Maven group path an archive or synthesized era reads from.
+ *
+ * Declared optional on {@link ProjectDefinition} because an overlay-only project
+ * has no Maven artifact at all. Reaching here without one is a definition bug,
+ * not bad input, so it throws rather than producing a URL containing
+ * `undefined` that would 404 much later with nothing pointing back here.
+ */
+function mavenGroupPathOf(definition: ProjectDefinition, project: string): string {
+  if (definition.mavenGroupPath === undefined) {
+    throw new Error(
+      `Project "${project}" declares an era that reads Maven Central but no mavenGroupPath`,
+    )
+  }
+  return definition.mavenGroupPath
+}
+
+/** The Maven artifact an archive era's content zips are published under. */
+function mavenArtifactOf(definition: ProjectDefinition, project: string): string {
+  if (definition.mavenArtifact === undefined) {
+    throw new Error(
+      `Project "${project}" declares an archive era but no mavenArtifact`,
+    )
+  }
+  return definition.mavenArtifact
 }
 
 /** Repo-relative paths the sparse checkout must materialize for one era. */
 function checkoutPathsFor(era: LayoutEra): readonly string[] {
-  if (era.assembly.descriptor === 'archive')
+  // An overlay era assembles from the component root alone. That root is also
+  // where its `example$` tree lives — Spring Framework reaches it through a
+  // relative symlink that stays inside the checked-out path.
+  if (era.assembly.descriptor !== 'synthesized')
     return [era.componentPath]
   const { synthesis } = era.assembly
   return [
@@ -391,8 +561,14 @@ function checkoutPathsFor(era: LayoutEra): readonly string[] {
  * Upstream tags a release long before — and sometimes without ever — publishing
  * the artifacts this pipeline reads. Which artifacts those are depends on the
  * era: an archive era needs the content zips, a synthesized era needs the jars
- * carrying configuration-property metadata. `detect-upstream-versions.ts` checks
- * these so a version that cannot be built is never offered as one that can.
+ * carrying configuration-property metadata, and an overlay era needs none at
+ * all, because the git tag carries everything it assembles.
+ * `detect-upstream-versions.ts` checks these so a version that cannot be built
+ * is never offered as one that can.
+ *
+ * An empty result therefore means "nothing to wait for", not "nothing checked":
+ * for an overlay project, being tagged upstream is the whole of being
+ * buildable.
  *
  * @throws if the project is not supported or the version is not buildable.
  */
@@ -401,9 +577,14 @@ export function requiredArtifactUrls(project: string, version: string): readonly
   // side reads — so the gate cannot check a URL the fetch will not request.
   // `resolveUpstream` raises the unknown-project error itself.
   const upstream = resolveUpstream(project, version)
-  return upstream.assembly.descriptor === 'archive'
-    ? upstream.archives.map(archive => archive.url)
-    : upstream.metadataJars.map(jar => jar.url)
+  switch (upstream.assembly.descriptor) {
+    case 'archive':
+      return upstream.archives.map(archive => archive.url)
+    case 'synthesized':
+      return upstream.metadataJars.map(jar => jar.url)
+    case 'overlay':
+      return []
+  }
 }
 
 /**
