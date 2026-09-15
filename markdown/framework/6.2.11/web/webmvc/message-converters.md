@@ -1,0 +1,36 @@
+---
+title: "HTTP Message Conversion"
+source: "ROOT:web/webmvc/message-converters.adoc"
+---
+
+<a id="message-converters"></a>
+
+# HTTP Message Conversion
+
+[See equivalent in the Reactive stack](../webflux/reactive-spring.md#webflux-codecs)
+
+The `spring-web` module contains the `HttpMessageConverter` interface for reading and writing the body of HTTP requests and responses through `InputStream` and `OutputStream`.
+`HttpMessageConverter` instances are used on the client side (for example, in the `RestClient`) and on the server side (for example, in Spring MVC REST controllers).
+
+Concrete implementations for the main media (MIME) types are provided in the framework and are, by default, registered with the `RestClient` and `RestTemplate` on the client side and with `RequestMappingHandlerAdapter` on the server side (see [Configuring Message Converters](mvc-config/message-converters.md)).
+
+Several implementations of `HttpMessageConverter` are described below.
+Refer to the [`HttpMessageConverter` Javadoc](https://docs.spring.io/spring-framework/docs/6.2.11/javadoc-api/org/springframework/http/converter/HttpMessageConverter.html) for the complete list.
+For all converters, a default media type is used, but you can override it by setting the `supportedMediaTypes`  property.
+
+<a id="rest-message-converters-tbl"></a>
+
+| MessageConverter | Description |
+| --- | --- |
+| `StringHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write `String` instances from the HTTP request and response. By default, this converter supports all text media types(`text/*`) and writes with a `Content-Type` of `text/plain`. |
+| `FormHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write form data from the HTTP request and response. By default, this converter reads and writes the `application/x-www-form-urlencoded` media type. Form data is read from and written into a `MultiValueMap<String, String>`. The converter can also write (but not read) multipart data read from a `MultiValueMap<String, Object>`. By default, `multipart/form-data` is supported. Additional multipart subtypes can be supported for writing form data. Consult the javadoc for `FormHttpMessageConverter` for further details. |
+| `ByteArrayHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write byte arrays from the HTTP request and response. By default, this converter supports all media types (`*/*`) and writes with a `Content-Type` of `application/octet-stream`. You can override this by setting the `supportedMediaTypes` property and overriding `getContentType(byte[])`. |
+| `MarshallingHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write XML by using Spring’s `Marshaller` and `Unmarshaller` abstractions from the `org.springframework.oxm` package. This converter requires a `Marshaller` and `Unmarshaller` before it can be used. You can inject these through constructor or bean properties. By default, this converter supports `text/xml` and `application/xml`. |
+| `MappingJackson2HttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write JSON by using Jackson’s `ObjectMapper`. You can customize JSON mapping as needed through the use of Jackson’s provided annotations. When you need further control (for cases where custom JSON serializers/deserializers need to be provided for specific types), you can inject a custom `ObjectMapper` through the `ObjectMapper` property. By default, this converter supports `application/json`. This requires the `com.fasterxml.jackson.core:jackson-databind` dependency. |
+| `MappingJackson2XmlHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write XML by using [Jackson XML](https://github.com/FasterXML/jackson-dataformat-xml) extension’s `XmlMapper`. You can customize XML mapping as needed through the use of JAXB or Jackson’s provided annotations. When you need further control (for cases where custom XML serializers/deserializers need to be provided for specific types), you can inject a custom `XmlMapper` through the `ObjectMapper` property. By default, this converter supports `application/xml`. This requires the `com.fasterxml.jackson.dataformat:jackson-dataformat-xml` dependency. |
+| `MappingJackson2CborHttpMessageConverter` | `com.fasterxml.jackson.dataformat:jackson-dataformat-cbor` |
+| `SourceHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write `javax.xml.transform.Source` from the HTTP request and response. Only `DOMSource`, `SAXSource`, and `StreamSource` are supported. By default, this converter supports `text/xml` and `application/xml`. |
+| `GsonHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write JSON by using "Google Gson". This requires the `com.google.code.gson:gson` dependency. |
+| `JsonbHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write JSON by using the Jakarta Json Bind API. This requires the `jakarta.json.bind:jakarta.json.bind-api` dependency and an implementation available. |
+| `ProtobufHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write Protobuf messages in binary format with the `"application/x-protobuf"` content type. This requires the `com.google.protobuf:protobuf-java` dependency. |
+| `ProtobufJsonFormatHttpMessageConverter` | An `HttpMessageConverter` implementation that can read and write JSON documents to and from Protobuf messages. This requires the `com.google.protobuf:protobuf-java-util` dependency. |

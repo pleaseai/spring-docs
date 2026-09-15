@@ -1,0 +1,23 @@
+---
+title: "Thymeleaf"
+source: "ROOT:web/webmvc-view/mvc-thymeleaf.adoc"
+---
+
+<a id="mvc-view-thymeleaf"></a>
+
+# Thymeleaf
+
+[See equivalent in the Reactive stack](../webflux-view.md#webflux-view-thymeleaf)
+
+Thymeleaf is a modern server-side Java template engine that emphasizes natural HTML
+templates that can be previewed in a browser by double-clicking, which is very helpful
+for independent work on UI templates (for example, by a designer) without the need for
+a running server. If you want to replace JSPs, Thymeleaf offers one of the most
+extensive sets of features to make such a transition easier. Thymeleaf is actively
+developed and maintained. For a more complete introduction, see the
+[Thymeleaf](https://www.thymeleaf.org/) project home page.
+
+The Thymeleaf integration with Spring MVC is managed by the Thymeleaf project.
+The configuration involves a few bean declarations, such as
+`ServletContextTemplateResolver`, `SpringTemplateEngine`, and `ThymeleafViewResolver`.
+See [Thymeleaf+Spring](https://www.thymeleaf.org/documentation.html) for more details.
