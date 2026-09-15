@@ -1,0 +1,73 @@
+---
+title: "Async Requests"
+source: "ROOT:testing/spring-mvc-test-framework/async-requests.adoc"
+---
+
+<a id="spring-mvc-test-async-requests"></a>
+
+# Async Requests
+
+This section shows how to use MockMvc on its own to test asynchronous request handling.
+If using MockMvc through the [WebTestClient](../webtestclient.md), there is nothing special to do to make
+asynchronous requests work as the `WebTestClient` automatically does what is described
+in this section.
+
+Servlet asynchronous requests, [supported in Spring MVC](../../web/webmvc/mvc-ann-async.md),
+work by exiting the Servlet container thread and allowing the application to compute
+the response asynchronously, after which an async dispatch is made to complete
+processing on a Servlet container thread.
+
+In Spring MVC Test, async requests can be tested by asserting the produced async value
+first, then manually performing the async dispatch, and finally verifying the response.
+Below is an example test for controller methods that return `DeferredResult`, `Callable`,
+or reactive type such as Reactor `Mono`:
+
+#### Java
+
+```java
+// static import of MockMvcRequestBuilders.* and MockMvcResultMatchers.*
+
+@Test
+void test() throws Exception {
+       MvcResult mvcResult = this.mockMvc.perform(get("/path"))
+               .andExpect(status().isOk()) <1>
+               .andExpect(request().asyncStarted()) <2>
+               .andExpect(request().asyncResult("body")) <3>
+               .andReturn();
+
+       this.mockMvc.perform(asyncDispatch(mvcResult)) <4>
+               .andExpect(status().isOk()) <5>
+               .andExpect(content().string("body"));
+   }
+```
+
+1. Check response status is still unchanged
+1. Async processing must have started
+1. Wait and assert the async result
+1. Manually perform an ASYNC dispatch (as there is no running container)
+1. Verify the final response
+
+#### Kotlin
+
+```kotlin
+@Test
+fun test() {
+	var mvcResult = mockMvc.get("/path").andExpect {
+		status { isOk() } // <1>
+		request { asyncStarted() } // <2>
+		// TODO Remove unused generic parameter
+		request { asyncResult<Nothing>("body") } // <3>
+	}.andReturn()
+	mockMvc.perform(asyncDispatch(mvcResult)) // <4>
+			.andExpect {
+				status { isOk() } // <5>
+				content().string("body")
+			}
+}
+```
+
+1. Check response status is still unchanged
+1. Async processing must have started
+1. Wait and assert the async result
+1. Manually perform an ASYNC dispatch (as there is no running container)
+1. Verify the final response
