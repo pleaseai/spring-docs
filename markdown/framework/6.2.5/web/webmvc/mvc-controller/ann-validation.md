@@ -1,0 +1,126 @@
+---
+title: "Validation"
+source: "ROOT:web/webmvc/mvc-controller/ann-validation.adoc"
+---
+
+<a id="mvc-ann-validation"></a>
+
+# Validation
+
+[See equivalent in the Reactive stack](../../webflux/controller/ann-validation.md)
+
+Spring MVC has built-in [validation](../../../core/validation/validator.md) for
+`@RequestMapping` methods, including [Java Bean Validation](../../../core/validation/beanvalidation.md).
+Validation may be applied at one of two levels:
+
+1. [@ModelAttribute](ann-methods/modelattrib-method-args.md),
+[@RequestBody](ann-methods/requestbody.md), and
+[@RequestPart](ann-methods/multipart-forms.md) argument
+resolvers validate a method argument individually if the method parameter is annotated
+with Jakarta `@Valid` or Spring’s `@Validated`, *AND* there is no `Errors` or
+`BindingResult` parameter immediately after, *AND* method validation is not needed (to be
+discussed next). The exception raised in this case is `MethodArgumentNotValidException`.
+1. When `@Constraint` annotations such as `@Min`, `@NotBlank` and others are declared
+directly on method parameters, or on the method (for the return value), then method
+validation must be applied, and that supersedes validation at the method argument level
+because method validation covers both method parameter constraints and nested constraints
+via `@Valid`. The exception raised in this case is `HandlerMethodValidationException`.
+
+Applications must handle both `MethodArgumentNotValidException` and
+`HandlerMethodValidationException` as either may be raised depending on the controller
+method signature. The two exceptions, however are designed to be very similar, and can be
+handled with almost identical code. The main difference is that the former is for a single
+object while the latter is for a list of method parameters.
+
+> [!NOTE]
+> `@Valid` is not a constraint annotation, but rather for nested constraints within
+> an Object. Therefore, by itself `@Valid` does not lead to method validation. `@NotNull`
+> on the other hand is a constraint, and adding it to an `@Valid` parameter leads to method
+> validation. For nullability specifically, you may also use the `required` flag of
+> `@RequestBody` or `@ModelAttribute`.
+
+Method validation may be used in combination with `Errors` or `BindingResult` method
+parameters. However, the controller method is called only if all validation errors are on
+method parameters with an `Errors` immediately after. If there are validation errors on
+any other method parameter then `HandlerMethodValidationException` is raised.
+
+You can configure a `Validator` globally through the
+[WebMvc config](../mvc-config/validation.md), or locally through an
+[@InitBinder](ann-initbinder.md) method in an
+`@Controller` or `@ControllerAdvice`. You can also use multiple validators.
+
+> [!NOTE]
+> If a controller has a class level `@Validated`, then
+> [method validation is applied](../../../core/validation/beanvalidation.md#validation-beanvalidation-spring-method)
+> through an AOP proxy. In order to take advantage of the Spring MVC built-in support for
+> method validation added in Spring Framework 6.1, you need to remove the class level
+> `@Validated` annotation from the controller.
+
+The [Error Responses](../mvc-ann-rest-exceptions.md) section provides further
+details on how `MethodArgumentNotValidException` and `HandlerMethodValidationException`
+are handled, and also how their rendering can be customized through a `MessageSource` and
+locale and language specific resource bundles.
+
+For further custom handling of method validation errors, you can extend
+`ResponseEntityExceptionHandler` or use an `@ExceptionHandler` method in a controller
+or in a `@ControllerAdvice`, and handle `HandlerMethodValidationException` directly.
+The exception contains a list of `ParameterValidationResult`s that group validation errors
+by method parameter. You can either iterate over those, or provide a visitor with callback
+methods by controller method parameter type:
+
+#### Java
+
+```java
+HandlerMethodValidationException ex = ... ;
+
+ex.visitResults(new HandlerMethodValidationException.Visitor() {
+
+	@Override
+	public void requestHeader(RequestHeader requestHeader, ParameterValidationResult result) {
+			// ...
+	}
+
+	@Override
+	public void requestParam(@Nullable RequestParam requestParam, ParameterValidationResult result) {
+			// ...
+	}
+
+	@Override
+	public void modelAttribute(@Nullable ModelAttribute modelAttribute, ParameterErrors errors) {
+
+	// ...
+
+	@Override
+	public void other(ParameterValidationResult result) {
+			// ...
+	}
+});
+```
+
+#### Kotlin
+
+```kotlin
+// HandlerMethodValidationException
+val ex
+
+ex.visitResults(object : HandlerMethodValidationException.Visitor {
+
+	override fun requestHeader(requestHeader: RequestHeader, result: ParameterValidationResult) {
+			// ...
+       }
+
+	override fun requestParam(requestParam: RequestParam?, result: ParameterValidationResult) {
+			// ...
+       }
+
+	override fun modelAttribute(modelAttribute: ModelAttribute?, errors: ParameterErrors) {
+			// ...
+       }
+
+	// ...
+
+	override fun other(result: ParameterValidationResult) {
+			// ...
+       }
+})
+```
