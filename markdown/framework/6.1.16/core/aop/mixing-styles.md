@@ -1,0 +1,13 @@
+---
+title: "Mixing Aspect Types"
+source: "ROOT:core/aop/mixing-styles.adoc"
+---
+
+<a id="aop-mixing-styles"></a>
+
+# Mixing Aspect Types
+
+It is perfectly possible to mix @AspectJ style aspects by using the auto-proxying support,
+schema-defined `<aop:aspect>` aspects, `<aop:advisor>` declared advisors, and even proxies
+and interceptors in other styles in the same configuration. All of these are implemented
+by using the same underlying support mechanism and can co-exist without any difficulty.

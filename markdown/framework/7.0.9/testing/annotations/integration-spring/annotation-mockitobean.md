@@ -1,0 +1,716 @@
+---
+title: "`@MockitoBean` and `@MockitoSpyBean`"
+source: "ROOT:testing/annotations/integration-spring/annotation-mockitobean.adoc"
+---
+
+<a id="spring-testing-annotation-beanoverriding-mockitobean"></a>
+
+# `@MockitoBean` and `@MockitoSpyBean`
+
+[`@MockitoBean`](https://docs.spring.io/spring-framework/docs/7.0.9/javadoc-api/org/springframework/test/context/bean/override/mockito/MockitoBean.html) and
+[`@MockitoSpyBean`](https://docs.spring.io/spring-framework/docs/7.0.9/javadoc-api/org/springframework/test/context/bean/override/mockito/MockitoSpyBean.html)
+can be used in test classes to override a bean in the test’s `ApplicationContext` with a
+Mockito *mock* or *spy*, respectively. In the latter case, an early instance of the
+original bean is captured and wrapped by the spy.
+
+The annotations can be applied in the following ways.
+
+- On a non-static field in a test class or any of its superclasses.
+- On a non-static field in an enclosing class for a `@Nested` test class or in any class
+in the type hierarchy or enclosing class hierarchy above the `@Nested` test class.
+- At the type level on a test class or any superclass or implemented interface in the
+type hierarchy above the test class.
+- At the type level on an enclosing class for a `@Nested` test class or on any class or
+interface in the type hierarchy or enclosing class hierarchy above the `@Nested` test
+class.
+
+When `@MockitoBean` or `@MockitoSpyBean` is declared on a field, the bean to mock or spy
+is inferred from the type of the annotated field. If multiple candidates exist in the
+`ApplicationContext`, a `@Qualifier` annotation can be declared on the field to help
+disambiguate. In the absence of a `@Qualifier` annotation, the name of the annotated
+field will be used as a *fallback qualifier*. Alternatively, you can explicitly specify a
+bean name to mock or spy by setting the `value` or `name` attribute in the annotation.
+
+When `@MockitoBean` or `@MockitoSpyBean` is declared at the type level, the type of bean
+(or beans) to mock or spy must be supplied via the `types` attribute in the annotation –
+for example, `@MockitoBean(types = {OrderService.class, UserService.class})`. If multiple
+candidates exist in the `ApplicationContext`, you can explicitly specify a bean name to
+mock or spy by setting the `name` attribute. Note, however, that the `types` attribute
+must contain a single type if an explicit bean `name` is configured – for example,
+`@MockitoBean(name = "ps1", types = PrintingService.class)`.
+
+To support reuse of mock configuration, `@MockitoBean` and `@MockitoSpyBean` may be used
+as meta-annotations to create custom *composed annotations* – for example, to define
+common mock or spy configuration in a single annotation that can be reused across a test
+suite. `@MockitoBean` and `@MockitoSpyBean` can also be used as repeatable annotations at
+the type level — for example, to mock or spy several beans by name.
+
+> [!WARNING]
+> Qualifiers, including the name of a field, are used to determine if a separate
+> `ApplicationContext` needs to be created. If you are using this feature to mock or spy
+> the same bean in several test classes, make sure to name the fields consistently to avoid
+> creating unnecessary contexts.
+
+> [!WARNING]
+> Using `@MockitoBean` or `@MockitoSpyBean` in conjunction with `@ContextHierarchy` can
+> lead to undesirable results since each `@MockitoBean` or `@MockitoSpyBean` will be
+> applied to all context hierarchy levels by default. To ensure that a particular
+> `@MockitoBean` or `@MockitoSpyBean` is applied to a single context hierarchy level, set
+> the `contextName` attribute to match a configured `@ContextConfiguration` name – for
+> example, `@MockitoBean(contextName = "app-config")` or
+> `@MockitoSpyBean(contextName = "app-config")`.
+>
+> See
+> [context
+> hierarchies with bean overrides](../../testcontext-framework/ctx-management/hierarchies.md#testcontext-ctx-management-ctx-hierarchies-with-bean-overrides) for further details and examples.
+
+Each annotation also defines Mockito-specific attributes to fine-tune the mocking behavior.
+
+The `@MockitoBean` annotation uses the `REPLACE_OR_CREATE`
+[strategy for bean overrides](../../testcontext-framework/bean-overriding.md#testcontext-bean-overriding-strategy).
+If a corresponding bean does not exist, a new bean will be created. However, you can
+switch to the `REPLACE` strategy by setting the `enforceOverride` attribute to `true` –
+for example, `@MockitoBean(enforceOverride = true)`. Because this strategy replaces the
+bean directly, bypassing the container’s normal bean post-processing, the resulting mock
+is a bare object: it is never wrapped in a Spring AOP proxy, even if the original bean
+would have been — for example, due to `@Transactional`, `@Cacheable`, or `@Retryable`. See
+[Bean
+Overrides and Spring AOP Proxies](../../testcontext-framework/bean-overriding.md#testcontext-bean-overriding-aop-proxies) for details.
+
+The `@MockitoSpyBean` annotation uses the `WRAP`
+[strategy](../../testcontext-framework/bean-overriding.md#testcontext-bean-overriding-strategy):
+an early instance of the original bean is captured and used to create a Mockito spy.
+This strategy requires that exactly one candidate bean exists. In contrast to
+`@MockitoBean`, if the original bean would have been wrapped in a Spring AOP proxy, that
+proxy is still created — but it now wraps the spy instead of the original bean. See
+[`@MockitoSpyBean` and Spring AOP Proxies](#spring-testing-annotation-beanoverriding-mockitospybean-aop-proxies)
+for a diagram and further details on the consequences this has for stubbing and
+verification.
+
+> [!TIP]
+> As stated in the documentation for Mockito, there are times when using `Mockito.when()` is
+> inappropriate for stubbing a spy – for example, if calling a real method on a spy results
+> in undesired side effects.
+>
+> To avoid such undesired side effects, consider using
+> `Mockito.doReturn(…​).when(spy)…​`, `Mockito.doThrow(…​).when(spy)…​`,
+> `Mockito.doNothing().when(spy)…​`, and similar methods.
+
+> [!NOTE]
+> When using `@MockitoBean` to mock a non-singleton bean, the non-singleton bean will be
+> replaced with a singleton mock, and the corresponding bean definition will be converted
+> to a `singleton`. Consequently, if you mock a `prototype` or scoped bean, the mock will
+> be treated as a `singleton`.
+>
+> Similarly, when using `@MockitoSpyBean` to create a spy for a non-singleton bean, the
+> corresponding bean definition will be converted to a `singleton`. Consequently, if you
+> create a spy for a `prototype` or scoped bean, the spy will be treated as a `singleton`.
+>
+> When using `@MockitoBean` to mock a bean created by a `FactoryBean`, the `FactoryBean`
+> will be replaced with a singleton mock of the type of object created by the `FactoryBean`.
+>
+> Similarly, when using `@MockitoSpyBean` to create a spy for a `FactoryBean`, a spy will
+> be created for the object created by the `FactoryBean`, not for the `FactoryBean` itself.
+>
+> Furthermore, `@MockitoSpyBean` cannot be used to spy on a scoped proxy — for example, a
+> bean annotated with `@Scope(proxyMode = ScopedProxyMode.TARGET_CLASS)`. Any attempt to do
+> so will fail with an exception.
+
+> [!NOTE]
+> There are no restrictions on the visibility of `@MockitoBean` and `@MockitoSpyBean`
+> fields.
+>
+> Such fields can therefore be `public`, `protected`, package-private (default visibility),
+> or `private` depending on the needs or coding practices of the project.
+
+<a id="spring-testing-annotation-beanoverriding-mockitobean-examples"></a>
+
+## `@MockitoBean` Examples
+
+The following example shows how to use the default behavior of the `@MockitoBean`
+annotation.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+class BeanOverrideTests {
+
+	@MockitoBean // <1>
+	CustomService customService;
+
+	// tests...
+}
+```
+
+1. Replace the bean with type `CustomService` with a Mockito mock.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+class BeanOverrideTests {
+
+	@MockitoBean // <1>
+	lateinit var customService: CustomService
+
+	// tests...
+}
+```
+
+1. Replace the bean with type `CustomService` with a Mockito mock.
+
+In the example above, we are creating a mock for `CustomService`. If more than one bean
+of that type exists, the bean named `customService` is considered. Otherwise, the test
+will fail, and you will need to provide a qualifier of some sort to identify which of the
+`CustomService` beans you want to override. If no such bean exists, a bean will be
+created with an auto-generated bean name.
+
+The following example uses a by-name lookup, rather than a by-type lookup. If no bean
+named `service` exists, one is created.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+class BeanOverrideTests {
+
+	@MockitoBean("service") // <1>
+	CustomService customService;
+
+	// tests...
+
+}
+```
+
+1. Replace the bean named `service` with a Mockito mock.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+class BeanOverrideTests {
+
+	@MockitoBean("service") // <1>
+	lateinit var customService: CustomService
+
+	// tests...
+
+}
+```
+
+1. Replace the bean named `service` with a Mockito mock.
+
+The following `@SharedMocks` annotation registers two mocks by-type and one mock by-name.
+
+#### Java
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@MockitoBean(types = {OrderService.class, UserService.class}) // <1>
+@MockitoBean(name = "ps1", types = PrintingService.class) // <2>
+public @interface SharedMocks {
+}
+```
+
+1. Register `OrderService` and `UserService` mocks by-type.
+1. Register `PrintingService` mock by-name.
+
+#### Kotlin
+
+```kotlin
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+@MockitoBean(types = [OrderService::class, UserService::class]) // <1>
+@MockitoBean(name = "ps1", types = [PrintingService::class]) // <2>
+annotation class SharedMocks
+```
+
+1. Register `OrderService` and `UserService` mocks by-type.
+1. Register `PrintingService` mock by-name.
+
+The following demonstrates how `@SharedMocks` can be used on a test class.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+@SharedMocks // <1>
+class BeanOverrideTests {
+
+	@Autowired OrderService orderService; // <2>
+
+	@Autowired UserService userService; // <2>
+
+	@Autowired PrintingService ps1; // <2>
+
+	// Inject other components that rely on the mocks.
+
+	@Test
+	void testThatDependsOnMocks() {
+		// ...
+	}
+}
+```
+
+1. Register common mocks via the custom `@SharedMocks` annotation.
+1. Optionally inject mocks to *stub* or *verify* them.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+@SharedMocks // <1>
+class BeanOverrideTests {
+
+	@Autowired
+	lateinit var orderService: OrderService // <2>
+
+	@Autowired
+	lateinit var userService: UserService // <2>
+
+	@Autowired
+	lateinit var ps1: PrintingService // <2>
+
+	// Inject other components that rely on the mocks.
+
+	@Test
+	fun testThatDependsOnMocks() {
+		// ...
+	}
+}
+```
+
+1. Register common mocks via the custom `@SharedMocks` annotation.
+1. Optionally inject mocks to *stub* or *verify* them.
+
+> [!TIP]
+> The mocks can also be injected into `@Configuration` classes or other test-related
+> components in the `ApplicationContext` in order to configure them with Mockito’s stubbing
+> APIs.
+
+<a id="spring-testing-annotation-beanoverriding-mockitospybean-examples"></a>
+
+## `@MockitoSpyBean` Examples
+
+The following example shows how to use the default behavior of the `@MockitoSpyBean`
+annotation.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+class BeanOverrideTests {
+
+	@MockitoSpyBean // <1>
+	CustomService customService;
+
+	// tests...
+}
+```
+
+1. Wrap the bean with type `CustomService` with a Mockito spy.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+class BeanOverrideTests {
+
+	@MockitoSpyBean // <1>
+	lateinit var customService: CustomService
+
+	// tests...
+}
+```
+
+1. Wrap the bean with type `CustomService` with a Mockito spy.
+
+In the example above, we are wrapping the bean with type `CustomService`. If more than
+one bean of that type exists, the bean named `customService` is considered. Otherwise,
+the test will fail, and you will need to provide a qualifier of some sort to identify
+which of the `CustomService` beans you want to spy.
+
+The following example uses a by-name lookup, rather than a by-type lookup.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+class BeanOverrideTests {
+
+	@MockitoSpyBean("service") // <1>
+	CustomService customService;
+
+	// tests...
+}
+```
+
+1. Wrap the bean named `service` with a Mockito spy.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+class BeanOverrideTests {
+
+	@MockitoSpyBean("service") // <1>
+	lateinit var customService: CustomService
+
+	// tests...
+}
+```
+
+1. Wrap the bean named `service` with a Mockito spy.
+
+The following `@SharedSpies` annotation registers two spies by-type and one spy by-name.
+
+#### Java
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@MockitoSpyBean(types = {OrderService.class, UserService.class}) // <1>
+@MockitoSpyBean(name = "ps1", types = PrintingService.class) // <2>
+public @interface SharedSpies {
+}
+```
+
+1. Register `OrderService` and `UserService` spies by-type.
+1. Register `PrintingService` spy by-name.
+
+#### Kotlin
+
+```kotlin
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+@MockitoSpyBean(types = [OrderService::class, UserService::class]) // <1>
+@MockitoSpyBean(name = "ps1", types = [PrintingService::class]) // <2>
+annotation class SharedSpies
+```
+
+1. Register `OrderService` and `UserService` spies by-type.
+1. Register `PrintingService` spy by-name.
+
+The following demonstrates how `@SharedSpies` can be used on a test class.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+@SharedSpies // <1>
+class BeanOverrideTests {
+
+	@Autowired OrderService orderService; // <2>
+
+	@Autowired UserService userService; // <2>
+
+	@Autowired PrintingService ps1; // <2>
+
+	// Inject other components that rely on the spies.
+
+	@Test
+	void testThatDependsOnMocks() {
+		// ...
+	}
+}
+```
+
+1. Register common spies via the custom `@SharedSpies` annotation.
+1. Optionally inject spies to *stub* or *verify* them.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+@SharedSpies // <1>
+class BeanOverrideTests {
+
+	@Autowired
+	lateinit var orderService: OrderService // <2>
+
+	@Autowired
+	lateinit var userService: UserService // <2>
+
+	@Autowired
+	lateinit var ps1: PrintingService // <2>
+
+	// Inject other components that rely on the spies.
+
+	@Test
+	fun testThatDependsOnMocks() {
+		// ...
+	}
+}
+```
+
+1. Register common spies via the custom `@SharedSpies` annotation.
+1. Optionally inject spies to *stub* or *verify* them.
+
+> [!TIP]
+> The spies can also be injected into `@Configuration` classes or other test-related
+> components in the `ApplicationContext` in order to configure them with Mockito’s stubbing
+> APIs.
+
+<a id="spring-testing-annotation-beanoverriding-mockitospybean-aop-proxies"></a>
+
+## `@MockitoSpyBean` and Spring AOP Proxies
+
+As explained in
+[Bean
+Overrides and Spring AOP Proxies](../../testcontext-framework/bean-overriding.md#testcontext-bean-overriding-aop-proxies), if the bean being spied on would normally be wrapped in
+a Spring AOP proxy — for example, due to `@Transactional`, `@Cacheable`, or `@Retryable`
+— that proxy is still created, with the spy as its target. The bean injected into the
+test class and into other beans in the `ApplicationContext` is therefore the proxy, not
+the spy itself.
+
+Verification via Mockito’s `verify()` API is unaffected by this and works transparently,
+regardless of whether it is invoked on the proxy or on the underlying spy.
+
+<a id="spring-testing-annotation-beanoverriding-mockitospybean-aop-proxies-stubbing"></a>
+
+### Stubbing Through the Proxy
+
+Stubbing requires more care than verification, since `Mockito.doReturn(…​).when(…​)`,
+`Mockito.doThrow(…​).when(…​)`, and similar methods behave differently depending on the
+nature of the AOP advice involved when invoked on the proxy.
+
+> [!NOTE]
+> Since `when` is a reserved keyword in Kotlin, the Kotlin examples below use the
+> `given(…​)`, `willReturn(…​)`, and `willThrow(…​)` methods from `BDDMockito` instead
+> of `Mockito.doReturn(…​).when(…​)` and `Mockito.doThrow(…​).when(…​)`.
+
+Advice that does not retain state between invocations — such as
+[`@Retryable`](../../../core/resilience.md#resilience-annotations-retryable) — has no adverse
+effect on stubbing. The following stubbing sequence, invoked on the proxy, behaves exactly
+as it would on the underlying spy directly, including triggering a retry when the thrown
+exception is encountered.
+
+#### Java
+
+```java
+doReturn("ok")
+	.doThrow(new RuntimeException("Message delivery failed"))
+	.doReturn("ok again")
+	.when(clientService).sendMessage(any()); // <1>
+```
+
+1. `clientService` is the injected proxy. Since `@Retryable` advice is a stateless
+pass-through, each call — including the one that throws — reaches the spy directly.
+
+#### Kotlin
+
+```kotlin
+willReturn("ok")
+	.willThrow(RuntimeException("Message delivery failed"))
+	.willReturn("ok again")
+	.given(clientService).sendMessage(any()) // <1>
+```
+
+1. `clientService` is the injected proxy. Since `@Retryable` advice is a stateless
+pass-through, each call — including the one that throws — reaches the spy directly.
+
+Advice that caches or otherwise memoizes the outcome of an invocation — such as
+`@Cacheable` — does not behave the same way. While a `doReturn(…​)`, `doThrow(…​)`, or
+similar declaration is being recorded, Mockito does not invoke the spy’s real or
+previously stubbed behavior; instead, the invocation used to declare the stubbing returns
+an empty value (for example, `null`). If that invocation is made on the proxy, the caching
+advice caches this empty value, which then permanently shadows the spy for that
+combination of arguments — including for the very invocation that was supposed to
+configure the stubbing.
+
+#### Java
+
+```java
+doReturn(1L).when(dateService).getDate(false); // <1>
+dateService.getDate(false); // <2>
+```
+
+1. `dateService` is the injected proxy. This invocation is intercepted by Mockito’s
+stubbing infrastructure before it reaches the spy, so the caching advice ends up
+caching an empty value for argument `false`.
+1. Returns the empty value cached by the previous invocation — not `1L` — because the
+cache was already populated.
+
+#### Kotlin
+
+```kotlin
+willReturn(1L).given(dateService).getDate(false) // <1>
+dateService.getDate(false) // <2>
+```
+
+1. `dateService` is the injected proxy. This invocation is intercepted by Mockito’s
+stubbing infrastructure before it reaches the spy, so the caching advice ends up
+caching an empty value for argument `false`.
+1. Returns the empty value cached by the previous invocation — not `1L` — because the
+cache was already populated.
+
+To avoid this, stub directly on the spy instead of on the proxy, by unwrapping the proxy
+with
+[`AopTestUtils.getUltimateTargetObject(…​)`](<https://docs.spring.io/spring-framework/docs/7.0.9/javadoc-api/org/springframework/test/util/AopTestUtils.html#getUltimateTargetObject(java.lang.Object)>).
+
+#### Java
+
+```java
+DateService spy = AopTestUtils.getUltimateTargetObject(dateService);
+doReturn(1L).when(spy).getDate(false);
+```
+
+#### Kotlin
+
+```kotlin
+val spy = AopTestUtils.getUltimateTargetObject<DateService>(dateService)
+willReturn(1L).given(spy).getDate(false)
+```
+
+<a id="spring-testing-annotation-beanoverriding-mockitospybean-aop-proxies-disabling"></a>
+
+### Disabling AOP Advice for Tests
+
+Rather than working around the proxy as shown above, you may instead prefer to disable
+the underlying AOP advice for the duration of the test, while keeping `@Retryable`,
+`@Cacheable`, or similar annotations in place in production code. Common reasons include
+avoiding retry delays that slow down the test suite, or avoiding caching altogether so
+that every invocation reaches the spy directly — which also sidesteps the stubbing
+pitfall described above, without having to unwrap the proxy at all.
+
+The general technique is to externalize whatever controls the advice’s effective behavior
+— for example, the number of retry attempts or the `CacheManager` backing `@Cacheable`
+— and override that configuration for tests only, typically by using a bean override or a
+test-specific property. The proxy and its advice are still created, but their behavior is
+simply made a no-op or pure pass-through for the test.
+
+For `@Retryable`, bind the `maxRetriesString` attribute to a property placeholder with a
+sensible default (so that production configuration is unaffected if the property is not
+set), and override that property in the test with
+[`@TestPropertySource`](annotation-testpropertysource.md)
+so that no retries are attempted.
+
+#### Java
+
+```java
+@Retryable(maxRetriesString = "${sendMessage.maxRetries:3}", delay = 10)
+public String sendMessage(String request) {
+	// ...
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Retryable(maxRetriesString = "\${sendMessage.maxRetries:3}", delay = 10)
+fun sendMessage(request: String): String {
+	// ...
+}
+```
+
+#### Java
+
+```java
+@SpringJUnitConfig
+@TestPropertySource(properties = "sendMessage.maxRetries = 0") // <1>
+class ClientServiceTests {
+
+	@MockitoSpyBean
+	ClientService clientService;
+
+	// test case body...
+}
+```
+
+1. With no retries permitted, the first (and only) attempt is made, and a thrown
+exception propagates immediately, so the spy’s stubbing chain behaves exactly as
+declared, including for `doThrow(…​)` answers.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig
+@TestPropertySource(properties = ["sendMessage.maxRetries = 0"]) // <1>
+class ClientServiceTests {
+
+	@MockitoSpyBean
+	lateinit var clientService: ClientService
+
+	// test case body...
+}
+```
+
+1. With no retries permitted, the first (and only) attempt is made, and a thrown
+exception propagates immediately, so the spy’s stubbing chain behaves exactly as
+declared, including for `doThrow(…​)` answers.
+
+For `@Cacheable`, Spring provides
+[`NoOpCacheManager`](https://docs.spring.io/spring-framework/docs/7.0.9/javadoc-api/org/springframework/cache/support/NoOpCacheManager.html) — a
+`CacheManager` that accepts cache entries but never actually stores them, so every
+invocation results in a cache miss and therefore an invocation of the target method.
+Overriding the `CacheManager` bean with a `NoOpCacheManager` — for example, with
+[`@TestBean`](annotation-testbean.md) —
+effectively disables caching for the test without touching the `@Cacheable` annotation in
+production code.
+
+#### Java
+
+```java
+@SpringJUnitConfig
+class DateServiceTests {
+
+	@MockitoSpyBean
+	DateService dateService;
+
+	@TestBean // <1>
+	CacheManager cacheManager;
+
+	static CacheManager cacheManager() { // <2>
+		return new NoOpCacheManager();
+	}
+
+	@Test
+	void test() {
+		doReturn(1L).when(dateService).getDate(false);
+		assertThat(dateService.getDate(false)).isEqualTo(1L);
+
+		doReturn(2L).when(dateService).getDate(false);
+		assertThat(dateService.getDate(false)).isEqualTo(2L); // <3>
+	}
+}
+```
+
+1. Override the `CacheManager` bean for this test.
+1. Replace it with a `NoOpCacheManager`, so `@Cacheable` never actually caches anything.
+1. No longer masked by a stale cache entry, since every call reaches the spy.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig
+class DateServiceTests {
+
+	@MockitoSpyBean
+	lateinit var dateService: DateService
+
+	@TestBean // <1>
+	lateinit var cacheManager: CacheManager
+
+	companion object {
+		@JvmStatic
+		fun cacheManager(): CacheManager { // <2>
+			return NoOpCacheManager()
+		}
+	}
+
+	@Test
+	fun test() {
+		willReturn(1L).given(dateService).getDate(false)
+		assertThat(dateService.getDate(false)).isEqualTo(1L)
+
+		willReturn(2L).given(dateService).getDate(false)
+		assertThat(dateService.getDate(false)).isEqualTo(2L) // <3>
+	}
+}
+```
+
+1. Override the `CacheManager` bean for this test.
+1. Replace it with a `NoOpCacheManager`, so `@Cacheable` never actually caches anything.
+1. No longer masked by a stale cache entry, since every call reaches the spy.

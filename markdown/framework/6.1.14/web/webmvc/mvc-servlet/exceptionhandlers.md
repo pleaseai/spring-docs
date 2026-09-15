@@ -1,0 +1,101 @@
+---
+title: "Exceptions"
+source: "ROOT:web/webmvc/mvc-servlet/exceptionhandlers.adoc"
+---
+
+<a id="mvc-exceptionhandlers"></a>
+
+# Exceptions
+
+[See equivalent in the Reactive stack](../../webflux/dispatcher-handler.md#webflux-dispatcher-exceptions)
+
+If an exception occurs during request mapping or is thrown from a request handler (such as
+a `@Controller`), the `DispatcherServlet` delegates to a chain of `HandlerExceptionResolver`
+beans to resolve the exception and provide alternative handling, which is typically an
+error response.
+
+The following table lists the available `HandlerExceptionResolver` implementations:
+
+| `HandlerExceptionResolver` | Description |
+| --- | --- |
+| `SimpleMappingExceptionResolver` | A mapping between exception class names and error view names. Useful for rendering error pages in a browser application. |
+| [`DefaultHandlerExceptionResolver`](https://docs.spring.io/spring-framework/docs/6.1.14/javadoc-api/org/springframework/web/servlet/mvc/support/DefaultHandlerExceptionResolver.html) | Resolves exceptions raised by Spring MVC and maps them to HTTP status codes. See also alternative `ResponseEntityExceptionHandler` and [Error Responses](../mvc-ann-rest-exceptions.md). |
+| `ResponseStatusExceptionResolver` | Resolves exceptions with the `@ResponseStatus` annotation and maps them to HTTP status codes based on the value in the annotation. |
+| `ExceptionHandlerExceptionResolver` | Resolves exceptions by invoking an `@ExceptionHandler` method in a `@Controller` or a `@ControllerAdvice` class. See [@ExceptionHandler methods](../mvc-controller/ann-exceptionhandler.md). |
+
+<a id="mvc-exceptionhandlers-handling"></a>
+
+## Chain of Resolvers
+
+You can form an exception resolver chain by declaring multiple `HandlerExceptionResolver`
+beans in your Spring configuration and setting their `order` properties as needed.
+The higher the order property, the later the exception resolver is positioned.
+
+The contract of `HandlerExceptionResolver` specifies that it can return:
+
+- a `ModelAndView` that points to an error view.
+- An empty `ModelAndView` if the exception was handled within the resolver.
+- `null` if the exception remains unresolved, for subsequent resolvers to try, and, if the
+exception remains at the end, it is allowed to bubble up to the Servlet container.
+
+The [MVC Config](../mvc-config.md) automatically declares built-in resolvers for default Spring MVC
+exceptions, for `@ResponseStatus` annotated exceptions, and for support of
+`@ExceptionHandler` methods. You can customize that list or replace it.
+
+<a id="mvc-ann-customer-servlet-container-error-page"></a>
+
+## Container Error Page
+
+If an exception remains unresolved by any `HandlerExceptionResolver` and is, therefore,
+left to propagate or if the response status is set to an error status (that is, 4xx, 5xx),
+Servlet containers can render a default error page in HTML. To customize the default
+error page of the container, you can declare an error page mapping in `web.xml`.
+The following example shows how to do so:
+
+```xml
+<error-page>
+	<location>/error</location>
+</error-page>
+```
+
+Given the preceding example, when an exception bubbles up or the response has an error status, the
+Servlet container makes an ERROR dispatch within the container to the configured URL
+(for example, `/error`). This is then processed by the `DispatcherServlet`, possibly mapping it
+to a `@Controller`, which could be implemented to return an error view name with a model
+or to render a JSON response, as the following example shows:
+
+#### Java
+
+```java
+@RestController
+public class ErrorController {
+
+	@RequestMapping(path = "/error")
+	public Map<String, Object> handle(HttpServletRequest request) {
+		Map<String, Object> map = new HashMap<>();
+		map.put("status", request.getAttribute("jakarta.servlet.error.status_code"));
+		map.put("reason", request.getAttribute("jakarta.servlet.error.message"));
+		return map;
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@RestController
+class ErrorController {
+
+	@RequestMapping(path = ["/error"])
+	fun handle(request: HttpServletRequest): Map<String, Any> {
+		val map = HashMap<String, Any>()
+		map["status"] = request.getAttribute("jakarta.servlet.error.status_code")
+		map["reason"] = request.getAttribute("jakarta.servlet.error.message")
+		return map
+	}
+}
+```
+
+> [!TIP]
+> The Servlet API does not provide a way to create error page mappings in Java. You can,
+> however, use both a `WebApplicationInitializer` and a minimal `web.xml`.

@@ -1,0 +1,15 @@
+---
+title: "Data Access"
+source: "ROOT:data-access.adoc"
+---
+
+<a id="spring-data-tier"></a>
+
+# Data Access
+
+This part of the reference documentation is concerned with data access and the
+interaction between the data access layer and the business or service layer.
+
+Spring’s comprehensive transaction management support is covered in some detail,
+followed by thorough coverage of the various data access frameworks and technologies
+with which the Spring Framework integrates.

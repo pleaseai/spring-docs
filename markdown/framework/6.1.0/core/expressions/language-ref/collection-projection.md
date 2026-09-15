@@ -1,0 +1,34 @@
+---
+title: "Collection Projection"
+source: "ROOT:core/expressions/language-ref/collection-projection.adoc"
+---
+
+<a id="expressions-collection-projection"></a>
+
+# Collection Projection
+
+Projection lets a collection drive the evaluation of a sub-expression, and the result is
+a new collection. The syntax for projection is `.![projectionExpression]`. For example,
+suppose we have a list of inventors but want the list of cities where they were born.
+Effectively, we want to evaluate 'placeOfBirth.city' for every entry in the inventor
+list. The following example uses projection to do so:
+
+#### Java
+
+```java
+// returns ['Smiljan', 'Idvor' ]
+List placesOfBirth = (List)parser.parseExpression("members.![placeOfBirth.city]");
+```
+
+#### Kotlin
+
+```kotlin
+// returns ['Smiljan', 'Idvor' ]
+val placesOfBirth = parser.parseExpression("members.![placeOfBirth.city]") as List<*>
+```
+
+Projection is supported for arrays and anything that implements `java.lang.Iterable` or
+`java.util.Map`. When using a map to drive projection, the projection expression is
+evaluated against each entry in the map (represented as a Java `Map.Entry`). The result
+of a projection across a map is a list that consists of the evaluation of the projection
+expression against each map entry.
