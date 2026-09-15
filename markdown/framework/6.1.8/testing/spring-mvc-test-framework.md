@@ -1,0 +1,18 @@
+---
+title: "MockMvc"
+source: "ROOT:testing/spring-mvc-test-framework.adoc"
+---
+
+<a id="spring-mvc-test-framework"></a>
+
+# MockMvc
+
+The Spring MVC Test framework, also known as MockMvc, provides support for testing Spring
+MVC applications. It performs full Spring MVC request handling but via mock request and
+response objects instead of a running server.
+
+MockMvc can be used on its own to perform requests and verify responses. It can also be
+used through the [WebTestClient](webtestclient.md) where MockMvc is plugged in as the server to handle
+requests with. The advantage of `WebTestClient` is the option to work with higher level
+objects instead of raw data as well as the ability to switch to full, end-to-end HTTP
+tests against a live server and use the same test API.

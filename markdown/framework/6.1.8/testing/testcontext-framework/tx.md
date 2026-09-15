@@ -1,0 +1,630 @@
+---
+title: "Transaction Management"
+source: "ROOT:testing/testcontext-framework/tx.adoc"
+---
+
+<a id="testcontext-tx"></a>
+
+# Transaction Management
+
+In the TestContext framework, transactions are managed by the
+`TransactionalTestExecutionListener`, which is configured by default, even if you do not
+explicitly declare `@TestExecutionListeners` on your test class. To enable support for
+transactions, however, you must configure a `PlatformTransactionManager` bean in the
+`ApplicationContext` that is loaded with `@ContextConfiguration` semantics (further
+details are provided later). In addition, you must declare Spring’s `@Transactional`
+annotation either at the class or the method level for your tests.
+
+<a id="testcontext-tx-test-managed-transactions"></a>
+
+## Test-managed Transactions
+
+Test-managed transactions are transactions that are managed declaratively by using the
+`TransactionalTestExecutionListener` or programmatically by using `TestTransaction`
+(described later). You should not confuse such transactions with Spring-managed
+transactions (those managed directly by Spring within the `ApplicationContext` loaded for
+tests) or application-managed transactions (those managed programmatically within
+application code that is invoked by tests). Spring-managed and application-managed
+transactions typically participate in test-managed transactions. However, you should use
+caution if Spring-managed or application-managed transactions are configured with any
+propagation type other than `REQUIRED` or `SUPPORTS` (see the discussion on
+[transaction propagation](../../data-access/transaction/declarative/tx-propagation.md) for details).
+
+> [!WARNING]
+> Caution must be taken when using any form of preemptive timeouts from a testing framework
+> in conjunction with Spring’s test-managed transactions.
+>
+> Specifically, Spring’s testing support binds transaction state to the current thread (via
+> a `java.lang.ThreadLocal` variable) *before* the current test method is invoked. If a
+> testing framework invokes the current test method in a new thread in order to support a
+> preemptive timeout, any actions performed within the current test method will *not* be
+> invoked within the test-managed transaction. Consequently, the result of any such actions
+> will not be rolled back with the test-managed transaction. On the contrary, such actions
+> will be committed to the persistent store — for example, a relational database — even
+> though the test-managed transaction is properly rolled back by Spring.
+>
+> Situations in which this can occur include but are not limited to the following.
+>
+> - JUnit 4’s `@Test(timeout = …​)` support and `TimeOut` rule
+> - JUnit Jupiter’s `assertTimeoutPreemptively(…​)` methods in the
+> `org.junit.jupiter.api.Assertions` class
+> - TestNG’s `@Test(timeOut = …​)` support
+
+<a id="testcontext-tx-enabling-transactions"></a>
+
+## Enabling and Disabling Transactions
+
+Annotating a test method with `@Transactional` causes the test to be run within a
+transaction that is, by default, automatically rolled back after completion of the test.
+If a test class is annotated with `@Transactional`, each test method within that class
+hierarchy runs within a transaction. Test methods that are not annotated with
+`@Transactional` (at the class or method level) are not run within a transaction. Note
+that `@Transactional` is not supported on test lifecycle methods — for example, methods
+annotated with JUnit Jupiter’s `@BeforeAll`, `@BeforeEach`, etc. Furthermore, tests that
+are annotated with `@Transactional` but have the `propagation` attribute set to
+`NOT_SUPPORTED` or `NEVER` are not run within a transaction.
+
+<a id="testcontext-tx-attribute-support"></a>
+
+| Attribute | Supported for test-managed transactions |
+| --- | --- |
+| `value` and `transactionManager` | yes |
+| `propagation` | only `Propagation.NOT_SUPPORTED` and `Propagation.NEVER` are supported |
+| `isolation` | no |
+| `timeout` | no |
+| `readOnly` | no |
+| `rollbackFor` and `rollbackForClassName` | no: use `TestTransaction.flagForRollback()` instead |
+| `noRollbackFor` and `noRollbackForClassName` | no: use `TestTransaction.flagForCommit()` instead |
+
+> [!TIP]
+> Method-level lifecycle methods — for example, methods annotated with JUnit Jupiter’s
+> `@BeforeEach` or `@AfterEach` — are run within a test-managed transaction. On the other
+> hand, suite-level and class-level lifecycle methods — for example, methods annotated with
+> JUnit Jupiter’s `@BeforeAll` or `@AfterAll` and methods annotated with TestNG’s
+> `@BeforeSuite`, `@AfterSuite`, `@BeforeClass`, or `@AfterClass` — are *not* run within a
+> test-managed transaction.
+>
+> If you need to run code in a suite-level or class-level lifecycle method within a
+> transaction, you may wish to inject a corresponding `PlatformTransactionManager` into
+> your test class and then use that with a `TransactionTemplate` for programmatic
+> transaction management.
+
+Note that [`AbstractTransactionalJUnit4SpringContextTests`](support-classes.md#testcontext-support-classes-junit4)
+ and
+[`AbstractTransactionalTestNGSpringContextTests`](support-classes.md#testcontext-support-classes-testng)
+are preconfigured for transactional support at the class level.
+
+The following example demonstrates a common scenario for writing an integration test for
+a Hibernate-based `UserRepository`:
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+@Transactional
+class HibernateUserRepositoryTests {
+
+	@Autowired
+	HibernateUserRepository repository;
+
+	@Autowired
+	SessionFactory sessionFactory;
+
+	JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	void setDataSource(DataSource dataSource) {
+		this.jdbcTemplate = new JdbcTemplate(dataSource);
+	}
+
+	@Test
+	void createUser() {
+		// track initial state in test database:
+		final int count = countRowsInTable("user");
+
+		User user = new User(...);
+		repository.save(user);
+
+		// Manual flush is required to avoid false positive in test
+		sessionFactory.getCurrentSession().flush();
+		assertNumUsers(count + 1);
+	}
+
+	private int countRowsInTable(String tableName) {
+		return JdbcTestUtils.countRowsInTable(this.jdbcTemplate, tableName);
+	}
+
+	private void assertNumUsers(int expected) {
+		assertEquals("Number of rows in the [user] table.", expected, countRowsInTable("user"));
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+@Transactional
+class HibernateUserRepositoryTests {
+
+	@Autowired
+	lateinit var repository: HibernateUserRepository
+
+	@Autowired
+	lateinit var sessionFactory: SessionFactory
+
+	lateinit var jdbcTemplate: JdbcTemplate
+
+	@Autowired
+	fun setDataSource(dataSource: DataSource) {
+		this.jdbcTemplate = JdbcTemplate(dataSource)
+	}
+
+	@Test
+	fun createUser() {
+		// track initial state in test database:
+		val count = countRowsInTable("user")
+
+		val user = User()
+		repository.save(user)
+
+		// Manual flush is required to avoid false positive in test
+		sessionFactory.getCurrentSession().flush()
+		assertNumUsers(count + 1)
+	}
+
+	private fun countRowsInTable(tableName: String): Int {
+		return JdbcTestUtils.countRowsInTable(jdbcTemplate, tableName)
+	}
+
+	private fun assertNumUsers(expected: Int) {
+		assertEquals("Number of rows in the [user] table.", expected, countRowsInTable("user"))
+	}
+}
+```
+
+As explained in [Transaction Rollback and Commit Behavior](#testcontext-tx-rollback-and-commit-behavior), there is no need to
+clean up the database after the `createUser()` method runs, since any changes made to the
+database are automatically rolled back by the `TransactionalTestExecutionListener`.
+
+<a id="testcontext-tx-rollback-and-commit-behavior"></a>
+
+## Transaction Rollback and Commit Behavior
+
+By default, test transactions will be automatically rolled back after completion of the
+test; however, transactional commit and rollback behavior can be configured declaratively
+via the `@Commit` and `@Rollback` annotations. See the corresponding entries in the
+[annotation support](../annotations.md) section for further details.
+
+<a id="testcontext-tx-programmatic-tx-mgt"></a>
+
+## Programmatic Transaction Management
+
+You can interact with test-managed transactions programmatically by using the static
+methods in `TestTransaction`. For example, you can use `TestTransaction` within test
+methods, before methods, and after methods to start or end the current test-managed
+transaction or to configure the current test-managed transaction for rollback or commit.
+Support for `TestTransaction` is automatically available whenever the
+`TransactionalTestExecutionListener` is enabled.
+
+The following example demonstrates some of the features of `TestTransaction`. See the
+javadoc for [`TestTransaction`](https://docs.spring.io/spring-framework/docs/6.1.8/javadoc-api/org/springframework/test/context/transaction/TestTransaction.html)
+for further details.
+
+#### Java
+
+```java
+@ContextConfiguration(classes = TestConfig.class)
+public class ProgrammaticTransactionManagementTests extends
+		AbstractTransactionalJUnit4SpringContextTests {
+
+	@Test
+	public void transactionalTest() {
+		// assert initial state in test database:
+		assertNumUsers(2);
+
+		deleteFromTables("user");
+
+		// changes to the database will be committed!
+		TestTransaction.flagForCommit();
+		TestTransaction.end();
+		assertFalse(TestTransaction.isActive());
+		assertNumUsers(0);
+
+		TestTransaction.start();
+		// perform other actions against the database that will
+		// be automatically rolled back after the test completes...
+	}
+
+	protected void assertNumUsers(int expected) {
+		assertEquals("Number of rows in the [user] table.", expected, countRowsInTable("user"));
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@ContextConfiguration(classes = [TestConfig::class])
+class ProgrammaticTransactionManagementTests : AbstractTransactionalJUnit4SpringContextTests() {
+
+	@Test
+	fun transactionalTest() {
+		// assert initial state in test database:
+		assertNumUsers(2)
+
+		deleteFromTables("user")
+
+		// changes to the database will be committed!
+		TestTransaction.flagForCommit()
+		TestTransaction.end()
+		assertFalse(TestTransaction.isActive())
+		assertNumUsers(0)
+
+		TestTransaction.start()
+		// perform other actions against the database that will
+		// be automatically rolled back after the test completes...
+	}
+
+	protected fun assertNumUsers(expected: Int) {
+		assertEquals("Number of rows in the [user] table.", expected, countRowsInTable("user"))
+	}
+}
+```
+
+<a id="testcontext-tx-before-and-after-tx"></a>
+
+## Running Code Outside of a Transaction
+
+Occasionally, you may need to run certain code before or after a transactional test
+method but outside the transactional context — for example, to verify the initial
+database state prior to running your test or to verify expected transactional commit
+behavior after your test runs (if the test was configured to commit the transaction).
+`TransactionalTestExecutionListener` supports the `@BeforeTransaction` and
+`@AfterTransaction` annotations for exactly such scenarios. You can annotate any `void`
+method in a test class or any `void` default method in a test interface with one of these
+annotations, and the `TransactionalTestExecutionListener` ensures that your
+before-transaction method or after-transaction method runs at the appropriate time.
+
+> [!NOTE]
+> Generally speaking, `@BeforeTransaction` and `@AfterTransaction` methods must not accept
+> any arguments.
+>
+> However, as of Spring Framework 6.1, for tests using the
+> [`SpringExtension`](support-classes.md#testcontext-junit-jupiter-extension)
+> with JUnit Jupiter, `@BeforeTransaction` and `@AfterTransaction` methods may optionally
+> accept arguments which will be resolved by any registered JUnit `ParameterResolver`
+> extension such as the `SpringExtension`. This means that JUnit-specific arguments like
+> `TestInfo` or beans from the test’s `ApplicationContext` may be provided to
+> `@BeforeTransaction` and `@AfterTransaction` methods, as demonstrated in the following
+> example.
+>
+> #### Java
+>
+> ```java
+> @BeforeTransaction
+> void verifyInitialDatabaseState(@Autowired DataSource dataSource) {
+> 	// Use the DataSource to verify the initial state before a transaction is started
+> }
+> ```
+>
+> #### Kotlin
+>
+> ```kotlin
+> @BeforeTransaction
+> fun verifyInitialDatabaseState(@Autowired dataSource: DataSource) {
+> 	// Use the DataSource to verify the initial state before a transaction is started
+> }
+> ```
+
+> [!TIP]
+> Any before methods (such as methods annotated with JUnit Jupiter’s `@BeforeEach`) and any
+> after methods (such as methods annotated with JUnit Jupiter’s `@AfterEach`) are run
+> within the test-managed transaction for a transactional test method.
+>
+> Similarly, methods annotated with `@BeforeTransaction` or `@AfterTransaction` are only
+> run for transactional test methods.
+
+<a id="testcontext-tx-mgr-config"></a>
+
+## Configuring a Transaction Manager
+
+`TransactionalTestExecutionListener` expects a `PlatformTransactionManager` bean to be
+defined in the Spring `ApplicationContext` for the test. If there are multiple instances
+of `PlatformTransactionManager` within the test’s `ApplicationContext`, you can declare a
+qualifier by using `@Transactional("myTxMgr")` or `@Transactional(transactionManager =
+"myTxMgr")`, or `TransactionManagementConfigurer` can be implemented by an
+`@Configuration` class. Consult the
+[javadoc
+for `TestContextTransactionUtils.retrieveTransactionManager()`](https://docs.spring.io/spring-framework/docs/6.1.8/javadoc-api/org/springframework/test/context/transaction/TestContextTransactionUtils.html#retrieveTransactionManager-org.springframework.test.context.TestContext-java.lang.String-) for details on the
+algorithm used to look up a transaction manager in the test’s `ApplicationContext`.
+
+<a id="testcontext-tx-annotation-demo"></a>
+
+## Demonstration of All Transaction-related Annotations
+
+The following JUnit Jupiter based example displays a fictitious integration testing
+scenario that highlights all transaction-related annotations. The example is not intended
+to demonstrate best practices but rather to demonstrate how these annotations can be
+used. See the [annotation support](../annotations.md) section for further
+information and configuration examples. [Transaction management for `@Sql`](executing-sql.md#testcontext-executing-sql-declaratively-tx)
+ contains an additional example that uses `@Sql` for
+declarative SQL script execution with default transaction rollback semantics. The
+following example shows the relevant annotations:
+
+#### Java
+
+```java
+@SpringJUnitConfig
+@Transactional(transactionManager = "txMgr")
+@Commit
+class FictitiousTransactionalTest {
+
+	@BeforeTransaction
+	void verifyInitialDatabaseState() {
+		// logic to verify the initial state before a transaction is started
+	}
+
+	@BeforeEach
+	void setUpTestDataWithinTransaction() {
+		// set up test data within the transaction
+	}
+
+	@Test
+	// overrides the class-level @Commit setting
+	@Rollback
+	void modifyDatabaseWithinTransaction() {
+		// logic which uses the test data and modifies database state
+	}
+
+	@AfterEach
+	void tearDownWithinTransaction() {
+		// run "tear down" logic within the transaction
+	}
+
+	@AfterTransaction
+	void verifyFinalDatabaseState() {
+		// logic to verify the final state after transaction has rolled back
+	}
+
+}
+```
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig
+@Transactional(transactionManager = "txMgr")
+@Commit
+class FictitiousTransactionalTest {
+
+	@BeforeTransaction
+	fun verifyInitialDatabaseState() {
+		// logic to verify the initial state before a transaction is started
+	}
+
+	@BeforeEach
+	fun setUpTestDataWithinTransaction() {
+		// set up test data within the transaction
+	}
+
+	@Test
+	// overrides the class-level @Commit setting
+	@Rollback
+	fun modifyDatabaseWithinTransaction() {
+		// logic which uses the test data and modifies database state
+	}
+
+	@AfterEach
+	fun tearDownWithinTransaction() {
+		// run "tear down" logic within the transaction
+	}
+
+	@AfterTransaction
+	fun verifyFinalDatabaseState() {
+		// logic to verify the final state after transaction has rolled back
+	}
+
+}
+```
+
+<a id="testcontext-tx-false-positives"></a>
+
+> [!NOTE]
+> When you test application code that manipulates the state of a Hibernate session or JPA
+> persistence context, make sure to flush the underlying unit of work within test methods
+> that run that code. Failing to flush the underlying unit of work can produce false
+> positives: Your test passes, but the same code throws an exception in a live, production
+> environment. Note that this applies to any ORM framework that maintains an in-memory unit
+> of work. In the following Hibernate-based example test case, one method demonstrates a
+> false positive, and the other method correctly exposes the results of flushing the
+> session:
+>
+> #### Java
+>
+> ```java
+> // ...
+>
+> @Autowired
+> SessionFactory sessionFactory;
+>
+> @Transactional
+> @Test // no expected exception!
+> public void falsePositive() {
+> 	updateEntityInHibernateSession();
+> 	// False positive: an exception will be thrown once the Hibernate
+> 	// Session is finally flushed (i.e., in production code)
+> }
+>
+> @Transactional
+> @Test(expected = ...)
+> public void updateWithSessionFlush() {
+> 	updateEntityInHibernateSession();
+> 	// Manual flush is required to avoid false positive in test
+> 	sessionFactory.getCurrentSession().flush();
+> }
+>
+> // ...
+> ```
+>
+> #### Kotlin
+>
+> ```kotlin
+> // ...
+>
+> @Autowired
+> lateinit var sessionFactory: SessionFactory
+>
+> @Transactional
+> @Test // no expected exception!
+> fun falsePositive() {
+> 	updateEntityInHibernateSession()
+> 	// False positive: an exception will be thrown once the Hibernate
+> 	// Session is finally flushed (i.e., in production code)
+> }
+>
+> @Transactional
+> @Test(expected = ...)
+> fun updateWithSessionFlush() {
+> 	updateEntityInHibernateSession()
+> 	// Manual flush is required to avoid false positive in test
+> 	sessionFactory.getCurrentSession().flush()
+> }
+>
+> // ...
+> ```
+>
+> The following example shows matching methods for JPA:
+>
+> #### Java
+>
+> ```java
+> // ...
+>
+> @PersistenceContext
+> EntityManager entityManager;
+>
+> @Transactional
+> @Test // no expected exception!
+> public void falsePositive() {
+> 	updateEntityInJpaPersistenceContext();
+> 	// False positive: an exception will be thrown once the JPA
+> 	// EntityManager is finally flushed (i.e., in production code)
+> }
+>
+> @Transactional
+> @Test(expected = ...)
+> public void updateWithEntityManagerFlush() {
+> 	updateEntityInJpaPersistenceContext();
+> 	// Manual flush is required to avoid false positive in test
+> 	entityManager.flush();
+> }
+>
+> // ...
+> ```
+>
+> #### Kotlin
+>
+> ```kotlin
+> // ...
+>
+> @PersistenceContext
+> lateinit var entityManager:EntityManager
+>
+> @Transactional
+> @Test // no expected exception!
+> fun falsePositive() {
+> 	updateEntityInJpaPersistenceContext()
+> 	// False positive: an exception will be thrown once the JPA
+> 	// EntityManager is finally flushed (i.e., in production code)
+> }
+>
+> @Transactional
+> @Test(expected = ...)
+> void updateWithEntityManagerFlush() {
+> 	updateEntityInJpaPersistenceContext()
+> 	// Manual flush is required to avoid false positive in test
+> 	entityManager.flush()
+> }
+>
+> // ...
+> ```
+
+<a id="testcontext-tx-orm-lifecycle-callbacks"></a>
+
+> [!NOTE]
+> Similar to the note about avoiding [false positives](#testcontext-tx-false-positives)
+> when testing ORM code, if your application makes use of entity lifecycle callbacks (also
+> known as entity listeners), make sure to flush the underlying unit of work within test
+> methods that run that code. Failing to *flush* or *clear* the underlying unit of work can
+> result in certain lifecycle callbacks not being invoked.
+>
+> For example, when using JPA, `@PostPersist`, `@PreUpdate`, and `@PostUpdate` callbacks
+> will not be called unless `entityManager.flush()` is invoked after an entity has been
+> saved or updated. Similarly, if an entity is already attached to the current unit of work
+> (associated with the current persistence context), an attempt to reload the entity will
+> not result in a `@PostLoad` callback unless `entityManager.clear()` is invoked before the
+> attempt to reload the entity.
+>
+> The following example shows how to flush the `EntityManager` to ensure that
+> `@PostPersist` callbacks are invoked when an entity is persisted. An entity listener with
+> a `@PostPersist` callback method has been registered for the `Person` entity used in the
+> example.
+>
+> #### Java
+>
+> ```java
+> // ...
+>
+> @Autowired
+> JpaPersonRepository repo;
+>
+> @PersistenceContext
+> EntityManager entityManager;
+>
+> @Transactional
+> @Test
+> void savePerson() {
+> 	// EntityManager#persist(...) results in @PrePersist but not @PostPersist
+> 	repo.save(new Person("Jane"));
+>
+> 	// Manual flush is required for @PostPersist callback to be invoked
+> 	entityManager.flush();
+>
+> 	// Test code that relies on the @PostPersist callback
+> 	// having been invoked...
+> }
+>
+> // ...
+> ```
+>
+> #### Kotlin
+>
+> ```kotlin
+> // ...
+>
+> @Autowired
+> lateinit var repo: JpaPersonRepository
+>
+> @PersistenceContext
+> lateinit var entityManager: EntityManager
+>
+> @Transactional
+> @Test
+> fun savePerson() {
+> 	// EntityManager#persist(...) results in @PrePersist but not @PostPersist
+> 	repo.save(Person("Jane"))
+>
+> 	// Manual flush is required for @PostPersist callback to be invoked
+> 	entityManager.flush()
+>
+> 	// Test code that relies on the @PostPersist callback
+> 	// having been invoked...
+> }
+>
+> // ...
+> ```
+>
+> See
+> [JpaEntityListenerTests](https://github.com/spring-projects/spring-framework/tree/main/spring-test/src/test/java/org/springframework/test/context/junit/jupiter/orm/JpaEntityListenerTests.java)
+> in the Spring Framework test suite for working examples using all JPA lifecycle callbacks.
