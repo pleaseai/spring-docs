@@ -1,0 +1,309 @@
+---
+title: "Pointcut API in Spring"
+source: "ROOT:core/aop-api/pointcuts.adoc"
+---
+
+<a id="aop-api-pointcuts"></a>
+
+# Pointcut API in Spring
+
+This section describes how Spring handles the crucial pointcut concept.
+
+<a id="aop-api-concepts"></a>
+
+## Concepts
+
+Spring’s pointcut model enables pointcut reuse independent of advice types. You can
+target different advice with the same pointcut.
+
+The `org.springframework.aop.Pointcut` interface is the central interface, used to
+target advice to particular classes and methods. The complete interface follows:
+
+```java
+public interface Pointcut {
+
+	ClassFilter getClassFilter();
+
+	MethodMatcher getMethodMatcher();
+}
+```
+
+Splitting the `Pointcut` interface into two parts allows reuse of class and method
+matching parts and fine-grained composition operations (such as performing a “union”
+with another method matcher).
+
+The `ClassFilter` interface is used to restrict the pointcut to a given set of target
+classes. If the `matches()` method always returns true, all target classes are
+matched. The following listing shows the `ClassFilter` interface definition:
+
+```java
+public interface ClassFilter {
+
+	boolean matches(Class clazz);
+}
+```
+
+The `MethodMatcher` interface is normally more important. The complete interface follows:
+
+```java
+public interface MethodMatcher {
+
+	boolean matches(Method m, Class<?> targetClass);
+
+	boolean isRuntime();
+
+	boolean matches(Method m, Class<?> targetClass, Object... args);
+}
+```
+
+The `matches(Method, Class)` method is used to test whether this pointcut ever
+matches a given method on a target class. This evaluation can be performed when an AOP
+proxy is created to avoid the need for a test on every method invocation. If the
+two-argument `matches` method returns `true` for a given method, and the `isRuntime()`
+method for the MethodMatcher returns `true`, the three-argument matches method is
+invoked on every method invocation. This lets a pointcut look at the arguments passed
+to the method invocation immediately before the target advice starts.
+
+Most `MethodMatcher` implementations are static, meaning that their `isRuntime()` method
+returns `false`. In this case, the three-argument `matches` method is never invoked.
+
+> [!TIP]
+> If possible, try to make pointcuts static, allowing the AOP framework to cache the
+> results of pointcut evaluation when an AOP proxy is created.
+
+<a id="aop-api-pointcut-ops"></a>
+
+## Operations on Pointcuts
+
+Spring supports operations (notably, union and intersection) on pointcuts.
+
+Union means the methods that either pointcut matches.
+Intersection means the methods that both pointcuts match.
+Union is usually more useful.
+You can compose pointcuts by using the static methods in the
+`org.springframework.aop.support.Pointcuts` class or by using the
+`ComposablePointcut` class in the same package. However, using AspectJ pointcut
+expressions is usually a simpler approach.
+
+<a id="aop-api-pointcuts-aspectj"></a>
+
+## AspectJ Expression Pointcuts
+
+Since 2.0, the most important type of pointcut used by Spring is
+`org.springframework.aop.aspectj.AspectJExpressionPointcut`. This is a pointcut that
+uses an AspectJ-supplied library to parse an AspectJ pointcut expression string.
+
+See the [previous chapter](../aop.md) for a discussion of supported AspectJ pointcut primitives.
+
+<a id="aop-api-pointcuts-impls"></a>
+
+## Convenience Pointcut Implementations
+
+Spring provides several convenient pointcut implementations. You can use some of them
+directly; others are intended to be subclassed in application-specific pointcuts.
+
+<a id="aop-api-pointcuts-static"></a>
+
+### Static Pointcuts
+
+Static pointcuts are based on the method and the target class and cannot take into account
+the method’s arguments. Static pointcuts suffice — and are best — for most usages.
+Spring can evaluate a static pointcut only once, when a method is first invoked.
+After that, there is no need to evaluate the pointcut again with each method invocation.
+
+The rest of this section describes some of the static pointcut implementations that are
+included with Spring.
+
+<a id="aop-api-pointcuts-regex"></a>
+
+#### Regular Expression Pointcuts
+
+One obvious way to specify static pointcuts is regular expressions. Several AOP
+frameworks besides Spring make this possible.
+`org.springframework.aop.support.JdkRegexpMethodPointcut` is a generic regular
+expression pointcut that uses the regular expression support in the JDK.
+
+With the `JdkRegexpMethodPointcut` class, you can provide a list of pattern strings.
+If any of these is a match, the pointcut evaluates to `true`. (As a consequence,
+the resulting pointcut is effectively the union of the specified patterns.)
+
+The following example shows how to use `JdkRegexpMethodPointcut`:
+
+#### Java
+
+```java
+@Configuration
+public class JdkRegexpConfiguration {
+
+	@Bean
+	public JdkRegexpMethodPointcut settersAndAbsquatulatePointcut() {
+		JdkRegexpMethodPointcut pointcut = new JdkRegexpMethodPointcut();
+		pointcut.setPatterns(".*set.*", ".*absquatulate");
+		return pointcut;
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+class JdkRegexpConfiguration {
+
+	@Bean
+	fun settersAndAbsquatulatePointcut() = JdkRegexpMethodPointcut().apply {
+		setPatterns(".*set.*", ".*absquatulate")
+	}
+}
+```
+
+#### Xml
+
+```xml
+<bean id="settersAndAbsquatulatePointcut"
+	  class="org.springframework.aop.support.JdkRegexpMethodPointcut">
+	<property name="patterns">
+		<list>
+			<value>.*set.*</value>
+			<value>.*absquatulate</value>
+		</list>
+	</property>
+</bean>
+```
+
+Spring provides a convenience class named `RegexpMethodPointcutAdvisor`, which lets us
+also reference an `Advice` (remember that an `Advice` can be an interceptor, before advice,
+throws advice, and others). Behind the scenes, Spring uses a `JdkRegexpMethodPointcut`.
+Using `RegexpMethodPointcutAdvisor` simplifies wiring, as the one bean encapsulates both
+pointcut and advice, as the following example shows:
+
+#### Java
+
+```java
+@Configuration
+public class RegexpConfiguration {
+
+	@Bean
+	public RegexpMethodPointcutAdvisor settersAndAbsquatulateAdvisor(Advice beanNameOfAopAllianceInterceptor) {
+		RegexpMethodPointcutAdvisor advisor = new RegexpMethodPointcutAdvisor();
+		advisor.setAdvice(beanNameOfAopAllianceInterceptor);
+		advisor.setPatterns(".*set.*", ".*absquatulate");
+		return advisor;
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+class RegexpConfiguration {
+
+	@Bean
+	fun settersAndAbsquatulateAdvisor(beanNameOfAopAllianceInterceptor: Advice) = RegexpMethodPointcutAdvisor().apply {
+		advice = beanNameOfAopAllianceInterceptor
+		setPatterns(".*set.*", ".*absquatulate")
+	}
+}
+```
+
+#### Xml
+
+```xml
+<bean id="settersAndAbsquatulateAdvisor"
+	  class="org.springframework.aop.support.RegexpMethodPointcutAdvisor">
+	<property name="advice">
+		<ref bean="beanNameOfAopAllianceInterceptor"/>
+	</property>
+	<property name="patterns">
+		<list>
+			<value>.*set.*</value>
+			<value>.*absquatulate</value>
+		</list>
+	</property>
+</bean>
+```
+
+You can use `RegexpMethodPointcutAdvisor` with any `Advice` type.
+
+<a id="aop-api-pointcuts-attribute-driven"></a>
+
+#### Attribute-driven Pointcuts
+
+An important type of static pointcut is a metadata-driven pointcut. This uses the
+values of metadata attributes (typically, source-level metadata).
+
+<a id="aop-api-pointcuts-dynamic"></a>
+
+### Dynamic pointcuts
+
+Dynamic pointcuts are costlier to evaluate than static pointcuts. They take into account
+method arguments as well as static information. This means that they must be
+evaluated with every method invocation and that the result cannot be cached, as arguments will
+vary.
+
+The main example is the `control flow` pointcut.
+
+<a id="aop-api-pointcuts-cflow"></a>
+
+#### Control Flow Pointcuts
+
+Spring control flow pointcuts are conceptually similar to AspectJ `cflow` pointcuts,
+although less powerful. (There is currently no way to specify that a pointcut runs
+below a join point matched by another pointcut.) A control flow pointcut matches the
+current call stack. For example, it might fire if the join point was invoked by a method
+in the `com.mycompany.web` package or by the `SomeCaller` class. Control flow pointcuts
+are specified by using the `org.springframework.aop.support.ControlFlowPointcut` class.
+
+> [!NOTE]
+> Control flow pointcuts are significantly more expensive to evaluate at runtime than even
+> other dynamic pointcuts. In Java 1.4, the cost is about five times that of other dynamic
+> pointcuts.
+
+<a id="aop-api-pointcuts-superclasses"></a>
+
+## Pointcut Superclasses
+
+Spring provides useful pointcut superclasses to help you to implement your own pointcuts.
+
+Because static pointcuts are most useful, you should probably subclass
+`StaticMethodMatcherPointcut`. This requires implementing only one
+abstract method (although you can override other methods to customize behavior). The
+following example shows how to subclass `StaticMethodMatcherPointcut`:
+
+#### Java
+
+```java
+class TestStaticPointcut extends StaticMethodMatcherPointcut {
+
+	public boolean matches(Method m, Class targetClass) {
+		// return true if custom criteria match
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+class TestStaticPointcut : StaticMethodMatcherPointcut() {
+
+	override fun matches(method: Method, targetClass: Class<*>): Boolean {
+		// return true if custom criteria match
+	}
+}
+```
+
+There are also superclasses for dynamic pointcuts.
+You can use custom pointcuts with any advice type.
+
+<a id="aop-api-pointcuts-custom"></a>
+
+## Custom Pointcuts
+
+Because pointcuts in Spring AOP are Java classes rather than language features (as in
+AspectJ), you can declare custom pointcuts, whether static or dynamic. Custom
+pointcuts in Spring can be arbitrarily complex. However, we recommend using the AspectJ pointcut
+expression language, if you can.
+
+> [!NOTE]
+> Later versions of Spring may offer support for “semantic pointcuts” as offered by JAC — for example, “all methods that change instance variables in the target object.”
