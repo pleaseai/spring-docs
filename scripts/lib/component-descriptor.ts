@@ -104,7 +104,8 @@ interface PreservedFields {
  * `version: true` unresolved and every generated attribute missing.
  *
  * Generated attributes win over committed ones, matching the plugin: its
- * `asciidocAttributes` are applied on top of the file's own.
+ * `asciidocAttributes` are applied on top of the file's own. They are also
+ * written first, so a committed value may reference one (see below).
  *
  * @throws if the descriptor carries no component name.
  */
@@ -126,7 +127,24 @@ export function overlayDescriptor(
       lines.push(`- ${quoteYaml(entry)}`)
   }
 
-  const attributes = { ...fields.attributes, ...generated }
+  // Generated attributes go first, and win. Antora resolves an attribute value's
+  // `{…}` references against the attributes defined *before* it and skips the
+  // rest with a warning, so appending `spring-version` after the committed
+  // `spring-framework-api: '{…}/{spring-version}/javadoc-api/…'` left that
+  // reference unresolved — and the literal `{spring-version}` then reached 296
+  // links across 123 pages of framework 6.2.14, because a page substitutes the
+  // stored value without resolving it again.
+  //
+  // Position is safe to take because of what a generated attribute is: the
+  // upstream build contributes concrete values it alone knows (the version),
+  // not references into the descriptor it is merged with. Winning on conflict
+  // matches `io.spring.antora.generate-antora-yml`, whose `asciidocAttributes`
+  // are applied on top of the file's own.
+  const attributes: Record<string, AttributeValue> = { ...generated }
+  for (const [key, value] of Object.entries(fields.attributes)) {
+    if (!(key in attributes))
+      attributes[key] = value
+  }
   lines.push('asciidoc:', '  attributes:')
   for (const [key, value] of Object.entries(attributes))
     lines.push(`    ${key}: ${renderValue(value)}`)

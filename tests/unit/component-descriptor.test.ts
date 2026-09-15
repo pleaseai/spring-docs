@@ -132,6 +132,19 @@ asciidoc:
       .toContain('spring-version: \'6.2.14\'')
   })
 
+  test('writes a generated attribute before the committed values that reference it', () => {
+    // Antora resolves an attribute value's `{…}` references against the
+    // attributes defined before it and skips the rest. Appended last,
+    // `spring-version` left `docs-spring` carrying a literal `{spring-version}`,
+    // which reached 296 links across 123 pages of framework 6.2.14.
+    const lines = overlayDescriptor(CHECKED_IN, '6.2.14', { 'spring-version': '6.2.14' }).split('\n')
+
+    const generated = lines.findIndex(line => line.includes('spring-version:'))
+    const referencing = lines.findIndex(line => line.includes('docs-spring:'))
+    expect(generated).toBeGreaterThan(-1)
+    expect(generated).toBeLessThan(referencing)
+  })
+
   test('lets a generated attribute win over a committed one, as the plugin does', () => {
     // The Gradle plugin applies `asciidocAttributes` on top of the file's own.
     const out = overlayDescriptor(CHECKED_IN, '6.2.14', { 'attribute-missing': 'skip' })
