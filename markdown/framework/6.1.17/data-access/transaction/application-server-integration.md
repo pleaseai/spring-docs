@@ -1,0 +1,22 @@
+---
+title: "Application server-specific integration"
+source: "ROOT:data-access/transaction/application-server-integration.adoc"
+---
+
+<a id="transaction-application-server-integration"></a>
+
+# Application server-specific integration
+
+Spring’s transaction abstraction is generally application server-agnostic. Additionally,
+Spring’s `JtaTransactionManager` class (which can optionally perform a JNDI lookup for
+the JTA `UserTransaction` and `TransactionManager` objects) autodetects the location for
+the latter object, which varies by application server. Having access to the JTA
+`TransactionManager` allows for enhanced transaction semantics — in particular,
+supporting transaction suspension. See the
+[`JtaTransactionManager`](https://docs.spring.io/spring-framework/docs/6.1.17/javadoc-api/org/springframework/transaction/jta/JtaTransactionManager.html)
+javadoc for details.
+
+Spring’s `JtaTransactionManager` is the standard choice to run on Jakarta EE application
+servers and is known to work on all common servers. Advanced functionality, such as
+transaction suspension, works on many servers as well (including GlassFish, JBoss and
+Geronimo) without any special configuration required.

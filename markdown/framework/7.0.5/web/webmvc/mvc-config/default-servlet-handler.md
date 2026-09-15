@@ -1,0 +1,93 @@
+---
+title: "Default Servlet"
+source: "ROOT:web/webmvc/mvc-config/default-servlet-handler.adoc"
+---
+
+<a id="mvc-default-servlet-handler"></a>
+
+# Default Servlet
+
+Spring MVC allows for mapping the `DispatcherServlet` to `/` (thus overriding the mapping
+of the container’s default Servlet), while still allowing static resource requests to be
+handled by the container’s default Servlet. It configures a
+`DefaultServletHttpRequestHandler` with a URL mapping of `/**` and the lowest priority
+relative to other URL mappings.
+
+This handler forwards all requests to the default Servlet. Therefore, it must
+remain last in the order of all other URL `HandlerMappings`. That is the
+case if you use `<mvc:annotation-driven>`. Alternatively, if you set up your
+own customized `HandlerMapping` instance, be sure to set its `order` property to a value
+lower than that of the `DefaultServletHttpRequestHandler`, which is `Integer.MAX_VALUE`.
+
+The following example shows how to enable the feature by using the default setup:
+
+#### Java
+
+```java
+@Configuration
+public class WebConfiguration implements WebMvcConfigurer {
+
+	@Override
+	public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
+		configurer.enable();
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+class WebConfiguration : WebMvcConfigurer {
+
+	override fun configureDefaultServletHandling(configurer: DefaultServletHandlerConfigurer) {
+		configurer.enable()
+	}
+}
+```
+
+#### Xml
+
+```xml
+<mvc:default-servlet-handler/>
+```
+
+The caveat to overriding the `/` Servlet mapping is that the `RequestDispatcher` for the
+default Servlet must be retrieved by name rather than by path. The
+`DefaultServletHttpRequestHandler` tries to auto-detect the default Servlet for
+the container at startup time, using a list of known names for most of the major Servlet
+containers (including Tomcat, Jetty, GlassFish, JBoss, WebLogic, and WebSphere).
+If the default Servlet has been custom-configured with a different name, or if a
+different Servlet container is being used where the default Servlet name is unknown,
+then you must explicitly provide the default Servlet’s name, as the following example shows:
+
+#### Java
+
+```java
+@Configuration
+public class CustomDefaultServletConfiguration implements WebMvcConfigurer {
+
+	@Override
+	public void configureDefaultServletHandling(DefaultServletHandlerConfigurer configurer) {
+		configurer.enable("myCustomDefaultServlet");
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+class CustomDefaultServletConfiguration : WebMvcConfigurer {
+
+	override fun configureDefaultServletHandling(configurer: DefaultServletHandlerConfigurer) {
+		configurer.enable("myCustomDefaultServlet")
+	}
+}
+```
+
+#### Xml
+
+```xml
+<mvc:default-servlet-handler default-servlet-name="myCustomDefaultServlet"/>
+```

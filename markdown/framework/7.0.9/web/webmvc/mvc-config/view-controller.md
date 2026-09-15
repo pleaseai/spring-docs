@@ -1,0 +1,52 @@
+---
+title: "View Controllers"
+source: "ROOT:web/webmvc/mvc-config/view-controller.adoc"
+---
+
+<a id="mvc-config-view-controller"></a>
+
+# View Controllers
+
+This is a shortcut for defining a `ParameterizableViewController` that immediately
+forwards to a view when invoked. You can use it in static cases when there is no Java controller
+logic to run before the view generates the response.
+
+The following example forwards a request for `/` to a view called `home`:
+
+#### Java
+
+```java
+@Configuration
+public class WebConfiguration implements WebMvcConfigurer {
+
+	@Override
+	public void addViewControllers(ViewControllerRegistry registry) {
+		registry.addViewController("/").setViewName("home");
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+class WebConfiguration : WebMvcConfigurer {
+
+	override fun addViewControllers(registry: ViewControllerRegistry) {
+		registry.addViewController("/").setViewName("home")
+	}
+}
+```
+
+#### Xml
+
+```xml
+<mvc:view-controller path="/" view-name="home"/>
+```
+
+If an `@RequestMapping` method is mapped to a URL for any HTTP method then a view
+controller cannot be used to handle the same URL. This is because a match by URL to an
+annotated controller is considered a strong enough indication of endpoint ownership so
+that a 405 (METHOD\_NOT\_ALLOWED), a 415 (UNSUPPORTED\_MEDIA\_TYPE), or similar response can
+be sent to the client to help with debugging. For this reason it is recommended to avoid
+splitting URL handling across an annotated controller and a view controller.

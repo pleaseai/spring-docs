@@ -1,0 +1,92 @@
+---
+title: "`@SqlMergeMode`"
+source: "ROOT:testing/annotations/integration-spring/annotation-sqlmergemode.adoc"
+---
+
+<a id="spring-testing-annotation-sqlmergemode"></a>
+
+# `@SqlMergeMode`
+
+`@SqlMergeMode` is used to annotate a test class or test method to configure whether
+method-level `@Sql` declarations are merged with class-level `@Sql` declarations. If
+`@SqlMergeMode` is not declared on a test class or test method, the `OVERRIDE` merge mode
+will be used by default. With the `OVERRIDE` mode, method-level `@Sql` declarations will
+effectively override class-level `@Sql` declarations.
+
+Note that a method-level `@SqlMergeMode` declaration overrides a class-level declaration.
+
+The following example shows how to use `@SqlMergeMode` at the class level.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+@Sql("/test-schema.sql")
+@SqlMergeMode(MERGE) // <1>
+class UserTests {
+
+	@Test
+	@Sql("/user-test-data-001.sql")
+	void standardUserProfile() {
+		// run code that relies on test data set 001
+	}
+}
+```
+
+1. Set the `@Sql` merge mode to `MERGE` for all test methods in the class.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+@Sql("/test-schema.sql")
+@SqlMergeMode(MERGE) // <1>
+class UserTests {
+
+	@Test
+	@Sql("/user-test-data-001.sql")
+	fun standardUserProfile() {
+		// run code that relies on test data set 001
+	}
+}
+```
+
+1. Set the `@Sql` merge mode to `MERGE` for all test methods in the class.
+
+The following example shows how to use `@SqlMergeMode` at the method level.
+
+#### Java
+
+```java
+@SpringJUnitConfig(TestConfig.class)
+@Sql("/test-schema.sql")
+class UserTests {
+
+	@Test
+	@Sql("/user-test-data-001.sql")
+	@SqlMergeMode(MERGE) // <1>
+	void standardUserProfile() {
+		// run code that relies on test data set 001
+	}
+}
+```
+
+1. Set the `@Sql` merge mode to `MERGE` for a specific test method.
+
+#### Kotlin
+
+```kotlin
+@SpringJUnitConfig(TestConfig::class)
+@Sql("/test-schema.sql")
+class UserTests {
+
+	@Test
+	@Sql("/user-test-data-001.sql")
+	@SqlMergeMode(MERGE) // <1>
+	fun standardUserProfile() {
+		// run code that relies on test data set 001
+	}
+}
+```
+
+1. Set the `@Sql` merge mode to `MERGE` for a specific test method.

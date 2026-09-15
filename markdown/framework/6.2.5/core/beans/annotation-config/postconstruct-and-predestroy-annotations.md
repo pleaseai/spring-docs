@@ -1,0 +1,65 @@
+---
+title: "Using `@PostConstruct` and `@PreDestroy`"
+source: "ROOT:core/beans/annotation-config/postconstruct-and-predestroy-annotations.adoc"
+---
+
+<a id="beans-postconstruct-and-predestroy-annotations"></a>
+
+# Using `@PostConstruct` and `@PreDestroy`
+
+The `CommonAnnotationBeanPostProcessor` not only recognizes the `@Resource` annotation
+but also the JSR-250 lifecycle annotations: `jakarta.annotation.PostConstruct` and
+`jakarta.annotation.PreDestroy`. Introduced in Spring 2.5, the support for these
+annotations offers an alternative to the lifecycle callback mechanism described in
+[initialization callbacks](../factory-nature.md#beans-factory-lifecycle-initializingbean) and
+[destruction callbacks](../factory-nature.md#beans-factory-lifecycle-disposablebean). Provided that the
+`CommonAnnotationBeanPostProcessor` is registered within the Spring `ApplicationContext`,
+a method carrying one of these annotations is invoked at the same point in the lifecycle
+as the corresponding Spring lifecycle interface method or explicitly declared callback
+method. In the following example, the cache is pre-populated upon initialization and
+cleared upon destruction:
+
+#### Java
+
+```java
+public class CachingMovieLister {
+
+	@PostConstruct
+	public void populateMovieCache() {
+		// populates the movie cache upon initialization...
+	}
+
+	@PreDestroy
+	public void clearMovieCache() {
+		// clears the movie cache upon destruction...
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+class CachingMovieLister {
+
+	@PostConstruct
+	fun populateMovieCache() {
+		// populates the movie cache upon initialization...
+	}
+
+	@PreDestroy
+	fun clearMovieCache() {
+		// clears the movie cache upon destruction...
+	}
+}
+```
+
+For details about the effects of combining various lifecycle mechanisms, see
+[Combining Lifecycle Mechanisms](../factory-nature.md#beans-factory-lifecycle-combined-effects).
+
+> [!NOTE]
+> Like `@Resource`, the `@PostConstruct` and `@PreDestroy` annotation types were a part
+> of the standard Java libraries from JDK 6 to 8. However, the entire `javax.annotation`
+> package got separated from the core Java modules in JDK 9 and eventually removed in
+> JDK 11. As of Jakarta EE 9, the package lives in `jakarta.annotation` now. If needed,
+> the `jakarta.annotation-api` artifact needs to be obtained via Maven Central now,
+> simply to be added to the application’s classpath like any other library.

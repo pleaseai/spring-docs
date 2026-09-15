@@ -1,0 +1,21 @@
+---
+title: "AssertJ Integration"
+source: "ROOT:testing/mockmvc/assertj.adoc"
+---
+
+<a id="mockmvc-tester"></a>
+
+# AssertJ Integration
+
+The AssertJ integration builds on top of plain `MockMvc` with several differences:
+
+- There is no need to use static imports as both the requests and assertions can be
+crafted using a fluent API.
+- Unresolved exceptions are handled consistently so that your tests do not need to
+throw (or catch) `Exception`.
+- By default, the result to assert is complete whether the processing is asynchronous
+or not. In other words, there is no need for special handling for Async requests.
+
+`MockMvcTester` is the entry point for the AssertJ support. It allows to craft the
+request and return a result that is AssertJ compatible so that it can be wrapped in
+a standard `assertThat()` method.

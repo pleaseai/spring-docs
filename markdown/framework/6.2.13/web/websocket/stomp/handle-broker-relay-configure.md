@@ -1,0 +1,93 @@
+---
+title: "Connecting to a Broker"
+source: "ROOT:web/websocket/stomp/handle-broker-relay-configure.adoc"
+---
+
+<a id="websocket-stomp-handle-broker-relay-configure"></a>
+
+# Connecting to a Broker
+
+A STOMP broker relay maintains a single “system” TCP connection to the broker.
+This connection is used for messages originating from the server-side application
+only, not for receiving messages. You can configure the STOMP credentials (that is,
+the STOMP frame `login` and `passcode` headers) for this connection. This is exposed
+in both the XML namespace and Java configuration as the `systemLogin` and
+`systemPasscode` properties with default values of `guest` and `guest`.
+
+The STOMP broker relay also creates a separate TCP connection for every connected
+WebSocket client. You can configure the STOMP credentials that are used for all TCP
+connections created on behalf of clients. This is exposed in both the XML namespace
+and Java configuration as the `clientLogin` and `clientPasscode` properties with default
+values of `guest` and `guest`.
+
+> [!NOTE]
+> The STOMP broker relay always sets the `login` and `passcode` headers on every `CONNECT`
+> frame that it forwards to the broker on behalf of clients. Therefore, WebSocket clients
+> need not set those headers. They are ignored. As the [Authentication](authentication.md)
+> section explains, WebSocket clients should instead rely on HTTP authentication to protect
+> the WebSocket endpoint and establish the client identity.
+
+The STOMP broker relay also sends and receives heartbeats to and from the message
+broker over the “system” TCP connection. You can configure the intervals for sending
+and receiving heartbeats (10 seconds each by default). If connectivity to the broker
+is lost, the broker relay continues to try to reconnect, every 5 seconds,
+until it succeeds.
+
+Any Spring bean can implement `ApplicationListener<BrokerAvailabilityEvent>`
+to receive notifications when the “system” connection to the broker is lost and
+re-established. For example, a Stock Quote service that broadcasts stock quotes can
+stop trying to send messages when there is no active “system” connection.
+
+By default, the STOMP broker relay always connects, and reconnects as needed if
+connectivity is lost, to the same host and port. If you wish to supply multiple addresses,
+on each attempt to connect, you can configure a supplier of addresses, instead of a
+fixed host and port. The following example shows how to do that:
+
+#### Java
+
+```java
+@Configuration
+@EnableWebSocketMessageBroker
+public class WebSocketConfiguration implements WebSocketMessageBrokerConfigurer {
+
+	// ...
+
+	@Override
+	public void configureMessageBroker(MessageBrokerRegistry registry) {
+		registry.enableStompBrokerRelay("/queue/", "/topic/").setTcpClient(createTcpClient());
+		registry.setApplicationDestinationPrefixes("/app");
+	}
+
+	private ReactorNettyTcpClient<byte[]> createTcpClient() {
+		return new ReactorNettyTcpClient<>(
+				client -> client.remoteAddress(() -> new InetSocketAddress(0)),
+				new StompReactorNettyCodec());
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+@EnableWebSocketMessageBroker
+class WebSocketConfiguration : WebSocketMessageBrokerConfigurer {
+
+	// ...
+
+	override fun configureMessageBroker(registry: MessageBrokerRegistry) {
+		registry.enableStompBrokerRelay("/queue/", "/topic/").setTcpClient(createTcpClient())
+		registry.setApplicationDestinationPrefixes("/app")
+	}
+
+	private fun createTcpClient(): ReactorNettyTcpClient<ByteArray> {
+		return ReactorNettyTcpClient({ it.addressSupplier { InetSocketAddress(0) } }, StompReactorNettyCodec())
+	}
+}
+```
+
+You can also configure the STOMP broker relay with a `virtualHost` property.
+The value of this property is set as the `host` header of every `CONNECT` frame
+and can be useful (for example, in a cloud environment where the actual host to which
+the TCP connection is established differs from the host that provides the
+cloud-based STOMP service).

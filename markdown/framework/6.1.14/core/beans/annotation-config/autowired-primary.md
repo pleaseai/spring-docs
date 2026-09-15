@@ -1,0 +1,106 @@
+---
+title: "Fine-tuning Annotation-based Autowiring with `@Primary`"
+source: "ROOT:core/beans/annotation-config/autowired-primary.adoc"
+---
+
+<a id="beans-autowired-annotation-primary"></a>
+
+# Fine-tuning Annotation-based Autowiring with `@Primary`
+
+Because autowiring by type may lead to multiple candidates, it is often necessary to have
+more control over the selection process. One way to accomplish this is with Spring’s
+`@Primary` annotation. `@Primary` indicates that a particular bean should be given
+preference when multiple beans are candidates to be autowired to a single-valued
+dependency. If exactly one primary bean exists among the candidates, it becomes the
+autowired value.
+
+Consider the following configuration that defines `firstMovieCatalog` as the
+primary `MovieCatalog`:
+
+#### Java
+
+```java
+@Configuration
+public class MovieConfiguration {
+
+	@Bean
+	@Primary
+	public MovieCatalog firstMovieCatalog() { ... }
+
+	@Bean
+	public MovieCatalog secondMovieCatalog() { ... }
+
+	// ...
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+class MovieConfiguration {
+
+	@Bean
+	@Primary
+	fun firstMovieCatalog(): MovieCatalog { ... }
+
+	@Bean
+	fun secondMovieCatalog(): MovieCatalog { ... }
+
+	// ...
+}
+```
+
+With the preceding configuration, the following `MovieRecommender` is autowired with the
+`firstMovieCatalog`:
+
+#### Java
+
+```java
+public class MovieRecommender {
+
+	@Autowired
+	private MovieCatalog movieCatalog;
+
+	// ...
+}
+```
+
+#### Kotlin
+
+```kotlin
+class MovieRecommender {
+
+	@Autowired
+	private lateinit var movieCatalog: MovieCatalog
+
+	// ...
+}
+```
+
+The corresponding bean definitions follow:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+		https://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context
+		https://www.springframework.org/schema/context/spring-context.xsd">
+
+	<context:annotation-config/>
+
+	<bean class="example.SimpleMovieCatalog" primary="true">
+		<!-- inject any dependencies required by this bean -->
+	</bean>
+
+	<bean class="example.SimpleMovieCatalog">
+		<!-- inject any dependencies required by this bean -->
+	</bean>
+
+	<bean id="movieRecommender" class="example.MovieRecommender"/>
+
+</beans>
+```
