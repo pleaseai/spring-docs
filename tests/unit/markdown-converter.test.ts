@@ -254,12 +254,38 @@ describe('sidebars', () => {
   })
 })
 
+describe('quote blocks', () => {
+  test('renders a bare quote as a blockquote', () => {
+    // Spring Framework 7.0.x and 6.2.19 quote a log message this way; no
+    // earlier line in either corpus writes a `[quote]` at all.
+    const { markdown, warnings } = convert('= T\n\n[quote]\nBean \'someBean\' is not eligible.')
+
+    expect(markdown).toContain('> Bean \'someBean\' is not eligible.')
+    expect(warnings).toEqual([])
+  })
+
+  test('keeps the attribution and citation inside the quote', () => {
+    const { markdown } = convert('= T\n\n[quote, Rod Johnson, J2EE Design and Development]\n____\nQuoted.\n____')
+
+    expect(markdown).toContain('> Quoted.')
+    expect(markdown).toContain('> — Rod Johnson, J2EE Design and Development')
+  })
+
+  test('renders a compound quote through its child blocks', () => {
+    const { markdown, warnings } = convert('= T\n\n[quote]\n____\nFirst.\n\nNOTE: second.\n____')
+
+    expect(markdown).toContain('> First.')
+    expect(markdown).toContain('> > [!NOTE]')
+    expect(warnings).toEqual([])
+  })
+})
+
 describe('warnings', () => {
   test('reports an unhandled construct rather than dropping it silently', () => {
-    const { warnings } = convert('= T\n\n[quote]\n____\nQuoted.\n____')
+    const { warnings } = convert('= T\n\n[verse]\n____\nLine one.\n____')
 
     expect(warnings.length).toBeGreaterThan(0)
-    expect(warnings.some(w => w.includes('quote'))).toBe(true)
+    expect(warnings.some(w => w.includes('verse'))).toBe(true)
   })
 
   test('is silent for a page it fully understands', () => {

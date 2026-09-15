@@ -236,6 +236,35 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
     return blockquote([`[!${alert ?? 'NOTE'}]`, ...(body === '' ? [] : [body])].join('\n'))
   }
 
+  /**
+   * A `[quote]` block: the quoted body, with whatever credit it carries.
+   *
+   * Rendered as a plain blockquote, like `sidebar` — GFM has no quote-with-
+   * attribution form, so the credit follows the body as an em-dash line inside
+   * the same quote, which is how the attribution reads in the HTML upstream
+   * publishes.
+   *
+   * The credit is rendered rather than dropped even though neither half occurs
+   * in the corpus that motivated this rule — Spring Framework 7.0.x writes two
+   * bare `[quote]` blocks, both a log message quoted verbatim, and no earlier
+   * line writes one at all. Dropping it silently is the failure mode this
+   * converter refuses everywhere else: an attributed quote in a later version
+   * would lose its source with nothing reported.
+   */
+  const renderQuote = (node: AsciidoctorNode): string => {
+    const credit = ['attribution', 'citetitle']
+      .map(name => node.getAttribute(name))
+      .filter((value): value is string => typeof value === 'string' && value !== '')
+      .map(value => inline(value))
+      .join(', ')
+    const body = trimChunk(renderBody(node))
+    const chunks = [
+      ...(body === '' ? [] : [body]),
+      ...(credit === '' ? [] : [`— ${credit}`]),
+    ]
+    return blockquote(chunks.join('\n\n'))
+  }
+
   const renderListItem = (item: AsciidoctorListItem, marker: string): string => {
     const text = inline(item.getText())
     const nested = renderBlocks(item.getBlocks())
@@ -442,6 +471,8 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
         return renderTable(node as AsciidoctorTable)
       case 'sidebar':
         return withTitle(node, blockquote(trimChunk(renderBody(node))))
+      case 'quote':
+        return withTitle(node, renderQuote(node))
       default:
         warn(`unhandled block context "${context}" (style=${node.getStyle() ?? 'none'})`, node)
         return inline(node.getContent())
