@@ -1,0 +1,236 @@
+---
+title: "`@DirtiesContext`"
+source: "ROOT:testing/annotations/integration-spring/annotation-dirtiescontext.adoc"
+---
+
+<a id="spring-testing-annotation-dirtiescontext"></a>
+
+# `@DirtiesContext`
+
+`@DirtiesContext` indicates that the underlying Spring `ApplicationContext` has been
+dirtied during the execution of a test (that is, the test modified or corrupted it in
+some manner — for example, by changing the state of a singleton bean) and should be
+closed. When an application context is marked as dirty, it is removed from the testing
+framework’s cache and closed. As a consequence, the underlying Spring container is
+rebuilt for any subsequent test that requires a context with the same configuration
+metadata.
+
+You can use `@DirtiesContext` as both a class-level and a method-level annotation within
+the same test class or test class hierarchy. In such scenarios, the `ApplicationContext`
+is marked as dirty before or after any such annotated method as well as before or after
+the current test class, depending on the configured `methodMode` and `classMode`. When
+`@DirtiesContext` is declared at both the class level and the method level, the
+configured modes from both annotations will be honored. For example, if the class mode is
+set to `BEFORE_EACH_TEST_METHOD` and the method mode is set to `AFTER_METHOD`, the
+context will be marked as dirty both before and after the given test method.
+
+The following examples explain when the context would be dirtied for various
+configuration scenarios:
+
+- Before the current test class, when declared on a class with class mode set to
+`BEFORE_CLASS`.
+
+  #### Java
+
+  ```java
+  @DirtiesContext(classMode = BEFORE_CLASS) // <1>
+  class FreshContextTests {
+  	// some tests that require a new Spring container
+  }
+  ```
+
+  1. Dirty the context before the current test class.
+
+  #### Kotlin
+
+  ```kotlin
+  @DirtiesContext(classMode = BEFORE_CLASS) // <1>
+  class FreshContextTests {
+  	// some tests that require a new Spring container
+  }
+  ```
+
+  1. Dirty the context before the current test class.
+- After the current test class, when declared on a class with class mode set to
+`AFTER_CLASS` (i.e., the default class mode).
+
+  #### Java
+
+  ```java
+  @DirtiesContext // <1>
+  class ContextDirtyingTests {
+  	// some tests that result in the Spring container being dirtied
+  }
+  ```
+
+  1. Dirty the context after the current test class.
+
+  #### Kotlin
+
+  ```kotlin
+  @DirtiesContext // <1>
+  class ContextDirtyingTests {
+  	// some tests that result in the Spring container being dirtied
+  }
+  ```
+
+  1. Dirty the context after the current test class.
+- Before each test method in the current test class, when declared on a class with class
+mode set to `BEFORE_EACH_TEST_METHOD.`
+
+  #### Java
+
+  ```java
+  @DirtiesContext(classMode = BEFORE_EACH_TEST_METHOD) // <1>
+  class FreshContextTests {
+  	// some tests that require a new Spring container
+  }
+  ```
+
+  1. Dirty the context before each test method.
+
+  #### Kotlin
+
+  ```kotlin
+  @DirtiesContext(classMode = BEFORE_EACH_TEST_METHOD) // <1>
+  class FreshContextTests {
+  	// some tests that require a new Spring container
+  }
+  ```
+
+  1. Dirty the context before each test method.
+- After each test method in the current test class, when declared on a class with class
+mode set to `AFTER_EACH_TEST_METHOD.`
+
+  #### Java
+
+  ```java
+  @DirtiesContext(classMode = AFTER_EACH_TEST_METHOD) // <1>
+  class ContextDirtyingTests {
+  	// some tests that result in the Spring container being dirtied
+  }
+  ```
+
+  1. Dirty the context after each test method.
+
+  #### Kotlin
+
+  ```kotlin
+  @DirtiesContext(classMode = AFTER_EACH_TEST_METHOD) // <1>
+  class ContextDirtyingTests {
+  	// some tests that result in the Spring container being dirtied
+  }
+  ```
+
+  1. Dirty the context after each test method.
+- Before the current test, when declared on a method with the method mode set to
+`BEFORE_METHOD`.
+
+  #### Java
+
+  ```java
+  @DirtiesContext(methodMode = BEFORE_METHOD) // <1>
+  @Test
+  void testProcessWhichRequiresFreshAppCtx() {
+  	// some logic that requires a new Spring container
+  }
+  ```
+
+  1. Dirty the context before the current test method.
+
+  #### Kotlin
+
+  ```kotlin
+  @DirtiesContext(methodMode = BEFORE_METHOD) // <1>
+  @Test
+  fun testProcessWhichRequiresFreshAppCtx() {
+  	// some logic that requires a new Spring container
+  }
+  ```
+
+  1. Dirty the context before the current test method.
+- After the current test, when declared on a method with the method mode set to
+`AFTER_METHOD` (i.e., the default method mode).
+
+  #### Java
+
+  ```java
+  @DirtiesContext // <1>
+  @Test
+  void testProcessWhichDirtiesAppCtx() {
+  	// some logic that results in the Spring container being dirtied
+  }
+  ```
+
+  1. Dirty the context after the current test method.
+
+  #### Kotlin
+
+  ```kotlin
+  @DirtiesContext // <1>
+  @Test
+  fun testProcessWhichDirtiesAppCtx() {
+  	// some logic that results in the Spring container being dirtied
+  }
+  ```
+
+  1. Dirty the context after the current test method.
+
+If you use `@DirtiesContext` in a test whose context is configured as part of a context
+hierarchy with `@ContextHierarchy`, you can use the `hierarchyMode` flag to control how
+the context cache is cleared. By default, an exhaustive algorithm is used to clear the
+context cache, including not only the current level but also all other context
+hierarchies that share an ancestor context common to the current test. All
+`ApplicationContext` instances that reside in a sub-hierarchy of the common ancestor
+context are removed from the context cache and closed. If the exhaustive algorithm is
+overkill for a particular use case, you can specify the simpler current level algorithm,
+as the following example shows.
+
+#### Java
+
+```java
+@ContextHierarchy({
+	@ContextConfiguration("/parent-config.xml"),
+	@ContextConfiguration("/child-config.xml")
+})
+class BaseTests {
+	// class body...
+}
+
+class ExtendedTests extends BaseTests {
+
+	@Test
+	@DirtiesContext(hierarchyMode = CURRENT_LEVEL) // <1>
+	void test() {
+		// some logic that results in the child context being dirtied
+	}
+}
+```
+
+1. Use the current-level algorithm.
+
+#### Kotlin
+
+```kotlin
+@ContextHierarchy(
+	ContextConfiguration("/parent-config.xml"),
+	ContextConfiguration("/child-config.xml"))
+open class BaseTests {
+	// class body...
+}
+
+class ExtendedTests : BaseTests() {
+
+	@Test
+	@DirtiesContext(hierarchyMode = CURRENT_LEVEL) // <1>
+	fun test() {
+		// some logic that results in the child context being dirtied
+	}
+}
+```
+
+1. Use the current-level algorithm.
+
+For further details regarding the `EXHAUSTIVE` and `CURRENT_LEVEL` algorithms, see the
+[`DirtiesContext.HierarchyMode`](https://docs.spring.io/spring-framework/docs/7.0.3/javadoc-api/org/springframework/test/annotation/DirtiesContext.HierarchyMode.html)
+javadoc.
