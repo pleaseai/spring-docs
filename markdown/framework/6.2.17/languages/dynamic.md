@@ -1,0 +1,827 @@
+---
+title: "Dynamic Language Support"
+source: "ROOT:languages/dynamic.adoc"
+---
+
+<a id="dynamic-language"></a>
+
+# Dynamic Language Support
+
+Spring provides comprehensive support for using classes and objects that have been
+defined by using a dynamic language (such as Groovy) with Spring. This support lets
+you write any number of classes in a supported dynamic language and have the Spring
+container transparently instantiate, configure, and dependency inject the resulting
+objects.
+
+Spring’s scripting support primarily targets Groovy and BeanShell. Beyond those
+specifically supported languages, the JSR-223 scripting mechanism is supported
+for integration with any JSR-223 capable language provider (as of Spring 4.2),
+for example, JRuby.
+
+You can find fully working examples of where this dynamic language support can be
+immediately useful in [Scenarios](#dynamic-language-scenarios).
+
+<a id="dynamic-language-a-first-example"></a>
+
+## A First Example
+
+The bulk of this chapter is concerned with describing the dynamic language support in
+detail. Before diving into all of the ins and outs of the dynamic language support,
+we look at a quick example of a bean defined in a dynamic language. The dynamic
+language for this first bean is Groovy. (The basis of this example was taken from the
+Spring test suite. If you want to see equivalent examples in any of the other
+supported languages, take a look at the source code).
+
+The next example shows the `Messenger` interface, which the Groovy bean is going to
+implement. Note that this interface is defined in plain Java. Dependent objects that
+are injected with a reference to the `Messenger` do not know that the underlying
+implementation is a Groovy script. The following listing shows the `Messenger` interface:
+
+```java
+package org.springframework.scripting;
+
+public interface Messenger {
+
+	String getMessage();
+}
+```
+
+The following example defines a class that has a dependency on the `Messenger` interface:
+
+```java
+package org.springframework.scripting;
+
+public class DefaultBookingService implements BookingService {
+
+	private Messenger messenger;
+
+	public void setMessenger(Messenger messenger) {
+		this.messenger = messenger;
+	}
+
+	public void processBooking() {
+		// use the injected Messenger object...
+	}
+}
+```
+
+The following example implements the `Messenger` interface in Groovy:
+
+```groovy
+package org.springframework.scripting.groovy
+
+// Import the Messenger interface (written in Java) that is to be implemented
+import org.springframework.scripting.Messenger
+
+// Define the implementation in Groovy in file 'Messenger.groovy'
+class GroovyMessenger implements Messenger {
+
+	String message
+}
+```
+
+> [!NOTE]
+> To use the custom dynamic language tags to define dynamic-language-backed beans, you
+> need to have the XML Schema preamble at the top of your Spring XML configuration file.
+> You also need to use a Spring `ApplicationContext` implementation as your IoC
+> container. Using the dynamic-language-backed beans with a plain `BeanFactory`
+> implementation is supported, but you have to manage the plumbing of the Spring internals
+> to do so.
+>
+> For more information on schema-based configuration, see [XML Schema-based Configuration](#xsd-schemas-lang)
+> .
+
+Finally, the following example shows the bean definitions that effect the injection of the
+Groovy-defined `Messenger` implementation into an instance of the
+`DefaultBookingService` class:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:lang="http://www.springframework.org/schema/lang"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/lang https://www.springframework.org/schema/lang/spring-lang.xsd">
+
+	<!-- this is the bean definition for the Groovy-backed Messenger implementation -->
+	<lang:groovy id="messenger" script-source="classpath:Messenger.groovy">
+		<lang:property name="message" value="I Can Do The Frug" />
+	</lang:groovy>
+
+	<!-- an otherwise normal bean that will be injected by the Groovy-backed Messenger -->
+	<bean id="bookingService" class="x.y.DefaultBookingService">
+		<property name="messenger" ref="messenger" />
+	</bean>
+
+</beans>
+```
+
+The `bookingService` bean (a `DefaultBookingService`) can now use its private `messenger`
+member variable as normal, because the `Messenger` instance that was injected into it is
+a `Messenger` instance. There is nothing special going on here — just plain Java and
+plain Groovy.
+
+Hopefully, the preceding XML snippet is self-explanatory, but do not worry unduly if it is not.
+Keep reading for the in-depth detail on the whys and wherefores of the preceding configuration.
+
+<a id="dynamic-language-beans"></a>
+
+## Defining Beans that Are Backed by Dynamic Languages
+
+This section describes exactly how you define Spring-managed beans in any of the
+supported dynamic languages.
+
+Note that this chapter does not attempt to explain the syntax and idioms of the supported
+dynamic languages. For example, if you want to use Groovy to write certain of the classes
+in your application, we assume that you already know Groovy. If you need further details
+about the dynamic languages themselves, see
+[Further Resources](#dynamic-language-resources) at the end of
+this chapter.
+
+<a id="dynamic-language-beans-concepts"></a>
+
+### Common Concepts
+
+The steps involved in using dynamic-language-backed beans are as follows:
+
+1. Write the test for the dynamic language source code (naturally).
+1. Then write the dynamic language source code itself.
+1. Define your dynamic-language-backed beans by using the appropriate `<lang:language/>`
+element in the XML configuration (you can define such beans programmatically by
+using the Spring API, although you will have to consult the source code for
+directions on how to do this, as this chapter does not cover this type of advanced configuration).
+Note that this is an iterative step. You need at least one bean definition for each dynamic
+language source file (although multiple bean definitions can reference the same source file).
+
+The first two steps (testing and writing your dynamic language source files) are beyond
+the scope of this chapter. See the language specification and reference manual
+for your chosen dynamic language and crack on with developing your dynamic language
+source files. You first want to read the rest of this chapter, though, as
+Spring’s dynamic language support does make some (small) assumptions about the contents
+of your dynamic language source files.
+
+<a id="dynamic-language-beans-concepts-xml-language-element"></a>
+
+#### The <lang:language/> element
+
+The final step in the list in the [preceding section](#dynamic-language-beans-concepts)
+involves defining dynamic-language-backed bean definitions, one for each bean that you
+want to configure (this is no different from normal JavaBean configuration). However,
+instead of specifying the fully qualified class name of the class that is to be
+instantiated and configured by the container, you can use the `<lang:language/>`
+element to define the dynamic language-backed bean.
+
+Each of the supported languages has a corresponding `<lang:language/>` element:
+
+- `<lang:groovy/>` (Groovy)
+- `<lang:bsh/>` (BeanShell)
+- `<lang:std/>` (JSR-223, for example, with JRuby)
+
+The exact attributes and child elements that are available for configuration depends on
+exactly which language the bean has been defined in (the language-specific sections
+later in this chapter detail this).
+
+<a id="dynamic-language-refreshable-beans"></a>
+
+#### Refreshable Beans
+
+One of the (and perhaps the single) most compelling value adds of the dynamic language
+support in Spring is the “refreshable bean” feature.
+
+A refreshable bean is a dynamic-language-backed bean. With a small amount of
+configuration, a dynamic-language-backed bean can monitor changes in its underlying
+source file resource and then reload itself when the dynamic language source file is
+changed (for example, when you edit and save changes to the file on the file system).
+
+This lets you deploy any number of dynamic language source files as part of an
+application, configure the Spring container to create beans backed by dynamic
+language source files (using the mechanisms described in this chapter), and (later,
+as requirements change or some other external factor comes into play) edit a dynamic
+language source file and have any change they make be reflected in the bean that is
+backed by the changed dynamic language source file. There is no need to shut down a
+running application (or redeploy in the case of a web application). The
+dynamic-language-backed bean so amended picks up the new state and logic from the
+changed dynamic language source file.
+
+> [!NOTE]
+> This feature is off by default.
+
+Now we can take a look at an example to see how easy it is to start using refreshable
+beans. To turn on the refreshable beans feature, you have to specify exactly one
+additional attribute on the `<lang:language/>` element of your bean definition. So,
+if we stick with [the example](#dynamic-language-a-first-example) from earlier in
+this chapter, the following example shows what we would change in the Spring XML
+configuration to effect refreshable beans:
+
+```xml
+<beans>
+
+	<!-- this bean is now 'refreshable' due to the presence of the 'refresh-check-delay' attribute -->
+	<lang:groovy id="messenger"
+			refresh-check-delay="5000" <!-- switches refreshing on with 5 seconds between checks -->
+			script-source="classpath:Messenger.groovy">
+		<lang:property name="message" value="I Can Do The Frug" />
+	</lang:groovy>
+
+	<bean id="bookingService" class="x.y.DefaultBookingService">
+		<property name="messenger" ref="messenger" />
+	</bean>
+
+</beans>
+```
+
+That really is all you have to do. The `refresh-check-delay` attribute defined on the
+`messenger` bean definition is the number of milliseconds after which the bean is
+refreshed with any changes made to the underlying dynamic language source file.
+You can turn off the refresh behavior by assigning a negative value to the
+`refresh-check-delay` attribute. Remember that, by default, the refresh behavior is
+disabled. If you do not want the refresh behavior, do not define the attribute.
+
+If we then run the following application, we can exercise the refreshable feature.
+(Please excuse the “jumping-through-hoops-to-pause-the-execution” shenanigans
+in this next slice of code.) The `System.in.read()` call is only there so that the
+execution of the program pauses while you (the developer in this scenario) go off
+and edit the underlying dynamic language source file so that the refresh triggers
+on the dynamic-language-backed bean when the program resumes execution.
+
+The following listing shows this sample application:
+
+```java
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.springframework.scripting.Messenger;
+
+public final class Boot {
+
+	public static void main(final String[] args) throws Exception {
+		ApplicationContext ctx = new ClassPathXmlApplicationContext("beans.xml");
+		Messenger messenger = (Messenger) ctx.getBean("messenger");
+		System.out.println(messenger.getMessage());
+		// pause execution while I go off and make changes to the source file...
+		System.in.read();
+		System.out.println(messenger.getMessage());
+	}
+}
+```
+
+Assume then, for the purposes of this example, that all calls to the `getMessage()`
+method of `Messenger` implementations have to be changed such that the message is
+surrounded by quotation marks. The following listing shows the changes that you
+(the developer) should make to the `Messenger.groovy` source file when the
+execution of the program is paused:
+
+```groovy
+package org.springframework.scripting
+
+class GroovyMessenger implements Messenger {
+
+	private String message = "Bingo"
+
+	public String getMessage() {
+		// change the implementation to surround the message in quotes
+		return "'" + this.message + "'"
+	}
+
+	public void setMessage(String message) {
+		this.message = message
+	}
+}
+```
+
+When the program runs, the output before the input pause will be `I Can Do The Frug`.
+After the change to the source file is made and saved and the program resumes execution,
+the result of calling the `getMessage()` method on the dynamic-language-backed
+`Messenger` implementation is `'I Can Do The Frug'` (notice the inclusion of the
+additional quotation marks).
+
+Changes to a script do not trigger a refresh if the changes occur within the window of
+the `refresh-check-delay` value. Changes to the script are not actually picked up until
+a method is called on the dynamic-language-backed bean. It is only when a method is
+called on a dynamic-language-backed bean that it checks to see if its underlying script
+source has changed. Any exceptions that relate to refreshing the script (such as
+encountering a compilation error or finding that the script file has been deleted)
+results in a fatal exception being propagated to the calling code.
+
+The refreshable bean behavior described earlier does not apply to dynamic language
+source files defined with the `<lang:inline-script/>` element notation (see
+[Inline Dynamic Language Source Files](#dynamic-language-beans-inline)).
+Additionally, it applies only to beans where changes to the underlying source file can
+actually be detected (for example, by code that checks the last modified date of a
+dynamic language source file that exists on the file system).
+
+<a id="dynamic-language-beans-inline"></a>
+
+#### Inline Dynamic Language Source Files
+
+The dynamic language support can also cater to dynamic language source files that are
+embedded directly in Spring bean definitions. More specifically, the
+`<lang:inline-script/>` element lets you define dynamic language source immediately
+inside a Spring configuration file. An example might clarify how the inline script
+feature works:
+
+```xml
+<lang:groovy id="messenger">
+	<lang:inline-script>
+
+		package org.springframework.scripting.groovy
+
+		import org.springframework.scripting.Messenger
+
+		class GroovyMessenger implements Messenger {
+			String message
+		}
+
+	</lang:inline-script>
+	<lang:property name="message" value="I Can Do The Frug" />
+</lang:groovy>
+```
+
+If we put to one side the issues surrounding whether it is good practice to define
+dynamic language source inside a Spring configuration file, the `<lang:inline-script/>`
+element can be useful in some scenarios. For instance, we might want to quickly add a
+Spring `Validator` implementation to a Spring MVC `Controller`. This is but a moment’s
+work using inline source. (See
+[Scripted Validators](#dynamic-language-scenarios-validators)
+for such an example.)
+
+<a id="dynamic-language-beans-ctor-injection"></a>
+
+#### Understanding Constructor Injection in the Context of Dynamic-language-backed Beans
+
+There is one very important thing to be aware of with regard to Spring’s dynamic
+language support. Namely, you can not (currently) supply constructor arguments
+to dynamic-language-backed beans (and, hence, constructor-injection is not available for
+dynamic-language-backed beans). In the interests of making this special handling of
+constructors and properties 100% clear, the following mixture of code and configuration
+does not work:
+
+#### An approach that cannot work
+
+```groovy
+package org.springframework.scripting.groovy
+
+import org.springframework.scripting.Messenger
+
+// from the file 'Messenger.groovy'
+class GroovyMessenger implements Messenger {
+
+	GroovyMessenger() {}
+
+	// this constructor is not available for Constructor Injection
+	GroovyMessenger(String message) {
+		this.message = message;
+	}
+
+	String message
+
+	String anotherMessage
+}
+```
+
+```xml
+<lang:groovy id="badMessenger"
+	script-source="classpath:Messenger.groovy">
+	<!-- this next constructor argument will not be injected into the GroovyMessenger -->
+	<!-- in fact, this isn't even allowed according to the schema -->
+	<constructor-arg value="This will not work" />
+
+	<!-- only property values are injected into the dynamic-language-backed object -->
+	<lang:property name="anotherMessage" value="Passed straight through to the dynamic-language-backed object" />
+
+</lang>
+```
+
+In practice this limitation is not as significant as it first appears, since setter
+injection is the injection style favored by the overwhelming majority of developers
+(we leave the discussion as to whether that is a good thing to another day).
+
+<a id="dynamic-language-beans-groovy"></a>
+
+### Groovy Beans
+
+This section describes how to use beans defined in Groovy in Spring.
+
+The Groovy homepage includes the following description:
+
+“Groovy is an agile dynamic language for the Java 2 Platform that has many of the
+features that people like so much in languages like Python, Ruby and Smalltalk, making
+them available to Java developers using a Java-like syntax.”
+
+If you have read this chapter straight from the top, you have already
+[seen an example](#dynamic-language-a-first-example) of a Groovy-dynamic-language-backed
+bean. Now consider another example (again using an example from the Spring test suite):
+
+```java
+package org.springframework.scripting;
+
+public interface Calculator {
+
+	int add(int x, int y);
+}
+```
+
+The following example implements the `Calculator` interface in Groovy:
+
+```groovy
+package org.springframework.scripting.groovy
+
+// from the file 'calculator.groovy'
+class GroovyCalculator implements Calculator {
+
+	int add(int x, int y) {
+		x + y
+	}
+}
+```
+
+The following bean definition uses the calculator defined in Groovy:
+
+```xml
+<!-- from the file 'beans.xml' -->
+<beans>
+	<lang:groovy id="calculator" script-source="classpath:calculator.groovy"/>
+</beans>
+```
+
+Finally, the following small application exercises the preceding configuration:
+
+```java
+package org.springframework.scripting;
+
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class Main {
+
+	public static void main(String[] args) {
+		ApplicationContext ctx = new ClassPathXmlApplicationContext("beans.xml");
+		Calculator calc = ctx.getBean("calculator", Calculator.class);
+		System.out.println(calc.add(2, 8));
+	}
+}
+```
+
+The resulting output from running the above program is (unsurprisingly) `10`.
+(For more interesting examples, see the dynamic language showcase project for a more
+complex example or see the examples [Scenarios](#dynamic-language-scenarios) later in this chapter).
+
+You must not define more than one class per Groovy source file. While this is perfectly
+legal in Groovy, it is (arguably) a bad practice. In the interests of a consistent
+approach, you should (in the opinion of the Spring team) respect the standard Java
+conventions of one (public) class per source file.
+
+<a id="dynamic-language-beans-groovy-customizer"></a>
+
+#### Customizing Groovy Objects by Using a Callback
+
+The `GroovyObjectCustomizer` interface is a callback that lets you hook additional
+creation logic into the process of creating a Groovy-backed bean. For example,
+implementations of this interface could invoke any required initialization methods,
+set some default property values, or specify a custom `MetaClass`. The following listing
+shows the `GroovyObjectCustomizer` interface definition:
+
+```java
+public interface GroovyObjectCustomizer {
+
+	void customize(GroovyObject goo);
+}
+```
+
+The Spring Framework instantiates an instance of your Groovy-backed bean and then
+passes the created `GroovyObject` to the specified `GroovyObjectCustomizer` (if one
+has been defined). You can do whatever you like with the supplied `GroovyObject`
+reference. We expect that most people want to set a custom `MetaClass` with this
+callback, and the following example shows how to do so:
+
+```java
+public final class SimpleMethodTracingCustomizer implements GroovyObjectCustomizer {
+
+	public void customize(GroovyObject goo) {
+		DelegatingMetaClass metaClass = new DelegatingMetaClass(goo.getMetaClass()) {
+
+			public Object invokeMethod(Object object, String methodName, Object[] arguments) {
+				System.out.println("Invoking '" + methodName + "'.");
+				return super.invokeMethod(object, methodName, arguments);
+			}
+		};
+		metaClass.initialize();
+		goo.setMetaClass(metaClass);
+	}
+
+}
+```
+
+A full discussion of meta-programming in Groovy is beyond the scope of the Spring
+reference manual. See the relevant section of the Groovy reference manual or do a
+search online. Plenty of articles address this topic. Actually, making use of a
+`GroovyObjectCustomizer` is easy if you use the Spring namespace support, as the
+following example shows:
+
+```xml
+<!-- define the GroovyObjectCustomizer just like any other bean -->
+<bean id="tracingCustomizer" class="example.SimpleMethodTracingCustomizer"/>
+
+	<!-- ... and plug it into the desired Groovy bean via the 'customizer-ref' attribute -->
+	<lang:groovy id="calculator"
+		script-source="classpath:org/springframework/scripting/groovy/Calculator.groovy"
+		customizer-ref="tracingCustomizer"/>
+```
+
+If you do not use the Spring namespace support, you can still use the
+`GroovyObjectCustomizer` functionality, as the following example shows:
+
+```xml
+<bean id="calculator" class="org.springframework.scripting.groovy.GroovyScriptFactory">
+	<constructor-arg value="classpath:org/springframework/scripting/groovy/Calculator.groovy"/>
+	<!-- define the GroovyObjectCustomizer (as an inner bean) -->
+	<constructor-arg>
+		<bean id="tracingCustomizer" class="example.SimpleMethodTracingCustomizer"/>
+	</constructor-arg>
+</bean>
+
+<bean class="org.springframework.scripting.support.ScriptFactoryPostProcessor"/>
+```
+
+> [!NOTE]
+> You may also specify a Groovy `CompilationCustomizer` (such as an `ImportCustomizer`)
+> or even a full Groovy `CompilerConfiguration` object in the same place as Spring’s
+> `GroovyObjectCustomizer`. Furthermore, you may set a common `GroovyClassLoader` with custom
+> configuration for your beans at the `ConfigurableApplicationContext.setClassLoader` level;
+> this also leads to shared `GroovyClassLoader` usage and is therefore recommendable in case of
+> a large number of scripted beans (avoiding an isolated `GroovyClassLoader` instance per bean).
+
+<a id="dynamic-language-beans-bsh"></a>
+
+### BeanShell Beans
+
+This section describes how to use BeanShell beans in Spring.
+
+The [BeanShell homepage](https://beanshell.github.io/intro.html) includes the following
+description:
+
+```
+BeanShell is a small, free, embeddable Java source interpreter with dynamic language
+features, written in Java. BeanShell dynamically runs standard Java syntax and
+extends it with common scripting conveniences such as loose types, commands, and method
+closures like those in Perl and JavaScript.
+```
+
+In contrast to Groovy, BeanShell-backed bean definitions require some (small) additional
+configuration. The implementation of the BeanShell dynamic language support in Spring is
+interesting, because Spring creates a JDK dynamic proxy that implements all of the
+interfaces that are specified in the `script-interfaces` attribute value of the
+`<lang:bsh>` element (this is why you must supply at least one interface in the value
+of the attribute, and, consequently, program to interfaces when you use BeanShell-backed
+beans). This means that every method call on a BeanShell-backed object goes through the
+JDK dynamic proxy invocation mechanism.
+
+Now we can show a fully working example of using a BeanShell-based bean that implements
+the `Messenger` interface that was defined earlier in this chapter. We again show the
+definition of the `Messenger` interface:
+
+```java
+package org.springframework.scripting;
+
+public interface Messenger {
+
+	String getMessage();
+}
+```
+
+The following example shows the BeanShell “implementation” (we use the term loosely here)
+of the `Messenger` interface:
+
+```java
+String message;
+
+String getMessage() {
+	return message;
+}
+
+void setMessage(String aMessage) {
+	message = aMessage;
+}
+```
+
+The following example shows the Spring XML that defines an “instance” of the above
+“class” (again, we use these terms very loosely here):
+
+```xml
+<lang:bsh id="messageService" script-source="classpath:BshMessenger.bsh"
+	script-interfaces="org.springframework.scripting.Messenger">
+
+	<lang:property name="message" value="Hello World!" />
+</lang:bsh>
+```
+
+See [Scenarios](#dynamic-language-scenarios) for some scenarios
+where you might want to use BeanShell-based beans.
+
+<a id="dynamic-language-scenarios"></a>
+
+## Scenarios
+
+The possible scenarios where defining Spring managed beans in a scripting language would
+be beneficial are many and varied. This section describes two possible use cases for the
+dynamic language support in Spring.
+
+<a id="dynamic-language-scenarios-controllers"></a>
+
+### Scripted Spring MVC Controllers
+
+One group of classes that can benefit from using dynamic-language-backed beans is that
+of Spring MVC controllers. In pure Spring MVC applications, the navigational flow
+through a web application is, to a large extent, determined by code encapsulated within
+your Spring MVC controllers. As the navigational flow and other presentation layer logic
+of a web application needs to be updated to respond to support issues or changing
+business requirements, it may well be easier to effect any such required changes by
+editing one or more dynamic language source files and seeing those changes being
+immediately reflected in the state of a running application.
+
+Remember that, in the lightweight architectural model espoused by projects such as
+Spring, you typically aim to have a really thin presentation layer, with all
+the meaty business logic of an application being contained in the domain and service
+layer classes. Developing Spring MVC controllers as dynamic-language-backed beans lets
+you change presentation layer logic by editing and saving text files. Any
+changes to such dynamic language source files is (depending on the configuration)
+automatically reflected in the beans that are backed by dynamic language source files.
+
+> [!NOTE]
+> To effect this automatic “pickup” of any changes to dynamic-language-backed
+> beans, you have to enable the “refreshable beans” functionality. See
+> [Refreshable Beans](#dynamic-language-refreshable-beans) for a full treatment of this feature.
+
+The following example shows an `org.springframework.web.servlet.mvc.Controller` implemented
+by using the Groovy dynamic language:
+
+```groovy
+package org.springframework.showcase.fortune.web
+
+import org.springframework.showcase.fortune.service.FortuneService
+import org.springframework.showcase.fortune.domain.Fortune
+import org.springframework.web.servlet.ModelAndView
+import org.springframework.web.servlet.mvc.Controller
+
+import jakarta.servlet.http.HttpServletRequest
+import jakarta.servlet.http.HttpServletResponse
+
+// from the file '/WEB-INF/groovy/FortuneController.groovy'
+class FortuneController implements Controller {
+
+	@Property FortuneService fortuneService
+
+	ModelAndView handleRequest(HttpServletRequest request,
+			HttpServletResponse httpServletResponse) {
+		return new ModelAndView("tell", "fortune", this.fortuneService.tellFortune())
+	}
+}
+```
+
+```xml
+<lang:groovy id="fortune"
+		refresh-check-delay="3000"
+		script-source="/WEB-INF/groovy/FortuneController.groovy">
+	<lang:property name="fortuneService" ref="fortuneService"/>
+</lang:groovy>
+```
+
+<a id="dynamic-language-scenarios-validators"></a>
+
+### Scripted Validators
+
+Another area of application development with Spring that may benefit from the
+flexibility afforded by dynamic-language-backed beans is that of validation. It can
+be easier to express complex validation logic by using a loosely typed dynamic language
+(that may also have support for inline regular expressions) as opposed to regular Java.
+
+Again, developing validators as dynamic-language-backed beans lets you change
+validation logic by editing and saving a simple text file. Any such changes is
+(depending on the configuration) automatically reflected in the execution of a
+running application and would not require the restart of an application.
+
+> [!NOTE]
+> To effect the automatic “pickup” of any changes to dynamic-language-backed
+> beans, you have to enable the 'refreshable beans' feature. See
+> [Refreshable Beans](#dynamic-language-refreshable-beans)
+> for a full and detailed treatment of this feature.
+
+The following example shows a Spring `org.springframework.validation.Validator`
+implemented by using the Groovy dynamic language (see
+[Validation using Spring’s Validator interface](../core/validation/validator.md)
+for a discussion of the `Validator` interface):
+
+```groovy
+import org.springframework.validation.Validator
+import org.springframework.validation.Errors
+import org.springframework.beans.TestBean
+
+class TestBeanValidator implements Validator {
+
+	boolean supports(Class clazz) {
+		return TestBean.class.isAssignableFrom(clazz)
+	}
+
+	void validate(Object bean, Errors errors) {
+		if(bean.name?.trim()?.size() > 0) {
+			return
+		}
+		errors.reject("whitespace", "Cannot be composed wholly of whitespace.")
+	}
+}
+```
+
+<a id="dynamic-language-final-notes"></a>
+
+## Additional Details
+
+This last section contains some additional details related to the dynamic language support.
+
+<a id="dynamic-language-final-notes-aop"></a>
+
+### AOP — Advising Scripted Beans
+
+You can use the Spring AOP framework to advise scripted beans. The Spring AOP
+framework actually is unaware that a bean that is being advised might be a scripted
+bean, so all of the AOP use cases and functionality that you use (or aim to use)
+work with scripted beans. When you advise scripted beans, you cannot use class-based
+proxies. You must use [interface-based proxies](../core/aop/proxying.md).
+
+You are not limited to advising scripted beans. You can also write aspects themselves
+in a supported dynamic language and use such beans to advise other Spring beans.
+This really would be an advanced use of the dynamic language support though.
+
+<a id="dynamic-language-final-notes-scopes"></a>
+
+### Scoping
+
+In case it is not immediately obvious, scripted beans can be scoped in the same way as
+any other bean. The `scope` attribute on the various `<lang:language/>` elements lets
+you control the scope of the underlying scripted bean, as it does with a regular
+bean. (The default scope is [singleton](../core/beans/factory-scopes.md#beans-factory-scopes-singleton),
+as it is with “regular” beans.)
+
+The following example uses the `scope` attribute to define a Groovy bean scoped as
+a [prototype](../core/beans/factory-scopes.md#beans-factory-scopes-prototype):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:lang="http://www.springframework.org/schema/lang"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/lang https://www.springframework.org/schema/lang/spring-lang.xsd">
+
+	<lang:groovy id="messenger" script-source="classpath:Messenger.groovy" scope="prototype">
+		<lang:property name="message" value="I Can Do The RoboCop" />
+	</lang:groovy>
+
+	<bean id="bookingService" class="x.y.DefaultBookingService">
+		<property name="messenger" ref="messenger" />
+	</bean>
+
+</beans>
+```
+
+See [Bean Scopes](../core/beans/factory-scopes.md) in
+[The IoC Container](../web/webmvc-view/mvc-xslt.md#mvc-view-xslt-beandefs)
+for a full discussion of the scoping support in the Spring Framework.
+
+<a id="xsd-schemas-lang"></a>
+
+### The `lang` XML schema
+
+The `lang` elements in Spring XML configuration deal with exposing objects that have been
+written in a dynamic language (such as Groovy or BeanShell) as beans in the Spring container.
+
+These elements (and the dynamic language support) are comprehensively covered in
+[Dynamic Language Support](#). See that section
+for full details on this support and the `lang` elements.
+
+To use the elements in the `lang` schema, you need to have the following preamble at the
+top of your Spring XML configuration file. The text in the following snippet references
+the correct schema so that the tags in the `lang` namespace are available to you:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:lang="http://www.springframework.org/schema/lang"
+	xsi:schemaLocation="
+		http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/lang https://www.springframework.org/schema/lang/spring-lang.xsd">
+
+	<!-- bean definitions here -->
+
+</beans>
+```
+
+<a id="dynamic-language-resources"></a>
+
+## Further Resources
+
+The following links go to further resources about the various dynamic languages referenced
+in this chapter:
+
+- The [Groovy](https://www.groovy-lang.org/) homepage
+- The [BeanShell](https://beanshell.github.io/intro.html) homepage
+- The [JRuby](https://www.jruby.org) homepage
