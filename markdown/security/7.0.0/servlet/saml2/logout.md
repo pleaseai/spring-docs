@@ -1,0 +1,655 @@
+---
+title: "Performing Single Logout"
+source: "ROOT:servlet/saml2/logout.adoc"
+---
+
+<a id="servlet-saml2login-logout"></a>
+
+# Performing Single Logout
+
+Among its [other logout mechanisms](../authentication/logout.md), Spring Security ships with support for RP- and AP-initiated SAML 2.0 Single Logout.
+
+Briefly, there are two use cases Spring Security supports:
+
+- **RP-Initiated** - Your application has an endpoint that, when POSTed to, will logout the user and send a `saml2:LogoutRequest` to the asserting party.
+Thereafter, the asserting party will send back a `saml2:LogoutResponse` and allow your application to respond
+- **AP-Initiated** - Your application has an endpoint that will receive a `saml2:LogoutRequest` from the asserting party.
+Your application will complete its logout at that point and then send a `saml2:LogoutResponse` to the asserting party.
+
+> [!NOTE]
+> In the **AP-Initiated** scenario, any local redirection that your application would do post-logout is rendered moot.
+> Once your application sends a `saml2:LogoutResponse`, it no longer has control of the browser.
+
+<a id="_minimal_configuration_for_single_logout"></a>
+
+## Minimal Configuration for Single Logout
+
+To use Spring Security’s SAML 2.0 Single Logout feature, you will need the following things:
+
+- First, the asserting party must support SAML 2.0 Single Logout
+- Second, the asserting party should be configured to sign and POST `saml2:LogoutRequest` s and `saml2:LogoutResponse` s your application’s `/logout/saml2/slo` endpoint
+- Third, your application must have a PKCS#8 private key and X.509 certificate for signing `saml2:LogoutRequest` s and `saml2:LogoutResponse` s
+
+You can achieve this in Spring Boot in the following way:
+
+```yaml
+spring:
+  security:
+    saml2:
+      relyingparty:
+        registration:
+          metadata:
+            signing.credentials: <3>
+              - private-key-location: classpath:credentials/rp-private.key
+                certificate-location: classpath:credentials/rp-certificate.crt
+            singlelogout.url: "{baseUrl}/logout/saml2/slo" <2>
+            assertingparty:
+              metadata-uri: https://ap.example.com/metadata <1>
+
+```
+
+1. - The metadata URI of the IDP, which will indicate to your application its support of SLO
+1. - The SLO endpoint in your application
+1. - The signing credentials to sign `<saml2:LogoutRequest>`s and `<saml2:LogoutResponse>`s
+
+```
+An asserting party supports Single Logout if their metadata includes the `<SingleLogoutService>` element in their metadata.
+```
+
+And that’s it!
+
+Spring Security’s logout support offers a number of configuration points.
+Consider the following use cases:
+
+- Understand how the above [minimal configuration works](#_startup_expectations)
+- Get a picture of [the overall architecture](#architecture)
+- Allow users to [logout out of the app only](#separating-local-saml2-logout)
+- Customize [logout endpoints](#_configuring_logout_endpoints)
+- Storing `<saml2:LogoutRequests>` somewhere [other than the session](#_customizing_storage)
+
+<a id="_startup_expectations"></a>
+
+### Startup Expectations
+
+When these properties are used, in addition to login, SAML 2.0 Service Provider will automatically configure itself facilitate logout by way of `<saml2:LogoutRequest>`s and `<saml2:LogoutResponse>`s using either RP- or AP-initiated logout.
+
+It achieves this through a deterministic startup process:
+
+1. Query the Identity Server Metadata endpoint for the `<SingleLogoutService>` element
+1. Scan the metadata and cache any public signature verification keys
+1. Prepare the appropriate endpoints
+
+A consequence of this process is that the identity server must be up and receiving requests in order for Service Provider to successfully start up.
+
+> [!NOTE]
+> If the identity server is down when Service Provider queries it (given appropriate timeouts), then startup will fail.
+
+<a id="_runtime_expectations"></a>
+
+### Runtime Expectations
+
+Given the above configuration any logged-in user can send a `POST /logout` to your application to perform RP-initiated SLO.
+Your application will then do the following:
+
+1. Logout the user and invalidate the session
+1. Produce a `<saml2:LogoutRequest>` and POST it to the associated asserting party’s SLO endpoint
+1. Then, if the asserting party responds with a `<saml2:LogoutResponse>`, the application with verify it and redirect to the configured success endpoint
+
+Also, your application can participate in an AP-initiated logout when the asserting party sends a `<saml2:LogoutRequest>` to `/logout/saml2/slo`.
+When this happens, your application will do the following:
+
+1. Verify the `<saml2:LogoutRequest>`
+1. Logout the user and invalidate the session
+1. Produce a `<saml2:LogoutResponse>` and POST it back to the asserting party’s SLO endpoint
+
+<a id="_minimal_configuration_sans_boot"></a>
+
+## Minimal Configuration Sans Boot
+
+Instead of Boot properties, you can also achieve the same outcome by publishing the beans directly like so:
+
+#### Java
+
+```java
+@Configuration
+public class SecurityConfig {
+    @Value("${private.key}") RSAPrivateKey key;
+    @Value("${public.certificate}") X509Certificate certificate;
+
+    @Bean
+    RelyingPartyRegistrationRepository registrations() {
+        Saml2X509Credential credential = Saml2X509Credential.signing(key, certificate);
+        RelyingPartyRegistration registration = RelyingPartyRegistrations
+                .fromMetadataLocation("https://ap.example.org/metadata") <1>
+                .registrationId("metadata")
+                .singleLogoutServiceLocation("{baseUrl}/logout/saml2/slo") <2>
+                .signingX509Credentials((signing) -> signing.add(credential)) <3>
+                .build();
+        return new InMemoryRelyingPartyRegistrationRepository(registration);
+    }
+
+    @Bean
+    SecurityFilterChain web(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests((authorize) -> authorize
+                .anyRequest().authenticated()
+            )
+            .saml2Login(withDefaults())
+            .saml2Logout(withDefaults()); <4>
+
+        return http.build();
+    }
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+class SecurityConfig(@Value("${private.key}") val key: RSAPrivateKey,
+        @Value("${public.certificate}") val certificate: X509Certificate) {
+
+    @Bean
+    fun registrations(): RelyingPartyRegistrationRepository {
+        val credential = Saml2X509Credential.signing(key, certificate)
+        val registration = RelyingPartyRegistrations
+                .fromMetadataLocation("https://ap.example.org/metadata") <1>
+                .registrationId("metadata")
+                .singleLogoutServiceLocation("{baseUrl}/logout/saml2/slo") <2>
+                .signingX509Credentials({ signing: List<Saml2X509Credential> -> signing.add(credential) }) <3>
+                .build()
+        return InMemoryRelyingPartyRegistrationRepository(registration)
+    }
+
+    @Bean
+    fun web(http: HttpSecurity): SecurityFilterChain {
+        http {
+            authorizeHttpRequests {
+                anyRequest = authenticated
+            }
+            saml2Login {
+
+            }
+            saml2Logout { <4>
+
+            }
+        }
+
+        return http.build()
+    }
+}
+```
+
+1. - The metadata URI of the IDP, which will indicate to your application its support of SLO
+1. - The SLO endpoint in your application
+1. - The signing credentials to sign `<saml2:LogoutRequest>`s and `<saml2:LogoutResponse>`s, which you can also add to [multiple relying parties](login/overview.md#servlet-saml2login-rpr-duplicated)
+1. - Second, indicate that your application wants to use SAML SLO to logout the end user
+
+> [!NOTE]
+> Adding `saml2Logout` adds the capability for logout to your service provider as a whole.
+> Because it is an optional capability, you need to enable it for each individual `RelyingPartyRegistration`.
+> You do this by setting the `RelyingPartyRegistration.Builder#singleLogoutServiceLocation` property as seen above.
+
+<a id="architecture"></a>
+
+## How Saml 2.0 Logout Works
+
+Next, let’s see the architectural components that Spring Security uses to support [SAML 2.0 Logout](https://docs.oasis-open.org/security/saml/v2.0/saml-profiles-2.0-os.pdf#page=37) in servlet-based applications, like the one we just saw.
+
+For RP-initiated logout:
+
+![number 1](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_1.png) Spring Security executes its [logout flow](../authentication/logout.md#logout-architecture), calling its `LogoutHandler`s to invalidate the session and perform other cleanup.
+It then invokes the [`Saml2RelyingPartyInitiatedLogoutSuccessHandler`](https://docs.spring.io/spring-security/site/docs/7.0.0/api/org/springframework/security/saml2/provider/service/web/authentication/logout/Saml2RelyingPartyInitiatedLogoutSuccessHandler.html).
+
+![number 2](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_2.png) The logout success handler uses an instance of
+[`Saml2LogoutRequestResolver`](https://docs.spring.io/spring-security/site/docs/7.0.0/api/org/springframework/security/saml2/provider/service/web/authentication/logout/Saml2LogoutRequestResolver.html) to create, sign, and serialize a `<saml2:LogoutRequest>`.
+It uses the keys and configuration from the [`RelyingPartyRegistration`](login/overview.md#servlet-saml2login-relyingpartyregistration) that is associated with the current `Saml2AuthenticatedPrincipal`.
+Then, it redirect-POSTs the `<saml2:LogoutRequest>` to the asserting party SLO endpoint
+
+The browser hands control over to the asserting party.
+If the asserting party redirects back (which it may not), then the application proceeds to step ![number 3](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_3.png).
+
+![number 3](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_3.png) The [`Saml2LogoutResponseFilter`](https://docs.spring.io/spring-security/site/docs/7.0.0/api/org/springframework/security/saml2/provider/service/web/authentication/logout/Saml2LogoutResponseFilter.html) deserializes, verifies, and processes the `<saml2:LogoutResponse>` with its [`Saml2LogoutResponseValidator`](https://docs.spring.io/spring-security/site/docs/7.0.0/api/org/springframework/security/saml2/provider/service/authentication/logout/Saml2LogoutResponseValidator.html).
+
+![number 4](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_4.png) If valid, then it completes the local logout flow by redirecting to `/login?logout`, or whatever has been configured.
+If invalid, then it responds with a 400.
+
+For AP-initiated logout:
+
+![number 1](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_1.png) The [`Saml2LogoutRequestFilter`](https://docs.spring.io/spring-security/site/docs/7.0.0/api/org/springframework/security/saml2/provider/service/web/authentication/logout/Saml2LogoutRequestFilter.html) deserializes, verifies, and processes the `<saml2:LogoutRequest>` with its [`Saml2LogoutRequestValidator`](https://docs.spring.io/spring-security/site/docs/7.0.0/api/org/springframework/security/saml2/provider/service/authentication/logout/Saml2LogoutRequestValidator.html).
+
+![number 2](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_2.png) If valid, then the filter calls the configured `LogoutHandler`s, invalidating the session and performing other cleanup.
+
+![number 3](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_3.png) It uses a [`Saml2LogoutResponseResolver`](https://docs.spring.io/spring-security/site/docs/7.0.0/api/org/springframework/security/saml2/provider/service/web/authentication/logout/Saml2LogoutResponseResolver.html) to create, sign and serialize a `<saml2:LogoutResponse>`.
+It uses the keys and configuration from the [`RelyingPartyRegistration`](login/overview.md#servlet-saml2login-relyingpartyregistration) derived from the endpoint or from the contents of the `<saml2:LogoutRequest>`.
+Then, it redirect-POSTs the `<saml2:LogoutResponse>` to the asserting party SLO endpoint.
+
+The browser hands control over to the asserting party.
+
+![number 4](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.0/docs/modules/ROOT/assets/images/icons/number_4.png) If invalid, then it [responds with a 400](https://github.com/spring-projects/spring-security/pull/14676).
+
+<a id="_configuring_logout_endpoints"></a>
+
+## Configuring Logout Endpoints
+
+There are three behaviors that can be triggered by different endpoints:
+
+- RP-initiated logout, which allows an authenticated user to `POST` and trigger the logout process by sending the asserting party a `<saml2:LogoutRequest>`
+- AP-initiated logout, which allows an asserting party to send a `<saml2:LogoutRequest>` to the application
+- AP logout response, which allows an asserting party to send a `<saml2:LogoutResponse>` in response to the RP-initiated `<saml2:LogoutRequest>`
+
+The first is triggered by performing normal `POST /logout` when the principal is of type `Saml2AuthenticatedPrincipal`.
+
+The second is triggered by POSTing to the `/logout/saml2/slo` endpoint with a `SAMLRequest` signed by the asserting party.
+
+The third is triggered by POSTing to the `/logout/saml2/slo` endpoint with a `SAMLResponse` signed by the asserting party.
+
+Because the user is already logged in or the original Logout Request is known, the `registrationId` is already known.
+For this reason, `{registrationId}` is not part of these URLs by default.
+
+This URL is customizable in the DSL.
+
+For example, if you are migrating your existing relying party over to Spring Security, your asserting party may already be pointing to `GET /SLOService.saml2`.
+To reduce changes in configuration for the asserting party, you can configure the filter in the DSL like so:
+
+#### Java
+
+```java
+http
+    .saml2Logout((saml2) -> saml2
+        .logoutRequest((request) -> request.logoutUrl("/SLOService.saml2"))
+        .logoutResponse((response) -> response.logoutUrl("/SLOService.saml2"))
+    );
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    saml2Logout {
+        logoutRequest {
+            logoutUrl = "/SLOService.saml2"
+        }
+        logoutResponse {
+            logoutUrl = "/SLOService.saml2"
+        }
+    }
+}
+```
+
+You should also configure these endpoints in your `RelyingPartyRegistration`.
+
+Also, you can customize the endpoint for triggering logout locally like so:
+
+#### Java
+
+```java
+http
+    .saml2Logout((saml2) -> saml2.logoutUrl("/saml2/logout"));
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    saml2Logout {
+        logoutUrl = "/saml2/logout"
+    }
+}
+```
+
+<a id="separating-local-saml2-logout"></a>
+
+### Separating Local Logout from SAML 2.0 Logout
+
+In some cases, you may want to expose one logout endpoint for local logout and another for RP-initiated SLO.
+Like is the case with other logout mechanisms, you can register more than one, so long as they each have a different endpoint.
+
+So, for example, you can wire the DSL like so:
+
+#### Java
+
+```java
+http
+    .logout((logout) -> logout.logoutUrl("/logout"))
+    .saml2Logout((saml2) -> saml2.logoutUrl("/saml2/logout"));
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    logout {
+        logoutUrl = "/logout"
+    }
+    saml2Logout {
+        logoutUrl = "/saml2/logout"
+    }
+}
+```
+
+and now if a client sends a `POST /logout`, the session will be cleared, but there won’t be a `<saml2:LogoutRequest>` sent to the asserting party.
+But, if the client sends a `POST /saml2/logout`, then the application will initiate SAML 2.0 SLO as normal.
+
+<a id="_customizing_saml2logoutrequest_resolution"></a>
+
+## Customizing `<saml2:LogoutRequest>` Resolution
+
+It’s common to need to set other values in the `<saml2:LogoutRequest>` than the defaults that Spring Security provides.
+
+By default, Spring Security will issue a `<saml2:LogoutRequest>` and supply:
+
+- The `DestinationValidator` attribute - from `RelyingPartyRegistration#getAssertingPartyMetadata#getSingleLogoutServiceLocation`
+- The `ID` attribute - a GUID
+- The `<Issuer>` element - from `RelyingPartyRegistration#getEntityId`
+- The `<NameID>` element - from `Authentication#getName`
+
+To add other values, you can use delegation, like so:
+
+#### Java
+
+```java
+@Bean
+Saml2LogoutRequestResolver logoutRequestResolver(RelyingPartyRegistrationRepository registrations) {
+	OpenSaml5LogoutRequestResolver logoutRequestResolver =
+			new OpenSaml5LogoutRequestResolver(registrations);
+	logoutRequestResolver.setParametersConsumer((parameters) -> {
+		String name = ((Saml2AuthenticatedPrincipal) parameters.getAuthentication().getPrincipal()).getFirstAttribute("CustomAttribute");
+		String format = "urn:oasis:names:tc:SAML:2.0:nameid-format:transient";
+		LogoutRequest logoutRequest = parameters.getLogoutRequest();
+		NameID nameId = logoutRequest.getNameID();
+		nameId.setValue(name);
+		nameId.setFormat(format);
+	});
+	return logoutRequestResolver;
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+open fun logoutRequestResolver(registrations:RelyingPartyRegistrationRepository?): Saml2LogoutRequestResolver {
+    val logoutRequestResolver = OpenSaml5LogoutRequestResolver(registrations)
+    logoutRequestResolver.setParametersConsumer { parameters: LogoutRequestParameters ->
+        val name: String = (parameters.getAuthentication().getPrincipal() as Saml2AuthenticatedPrincipal).getFirstAttribute("CustomAttribute")
+        val format = "urn:oasis:names:tc:SAML:2.0:nameid-format:transient"
+        val logoutRequest: LogoutRequest = parameters.getLogoutRequest()
+        val nameId: NameID = logoutRequest.getNameID()
+        nameId.setValue(name)
+        nameId.setFormat(format)
+    }
+    return logoutRequestResolver
+}
+```
+
+Then, you can supply your custom `Saml2LogoutRequestResolver` in the DSL as follows:
+
+#### Java
+
+```java
+http
+    .saml2Logout((saml2) -> saml2
+        .logoutRequest((request) -> request
+            .logoutRequestResolver(this.logoutRequestResolver)
+        )
+    );
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    saml2Logout {
+        logoutRequest {
+            logoutRequestResolver = this.logoutRequestResolver
+        }
+    }
+}
+```
+
+<a id="_customizing_saml2logoutresponse_resolution"></a>
+
+## Customizing `<saml2:LogoutResponse>` Resolution
+
+It’s common to need to set other values in the `<saml2:LogoutResponse>` than the defaults that Spring Security provides.
+
+By default, Spring Security will issue a `<saml2:LogoutResponse>` and supply:
+
+- The `DestinationValidator` attribute - from `RelyingPartyRegistration#getAssertingPartyMetadata#getSingleLogoutServiceResponseLocation`
+- The `ID` attribute - a GUID
+- The `<Issuer>` element - from `RelyingPartyRegistration#getEntityId`
+- The `<Status>` element - `SUCCESS`
+
+To add other values, you can use delegation, like so:
+
+#### Java
+
+```java
+@Bean
+public Saml2LogoutResponseResolver logoutResponseResolver(RelyingPartyRegistrationRepository registrations) {
+	OpenSaml5LogoutResponseResolver logoutRequestResolver =
+			new OpenSaml5LogoutResponseResolver(registrations);
+	logoutRequestResolver.setParametersConsumer((parameters) -> {
+		if (checkOtherPrevailingConditions(parameters.getRequest())) {
+			parameters.getLogoutRequest().getStatus().getStatusCode().setCode(StatusCode.PARTIAL_LOGOUT);
+		}
+	});
+	return logoutRequestResolver;
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+open fun logoutResponseResolver(registrations: RelyingPartyRegistrationRepository?): Saml2LogoutResponseResolver {
+    val logoutRequestResolver = OpenSaml5LogoutResponseResolver(registrations)
+    logoutRequestResolver.setParametersConsumer { LogoutResponseParameters parameters ->
+        if (checkOtherPrevailingConditions(parameters.getRequest())) {
+            parameters.getLogoutRequest().getStatus().getStatusCode().setCode(StatusCode.PARTIAL_LOGOUT)
+        }
+    }
+    return logoutRequestResolver
+}
+```
+
+Then, you can supply your custom `Saml2LogoutResponseResolver` in the DSL as follows:
+
+#### Java
+
+```java
+http
+    .saml2Logout((saml2) -> saml2
+        .logoutRequest((request) -> request
+            .logoutRequestResolver(this.logoutRequestResolver)
+        )
+    );
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    saml2Logout {
+        logoutRequest {
+            logoutRequestResolver = this.logoutRequestResolver
+        }
+    }
+}
+```
+
+<a id="_customizing_saml2logoutrequest_authentication"></a>
+
+## Customizing `<saml2:LogoutRequest>` Authentication
+
+To customize validation, you can implement your own `Saml2LogoutRequestValidator`.
+At this point, the validation is minimal, so you may be able to first delegate to the default `Saml2LogoutRequestValidator` like so:
+
+#### Java
+
+```java
+@Component
+public class MyOpenSamlLogoutRequestValidator implements Saml2LogoutRequestValidator {
+	private final Saml2LogoutRequestValidator delegate = new OpenSaml5LogoutRequestValidator();
+
+	@Override
+    public Saml2LogoutRequestValidator logout(Saml2LogoutRequestValidatorParameters parameters) {
+		 // verify signature, issuer, destination, and principal name
+		Saml2LogoutValidatorResult result = delegate.authenticate(authentication);
+
+		LogoutRequest logoutRequest = // ... parse using OpenSAML
+        // perform custom validation
+    }
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Component
+open class MyOpenSamlLogoutRequestValidator: Saml2LogoutRequestValidator {
+	private val delegate = OpenSaml5LogoutRequestValidator()
+
+	@Override
+    fun logout(parameters: Saml2LogoutRequestValidatorParameters): Saml2LogoutRequestValidator {
+		 // verify signature, issuer, destination, and principal name
+		val result = delegate.authenticate(authentication)
+
+		val logoutRequest: LogoutRequest = // ... parse using OpenSAML
+        // perform custom validation
+    }
+}
+```
+
+Then, you can supply your custom `Saml2LogoutRequestValidator` in the DSL as follows:
+
+#### Java
+
+```java
+http
+    .saml2Logout((saml2) -> saml2
+        .logoutRequest((request) -> request
+            .logoutRequestValidator(myOpenSamlLogoutRequestValidator)
+        )
+    );
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    saml2Logout {
+        logoutRequest {
+            logoutRequestValidator = myOpenSamlLogoutRequestValidator
+        }
+    }
+}
+```
+
+<a id="_customizing_saml2logoutresponse_authentication"></a>
+
+## Customizing `<saml2:LogoutResponse>` Authentication
+
+To customize validation, you can implement your own `Saml2LogoutResponseValidator`.
+At this point, the validation is minimal, so you may be able to first delegate to the default `Saml2LogoutResponseValidator` like so:
+
+#### Java
+
+```java
+@Component
+public class MyOpenSamlLogoutResponseValidator implements Saml2LogoutResponseValidator {
+	private final Saml2LogoutResponseValidator delegate = new OpenSaml5LogoutResponseValidator();
+
+	@Override
+    public Saml2LogoutValidatorResult logout(Saml2LogoutResponseValidatorParameters parameters) {
+		// verify signature, issuer, destination, and status
+		Saml2LogoutValidatorResult result = delegate.authenticate(parameters);
+
+		LogoutResponse logoutResponse = // ... parse using OpenSAML
+        // perform custom validation
+    }
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Component
+open class MyOpenSamlLogoutResponseValidator: Saml2LogoutResponseValidator {
+	private val delegate = OpenSaml5LogoutResponseValidator()
+
+	@Override
+    fun logout(parameters: Saml2LogoutResponseValidatorParameters): Saml2LogoutResponseValidator {
+		// verify signature, issuer, destination, and status
+		val result = delegate.authenticate(authentication)
+
+		val logoutResponse: LogoutResponse = // ... parse using OpenSAML
+        // perform custom validation
+    }
+}
+```
+
+Then, you can supply your custom `Saml2LogoutResponseValidator` in the DSL as follows:
+
+#### Java
+
+```java
+http
+    .saml2Logout((saml2) -> saml2
+        .logoutResponse((response) -> response
+            .logoutResponseAuthenticator(myOpenSamlLogoutResponseAuthenticator)
+        )
+    );
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    saml2Logout {
+        logoutResponse {
+            logoutResponseValidator = myOpenSamlLogoutResponseValidator
+        }
+    }
+}
+```
+
+<a id="_customizing_saml2logoutrequest_storage"></a>
+
+## Customizing `<saml2:LogoutRequest>` storage
+
+When your application sends a `<saml2:LogoutRequest>`, the value is stored in the session so that the `RelayState` parameter and the `InResponseTo` attribute in the `<saml2:LogoutResponse>` can be verified.
+
+If you want to store logout requests in some place other than the session, you can supply your custom implementation in the DSL, like so:
+
+#### Java
+
+```java
+http
+    .saml2Logout((saml2) -> saml2
+        .logoutRequest((request) -> request
+            .logoutRequestRepository(myCustomLogoutRequestRepository)
+        )
+    );
+```
+
+#### Kotlin
+
+```kotlin
+http {
+    saml2Logout {
+        logoutRequest {
+            logoutRequestRepository = myCustomLogoutRequestRepository
+        }
+    }
+}
+```
+
+<a id="jc-logout-references"></a>
+
+## Further Logout-Related References
+
+- [Testing Logout](../test/mockmvc/logout.md#test-logout)
+- [HttpServletRequest.logout()](../integrations/servlet-api.md#servletapi-logout)
+- [Logging Out](../exploits/csrf.md#csrf-considerations-logout) in section CSRF Caveats

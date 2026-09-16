@@ -1,0 +1,365 @@
+---
+title: "OIDC Logout"
+source: "ROOT:servlet/oauth2/login/logout.adoc"
+---
+
+# OIDC Logout
+
+Once an end user is able to login to your application, it’s important to consider how they will log out.
+
+Generally speaking, there are three use cases for you to consider:
+
+1. I want to perform only a local logout
+1. I want to log out both my application and the OIDC Provider, initiated by my application
+1. I want to log out both my application and the OIDC Provider, initiated by the OIDC Provider
+
+<a id="configure-local-logout"></a>
+
+## Local Logout
+
+To perform a local logout, no special OIDC configuration is needed.
+Spring Security automatically stands up a local logout endpoint, which you can [configure through the `logout()` DSL](../../authentication/logout.md).
+
+<a id="configure-client-initiated-oidc-logout"></a>
+
+## OpenID Connect 1.0 Client-Initiated Logout
+
+OpenID Connect Session Management 1.0 allows the ability to log out the end user at the Provider by using the Client.
+One of the strategies available is [RP-Initiated Logout](https://openid.net/specs/openid-connect-rpinitiated-1_0.html).
+
+If the OpenID Provider supports both Session Management and [Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html), the client can obtain the `end_session_endpoint` `URL` from the OpenID Provider’s [Discovery Metadata](https://openid.net/specs/openid-connect-session-1_0.html#OPMetadata).
+You can do so by configuring the `ClientRegistration` with the `issuer-uri`, as follows:
+
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          okta:
+            client-id: okta-client-id
+            client-secret: okta-client-secret
+            ...
+        provider:
+          okta:
+            issuer-uri: https://dev-1234.oktapreview.com
+```
+
+Also, you should configure `OidcClientInitiatedLogoutSuccessHandler`, which implements RP-Initiated Logout, as follows:
+
+#### Java
+
+```java
+@Configuration
+@EnableWebSecurity
+public class OAuth2LoginSecurityConfig {
+
+	@Autowired
+	private ClientRegistrationRepository clientRegistrationRepository;
+
+	@Bean
+	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+		http
+			.authorizeHttpRequests(authorize -> authorize
+				.anyRequest().authenticated()
+			)
+			.oauth2Login(withDefaults())
+			.logout(logout -> logout
+				.logoutSuccessHandler(oidcLogoutSuccessHandler())
+			);
+		return http.build();
+	}
+
+	private LogoutSuccessHandler oidcLogoutSuccessHandler() {
+		OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
+				new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
+
+		// Sets the location that the End-User's User Agent will be redirected to
+		// after the logout has been performed at the Provider
+		oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}");
+
+		return oidcLogoutSuccessHandler;
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+@EnableWebSecurity
+class OAuth2LoginSecurityConfig {
+    @Autowired
+    private lateinit var clientRegistrationRepository: ClientRegistrationRepository
+
+    @Bean
+    open fun filterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            authorizeHttpRequests {
+                authorize(anyRequest, authenticated)
+            }
+            oauth2Login { }
+            logout {
+                logoutSuccessHandler = oidcLogoutSuccessHandler()
+            }
+        }
+        return http.build()
+    }
+
+    private fun oidcLogoutSuccessHandler(): LogoutSuccessHandler {
+        val oidcLogoutSuccessHandler = OidcClientInitiatedLogoutSuccessHandler(clientRegistrationRepository)
+
+        // Sets the location that the End-User's User Agent will be redirected to
+        // after the logout has been performed at the Provider
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}")
+        return oidcLogoutSuccessHandler
+    }
+}
+```
+
+> [!NOTE]
+> `OidcClientInitiatedLogoutSuccessHandler` supports the `{baseUrl}` placeholder.
+> If used, the application’s base URL, such as `app.example.org`, replaces it at request time.
+
+<a id="configure-provider-initiated-oidc-logout"></a>
+
+## OpenID Connect 1.0 Back-Channel Logout
+
+OpenID Connect Session Management 1.0 allows the ability to log out the end user at the Client by having the Provider make an API call to the Client.
+This is referred to as [OIDC Back-Channel Logout](https://openid.net/specs/openid-connect-backchannel-1_0.html).
+
+To enable this, you can stand up the Back-Channel Logout endpoint in the DSL like so:
+
+#### Java
+
+```java
+@Bean
+OidcBackChannelLogoutHandler oidcLogoutHandler() {
+	return new OidcBackChannelLogoutHandler();
+}
+
+@Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http
+        .authorizeHttpRequests((authorize) -> authorize
+            .anyRequest().authenticated()
+        )
+        .oauth2Login(withDefaults())
+        .oidcLogout((logout) -> logout
+            .backChannel(Customizer.withDefaults())
+        );
+    return http.build();
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun oidcLogoutHandler(): OidcBackChannelLogoutHandler {
+    return OidcBackChannelLogoutHandler()
+}
+
+@Bean
+open fun filterChain(http: HttpSecurity): SecurityFilterChain {
+    http {
+        authorizeRequests {
+            authorize(anyRequest, authenticated)
+        }
+        oauth2Login { }
+        oidcLogout {
+            backChannel { }
+        }
+    }
+    return http.build()
+}
+```
+
+Then, you need a way listen to events published by Spring Security to remove old `OidcSessionInformation` entries, like so:
+
+#### Java
+
+```java
+@Bean
+public HttpSessionEventPublisher sessionEventPublisher() {
+    return new HttpSessionEventPublisher();
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+open fun sessionEventPublisher(): HttpSessionEventPublisher {
+    return HttpSessionEventPublisher()
+}
+```
+
+This will make so that if `HttpSession#invalidate` is called, then the session is also removed from memory.
+
+And that’s it!
+
+This will stand up the endpoint `/logout/connect/back-channel/{registrationId}` which the OIDC Provider can request to invalidate a given session of an end user in your application.
+
+> [!NOTE]
+> `oidcLogout` requires that `oauth2Login` also be configured.
+
+> [!NOTE]
+> `oidcLogout` requires that the session cookie be called `JSESSIONID` in order to correctly log out each session through a backchannel.
+
+<a id="_back_channel_logout_architecture"></a>
+
+### Back-Channel Logout Architecture
+
+Consider a `ClientRegistration` whose identifier is `registrationId`.
+
+The overall flow for a Back-Channel logout is like this:
+
+1. At login time, Spring Security correlates the ID Token, CSRF Token, and Provider Session ID (if any) to your application’s session id in its `OidcSessionRegistry` implementation.
+1. Then at logout time, your OIDC Provider makes an API call to `/logout/connect/back-channel/registrationId` including a Logout Token that indicates either the `sub` (the End User) or the `sid` (the Provider Session ID) to logout.
+1. Spring Security validates the token’s signature and claims.
+1. If the token contains a `sid` claim, then only the Client’s session that correlates to that provider session is terminated.
+1. Otherwise, if the token contains a `sub` claim, then all that Client’s sessions for that End User are terminated.
+
+> [!NOTE]
+> Remember that Spring Security’s OIDC support is multi-tenant.
+> This means that it will only terminate sessions whose Client matches the `aud` claim in the Logout Token.
+
+One notable part of this architecture’s implementation is that it propagates the incoming back-channel request internally for each corresponding session.
+Initially, this may seem unnecessary.
+However, recall that the Servlet API does not give direct access to the `HttpSession` store.
+By making an internal logout call, the corresponding session can now be validated.
+
+Additionally, forging a logout call internally allows for each set of `LogoutHandler`s to be run against that session and corresponding `SecurityContext`.
+
+<a id="_customizing_the_session_logout_endpoint"></a>
+
+### Customizing the Session Logout Endpoint
+
+With `OidcBackChannelLogoutHandler` published, the session logout endpoint is `{baseUrl}/logout/connect/back-channel/{registrationId}`.
+
+If `OidcBackChannelLogoutHandler` is not wired, then the URL is `{baseUrl}/logout/connect/back-channel/{registrationId}`, which is not recommended since it requires passing a CSRF token, which can be challenging depending on the kind of repository your application uses.
+
+In the event that you need to customize the endpoint, you can provide the URL as follows:
+
+#### Java
+
+```
+http
+    // ...
+    .oidcLogout((oidc) -> oidc
+        .backChannel((backChannel) -> backChannel
+            .logoutUri("http://localhost:9000/logout/connect/back-channel/+{registrationId}+")
+        )
+    );
+```
+
+#### Kotlin
+
+```
+http {
+    oidcLogout {
+        backChannel {
+            logoutUri = "http://localhost:9000/logout/connect/back-channel/+{registrationId}+"
+        }
+    }
+}
+```
+
+<a id="_customizing_the_session_logout_cookie_name"></a>
+
+### Customizing the Session Logout Cookie Name
+
+By default, the session logout endpoint uses the `JSESSIONID` cookie to correlate the session to the corresponding `OidcSessionInformation`.
+
+However, the default cookie name in Spring Session is `SESSION`.
+
+You can configure Spring Session’s cookie name in the DSL like so:
+
+#### Java
+
+```
+@Bean
+OidcBackChannelLogoutHandler oidcLogoutHandler(OidcSessionRegistry sessionRegistry) {
+    OidcBackChannelLogoutHandler logoutHandler = new OidcBackChannelLogoutHandler(oidcSessionRegistry);
+    logoutHandler.setSessionCookieName("SESSION");
+    return logoutHandler;
+}
+```
+
+#### Kotlin
+
+```
+@Bean
+open fun oidcLogoutHandler(val sessionRegistry: OidcSessionRegistry): OidcBackChannelLogoutHandler {
+    val logoutHandler = OidcBackChannelLogoutHandler(sessionRegistry)
+    logoutHandler.setSessionCookieName("SESSION")
+    return logoutHandler
+}
+```
+
+<a id="oidc-backchannel-logout-session-registry"></a>
+
+### Customizing the OIDC Provider Session Registry
+
+By default, Spring Security stores in-memory all links between the OIDC Provider session and the Client session.
+
+There are a number of circumstances, like a clustered application, where it would be nice to store this instead in a separate location, like a database.
+
+You can achieve this by configuring a custom `OidcSessionRegistry`, like so:
+
+#### Java
+
+```java
+@Component
+public final class MySpringDataOidcSessionRegistry implements OidcSessionRegistry {
+    private final OidcProviderSessionRepository sessions;
+
+    // ...
+
+    @Override
+    public void saveSessionInformation(OidcSessionInformation info) {
+        this.sessions.save(info);
+    }
+
+    @Override
+    public OidcSessionInformation removeSessionInformation(String clientSessionId) {
+       return this.sessions.removeByClientSessionId(clientSessionId);
+    }
+
+    @Override
+    public Iterable<OidcSessionInformation> removeSessionInformation(OidcLogoutToken token) {
+        return token.getSessionId() != null ?
+            this.sessions.removeBySessionIdAndIssuerAndAudience(...) :
+            this.sessions.removeBySubjectAndIssuerAndAudience(...);
+    }
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Component
+class MySpringDataOidcSessionRegistry: OidcSessionRegistry {
+    val sessions: OidcProviderSessionRepository
+
+    // ...
+
+    @Override
+    fun saveSessionInformation(info: OidcSessionInformation) {
+        this.sessions.save(info)
+    }
+
+    @Override
+    fun removeSessionInformation(clientSessionId: String): OidcSessionInformation {
+       return this.sessions.removeByClientSessionId(clientSessionId);
+    }
+
+    @Override
+    fun removeSessionInformation(token: OidcLogoutToken): Iterable<OidcSessionInformation> {
+        return token.getSessionId() != null ?
+            this.sessions.removeBySessionIdAndIssuerAndAudience(...) :
+            this.sessions.removeBySubjectAndIssuerAndAudience(...);
+    }
+}
+```

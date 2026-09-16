@@ -1,0 +1,429 @@
+---
+title: "Java Configuration"
+source: "ROOT:servlet/configuration/java.adoc"
+---
+
+<a id="jc"></a>
+
+# Java Configuration
+
+General support for [Java configuration](https://docs.spring.io/spring/docs/3.1.x/spring-framework-reference/html/beans.html#beans-java) was added to Spring Framework in Spring 3.1.
+Spring Security 3.2 introduced Java configuration to let users configure Spring Security without the use of any XML.
+
+If you are familiar with the [Security Namespace Configuration](xml-namespace.md#ns-config), you should find quite a few similarities between it and Spring Security Java configuration.
+
+> [!NOTE]
+> Spring Security provides [lots of sample applications](https://github.com/spring-projects/spring-security-samples/tree/main/servlet/java-configuration) to demonstrate the use of Spring Security Java Configuration.
+
+<a id="jc-hello-wsca"></a>
+
+## Hello Web Security Java Configuration
+
+The first step is to create our Spring Security Java Configuration.
+The configuration creates a Servlet Filter known as the `springSecurityFilterChain`, which is responsible for all the security (protecting the application URLs, validating submitted username and passwords, redirecting to the log in form, and so on) within your application.
+The following example shows the most basic example of a Spring Security Java Configuration:
+
+```java
+import org.springframework.beans.factory.annotation.Autowired;
+
+import org.springframework.context.annotation.*;
+import org.springframework.security.config.annotation.authentication.builders.*;
+import org.springframework.security.config.annotation.web.configuration.*;
+
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig {
+
+	@Bean
+	public UserDetailsService userDetailsService() {
+		InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
+		manager.createUser(User.withDefaultPasswordEncoder().username("user").password("password").roles("USER").build());
+		return manager;
+	}
+}
+```
+
+This configuration is not complex or extensive, but it does a lot:
+
+- Require authentication to every URL in your application
+- Generate a login form for you
+- Let the user with a **Username** of `user` and a **Password** of `password` authenticate with form based authentication
+- Let the user logout
+- [CSRF attack](https://en.wikipedia.org/wiki/Cross-site_request_forgery) prevention
+- [Session Fixation](https://en.wikipedia.org/wiki/Session_fixation) protection
+- Security Header integration:
+
+  - [HTTP Strict Transport Security](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) for secure requests
+  - [X-Content-Type-Options](<https://msdn.microsoft.com/en-us/library/ie/gg622941(v=vs.85).aspx>) integration
+  - Cache Control (which you can override later in your application to allow caching of your static resources)
+  - [X-XSS-Protection](<https://msdn.microsoft.com/en-us/library/dd565647(v=vs.85).aspx>) integration
+  - X-Frame-Options integration to help prevent [Clickjacking](https://en.wikipedia.org/wiki/Clickjacking)
+- Integration with the following Servlet API methods:
+
+  - [`HttpServletRequest#getRemoteUser()`](<https://docs.oracle.com/javaee/6/api/javax/servlet/http/HttpServletRequest.html#getRemoteUser()>)
+  - [`HttpServletRequest#getUserPrincipal()`](<https://docs.oracle.com/javaee/6/api/javax/servlet/http/HttpServletRequest.html#getUserPrincipal()>)
+  - [`HttpServletRequest#isUserInRole(java.lang.String)`](<https://docs.oracle.com/javaee/6/api/javax/servlet/http/HttpServletRequest.html#isUserInRole(java.lang.String)>)
+  - [`HttpServletRequest#login(java.lang.String, java.lang.String)`](<https://docs.oracle.com/javaee/6/api/javax/servlet/http/HttpServletRequest.html#login(java.lang.String,%20java.lang.String)>)
+  - [`HttpServletRequest#logout()`](<https://docs.oracle.com/javaee/6/api/javax/servlet/http/HttpServletRequest.html#logout()>)
+
+<a id="_abstractsecuritywebapplicationinitializer"></a>
+
+### AbstractSecurityWebApplicationInitializer
+
+The next step is to register the `springSecurityFilterChain` with the WAR file.
+You can do so in Java configuration with [Spring’s `WebApplicationInitializer` support](https://docs.spring.io/spring/docs/3.2.x/spring-framework-reference/html/mvc.html#mvc-container-config) in a Servlet 3.0+ environment.
+Not surprisingly, Spring Security provides a base class (`AbstractSecurityWebApplicationInitializer`) to ensure that the `springSecurityFilterChain` gets registered for you.
+The way in which we use `AbstractSecurityWebApplicationInitializer` differs depending on if we are already using Spring or if Spring Security is the only Spring component in our application.
+
+- [AbstractSecurityWebApplicationInitializer without Existing Spring](#abstractsecuritywebapplicationinitializer-without-existing-spring) - Use these instructions if you are not already using Spring
+- [AbstractSecurityWebApplicationInitializer with Spring MVC](#abstractsecuritywebapplicationinitializer-with-spring-mvc) - Use these instructions if you are already using Spring
+
+<a id="abstractsecuritywebapplicationinitializer-without-existing-spring"></a>
+
+### AbstractSecurityWebApplicationInitializer without Existing Spring
+
+If you are not using Spring or Spring MVC, you need to pass the `WebSecurityConfig` to the superclass to ensure the configuration is picked up:
+
+```java
+import org.springframework.security.web.context.*;
+
+public class SecurityWebApplicationInitializer
+	extends AbstractSecurityWebApplicationInitializer {
+
+	public SecurityWebApplicationInitializer() {
+		super(WebSecurityConfig.class);
+	}
+}
+```
+
+The `SecurityWebApplicationInitializer`:
+
+- Automatically registers the `springSecurityFilterChain` Filter for every URL in your application.
+- Add a `ContextLoaderListener` that loads the [WebSecurityConfig](#jc-hello-wsca).
+
+<a id="abstractsecuritywebapplicationinitializer-with-spring-mvc"></a>
+
+### AbstractSecurityWebApplicationInitializer with Spring MVC
+
+If we use Spring elsewhere in our application, we probably already have a `WebApplicationInitializer` that is loading our Spring Configuration.
+If we use the previous configuration, we would get an error.
+Instead, we should register Spring Security with the existing `ApplicationContext`.
+For example, if we use Spring MVC, our `SecurityWebApplicationInitializer` could look something like the following:
+
+```java
+import org.springframework.security.web.context.*;
+
+public class SecurityWebApplicationInitializer
+	extends AbstractSecurityWebApplicationInitializer {
+
+}
+```
+
+This onlys register the `springSecurityFilterChain` for every URL in your application.
+After that, we need to ensure that `WebSecurityConfig` was loaded in our existing `ApplicationInitializer`.
+For example, if we use Spring MVC it is added in the `getRootConfigClasses()`:
+
+<a id="message-web-application-inititializer-java"></a>
+
+```java
+public class MvcWebApplicationInitializer extends
+		AbstractAnnotationConfigDispatcherServletInitializer {
+
+	@Override
+	protected Class<?>[] getRootConfigClasses() {
+		return new Class[] { WebSecurityConfig.class };
+	}
+
+	// ... other overrides ...
+}
+```
+
+<a id="jc-httpsecurity"></a>
+
+## HttpSecurity
+
+Thus far, our [`WebSecurityConfig`](#jc-hello-wsca) contains only information about how to authenticate our users.
+How does Spring Security know that we want to require all users to be authenticated?
+How does Spring Security know we want to support form-based authentication?
+Actually, there is a configuration class (called `SecurityFilterChain`) that is being invoked behind the scenes.
+It is configured with the following default implementation:
+
+```java
+@Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+	http
+		.authorizeRequests(authorize -> authorize
+			.anyRequest().authenticated()
+		)
+		.formLogin(withDefaults())
+		.httpBasic(withDefaults());
+	return http.build();
+}
+```
+
+The default configuration (shown in the preceding example):
+
+- Ensures that any request to our application requires the user to be authenticated
+- Lets users authenticate with form based login
+- Lets users authenticate with HTTP Basic authentication
+
+Note that this configuration is parallels the XML Namespace configuration:
+
+```xml
+<http>
+	<intercept-url pattern="/**" access="authenticated"/>
+	<form-login />
+	<http-basic />
+</http>
+```
+
+<a id="_multiple_httpsecurity_instances"></a>
+
+## Multiple HttpSecurity Instances
+
+We can configure multiple `HttpSecurity` instances just as we can have multiple `<http>` blocks in XML.
+The key is to register multiple `SecurityFilterChain` `@Bean`s.
+The following example has a different configuration for URL’s that start with `/api/`.
+
+```java
+@Configuration
+@EnableWebSecurity
+public class MultiHttpSecurityConfig {
+	@Bean                                                             <1>
+	public UserDetailsService userDetailsService() throws Exception {
+		// ensure the passwords are encoded properly
+		UserBuilder users = User.withDefaultPasswordEncoder();
+		InMemoryUserDetailsManager manager = new InMemoryUserDetailsManager();
+		manager.createUser(users.username("user").password("password").roles("USER").build());
+		manager.createUser(users.username("admin").password("password").roles("USER","ADMIN").build());
+		return manager;
+	}
+
+	@Bean
+	@Order(1)                                                        <2>
+	public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
+		http
+			.securityMatcher("/api/**")                                   <3>
+			.authorizeHttpRequests(authorize -> authorize
+				.anyRequest().hasRole("ADMIN")
+			)
+			.httpBasic(withDefaults());
+		return http.build();
+	}
+
+	@Bean                                                            <4>
+	public SecurityFilterChain formLoginFilterChain(HttpSecurity http) throws Exception {
+		http
+			.authorizeHttpRequests(authorize -> authorize
+				.anyRequest().authenticated()
+			)
+			.formLogin(withDefaults());
+		return http.build();
+	}
+}
+```
+
+1. Configure Authentication as usual.
+1. Create an instance of `SecurityFilterChain` that contains `@Order` to specify which `SecurityFilterChain` should be considered first.
+1. The `http.securityMatcher` states that this `HttpSecurity` is applicable only to URLs that start with `/api/`.
+1. Create another instance of `SecurityFilterChain`.
+If the URL does not start with `/api/`, this configuration is used.
+This configuration is considered after `apiFilterChain`, since it has an `@Order` value after `1` (no `@Order` defaults to last).
+
+<a id="jc-custom-dsls"></a>
+
+## Custom DSLs
+
+You can provide your own custom DSLs in Spring Security:
+
+#### Java
+
+```java
+public class MyCustomDsl extends AbstractHttpConfigurer<MyCustomDsl, HttpSecurity> {
+	private boolean flag;
+
+	@Override
+	public void init(HttpSecurity http) throws Exception {
+		// any method that adds another configurer
+		// must be done in the init method
+		http.csrf().disable();
+	}
+
+	@Override
+	public void configure(HttpSecurity http) throws Exception {
+		ApplicationContext context = http.getSharedObject(ApplicationContext.class);
+
+		// here we lookup from the ApplicationContext. You can also just create a new instance.
+		MyFilter myFilter = context.getBean(MyFilter.class);
+		myFilter.setFlag(flag);
+		http.addFilterBefore(myFilter, UsernamePasswordAuthenticationFilter.class);
+	}
+
+	public MyCustomDsl flag(boolean value) {
+		this.flag = value;
+		return this;
+	}
+
+	public static MyCustomDsl customDsl() {
+		return new MyCustomDsl();
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+class MyCustomDsl : AbstractHttpConfigurer<MyCustomDsl, HttpSecurity>() {
+    var flag: Boolean = false
+
+    override fun init(http: HttpSecurity) {
+        // any method that adds another configurer
+        // must be done in the init method
+        http.csrf().disable()
+    }
+
+    override fun configure(http: HttpSecurity) {
+        val context: ApplicationContext = http.getSharedObject(ApplicationContext::class.java)
+
+        // here we lookup from the ApplicationContext. You can also just create a new instance.
+        val myFilter: MyFilter = context.getBean(MyFilter::class.java)
+        myFilter.setFlag(flag)
+        http.addFilterBefore(myFilter, UsernamePasswordAuthenticationFilter::class.java)
+    }
+
+    companion object {
+        @JvmStatic
+        fun customDsl(): MyCustomDsl {
+            return MyCustomDsl()
+        }
+    }
+}
+```
+
+> [!NOTE]
+> This is actually how methods like `HttpSecurity.authorizeRequests()` are implemented.
+
+You can then use the custom DSL:
+
+#### Java
+
+```java
+@Configuration
+@EnableWebSecurity
+public class Config {
+	@Bean
+	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+		http
+			.with(MyCustomDsl.customDsl(), (dsl) -> dsl
+				.flag(true)
+			)
+			// ...
+		return http.build();
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+@EnableWebSecurity
+class Config {
+
+    @Bean
+    fun filterChain(http: HttpSecurity): SecurityFilterChain {
+        http
+            .with(MyCustomDsl.customDsl()) {
+                flag = true
+            }
+            // ...
+
+        return http.build()
+    }
+}
+```
+
+The code is invoked in the following order:
+
+- Code in the `Config.filterChain` method is invoked
+- Code in the `MyCustomDsl.init` method is invoked
+- Code in the `MyCustomDsl.configure` method is invoked
+
+If you want, you can have `HttpSecurity` add `MyCustomDsl` by default by using `SpringFactories`.
+For example, you can create a resource on the classpath named `META-INF/spring.factories` with the following contents:
+
+#### META-INF/spring.factories
+
+```
+org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer = sample.MyCustomDsl
+```
+
+You can also explicit disable the default:
+
+#### Java
+
+```java
+@Configuration
+@EnableWebSecurity
+public class Config {
+	@Bean
+	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+		http
+			.with(MyCustomDsl.customDsl(), (dsl) -> dsl
+				.disable()
+			)
+			...;
+		return http.build();
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+@EnableWebSecurity
+class Config {
+
+    @Bean
+    fun filterChain(http: HttpSecurity): SecurityFilterChain {
+        http
+            .with(MyCustomDsl.customDsl()) {
+                disable()
+            }
+            // ...
+        return http.build()
+    }
+
+}
+```
+
+<a id="post-processing-configured-objects"></a>
+
+## Post Processing Configured Objects
+
+Spring Security’s Java configuration does not expose every property of every object that it configures.
+This simplifies the configuration for a majority of users.
+After all, if every property were exposed, users could use standard bean configuration.
+
+While there are good reasons to not directly expose every property, users may still need more advanced configuration options.
+To address this issue, Spring Security introduces the concept of an `ObjectPostProcessor`, which can be used to modify or replace many of the `Object` instances created by the Java Configuration.
+For example, to configure the `filterSecurityPublishAuthorizationSuccess` property on `FilterSecurityInterceptor`, you can use the following:
+
+```java
+@Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+	http
+		.authorizeRequests(authorize -> authorize
+			.anyRequest().authenticated()
+			.withObjectPostProcessor(new ObjectPostProcessor<FilterSecurityInterceptor>() {
+				public <O extends FilterSecurityInterceptor> O postProcess(
+						O fsi) {
+					fsi.setPublishAuthorizationSuccess(true);
+					return fsi;
+				}
+			})
+		);
+	return http.build();
+}
+```

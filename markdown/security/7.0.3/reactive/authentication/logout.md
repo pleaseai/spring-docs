@@ -1,0 +1,55 @@
+---
+title: "Logout"
+source: "ROOT:reactive/authentication/logout.adoc"
+---
+
+<a id="reactive-logout"></a>
+
+# Logout
+
+Spring Security provides a logout endpoint by default.
+Once logged in, you can `GET /logout` to see a default logout confirmation page, or you can `POST /logout` to initiate logout.
+This will:
+
+- clear the `ServerCsrfTokenRepository`, `ServerSecurityContextRepository`, and
+- redirect back to the login page
+
+Often, you will want to also invalidate the session on logout.
+To achieve this, you can add the `WebSessionServerLogoutHandler` to your logout configuration, like so:
+
+#### Java
+
+```java
+@Bean
+SecurityWebFilterChain http(ServerHttpSecurity http) throws Exception {
+    DelegatingServerLogoutHandler logoutHandler = new DelegatingServerLogoutHandler(
+            new SecurityContextServerLogoutHandler(), new WebSessionServerLogoutHandler()
+    );
+
+    http
+        .authorizeExchange((authorize) -> authorize.anyExchange().authenticated())
+        .logout((logout) -> logout.logoutHandler(logoutHandler));
+
+    return http.build();
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun http(http: ServerHttpSecurity): SecurityWebFilterChain {
+    val customLogoutHandler = DelegatingServerLogoutHandler(
+        SecurityContextServerLogoutHandler(), WebSessionServerLogoutHandler()
+    )
+
+    return http {
+        authorizeExchange {
+            authorize(anyExchange, authenticated)
+        }
+        logout {
+            logoutHandler = customLogoutHandler
+        }
+    }
+}
+```

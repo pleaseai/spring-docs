@@ -1,0 +1,115 @@
+---
+title: "Authorization Events"
+source: "ROOT:servlet/authorization/events.adoc"
+---
+
+<a id="servlet-events"></a>
+
+# Authorization Events
+
+For each authorization that is denied, an `AuthorizationDeniedEvent` is fired.
+Also, it’s possible to fire an `AuthorizationGrantedEvent` for authorizations that are granted.
+
+To listen for these events, you must first publish an `AuthorizationEventPublisher`.
+
+Spring Security’s `SpringAuthorizationEventPublisher` will probably do fine.
+It comes publishes authorization events using Spring’s `ApplicationEventPublisher`:
+
+#### Java
+
+```java
+@Bean
+public AuthorizationEventPublisher authorizationEventPublisher
+        (ApplicationEventPublisher applicationEventPublisher) {
+    return new SpringAuthorizationEventPublisher(applicationEventPublisher);
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun authorizationEventPublisher
+        (applicationEventPublisher: ApplicationEventPublisher?): AuthorizationEventPublisher {
+    return SpringAuthorizationEventPublisher(applicationEventPublisher)
+}
+```
+
+Then, you can use Spring’s `@EventListener` support:
+
+#### Java
+
+```java
+@Component
+public class AuthenticationEvents {
+
+    @EventListener
+    public void onFailure(AuthorizationDeniedEvent failure) {
+		// ...
+    }
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Component
+class AuthenticationEvents {
+
+    @EventListener
+    fun onFailure(failure: AuthorizationDeniedEvent?) {
+        // ...
+    }
+}
+```
+
+<a id="authorization-granted-events"></a>
+
+## Authorization Granted Events
+
+Because `AuthorizationGrantedEvent`s have the potential to be quite noisy, they are not published by default.
+
+In fact, publishing these events will likely require some business logic on your part to ensure that your application is not inundated with noisy authorization events.
+
+You can provide your own predicate that filters success events.
+For example, the following publisher only publishes authorization grants where `ROLE_ADMIN` was required:
+
+#### Java
+
+```java
+@Bean
+AuthorizationEventPublisher authorizationEventPublisher() {
+    SpringAuthorizationEventPublisher eventPublisher = new SpringAuthorizationEventPublisher();
+    eventPublisher.setShouldPublishEvent((result) -> {
+        if (!result.isGranted()) {
+            return true;
+        }
+        if (result instanceof AuthorityAuthorizationDecision decision) {
+            Collection<GrantedAuthority> authorities = decision.getAuthorities();
+            return AuthorityUtils.authorityListToSet(authorities).contains("ROLE_ADMIN");
+        }
+        return false;
+    });
+    return eventPublisher;
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun authorizationEventPublisher(): AuthorizationEventPublisher {
+    val eventPublisher = SpringAuthorizationEventPublisher()
+    eventPublisher.setShouldPublishEvent { (result) ->
+        if (!result.isGranted()) {
+            return true
+        }
+        if (decision is AuthorityAuthorizationDecision) {
+            val authorities = decision.getAuthorities()
+            return AuthorityUtils.authorityListToSet(authorities).contains("ROLE_ADMIN")
+        }
+        return false
+    }
+    return eventPublisher
+}
+```

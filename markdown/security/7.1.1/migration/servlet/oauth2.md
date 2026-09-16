@@ -1,0 +1,133 @@
+---
+title: "OAuth 2.0 Migrations"
+source: "ROOT:migration/servlet/oauth2.adoc"
+---
+
+# OAuth 2.0 Migrations
+
+<a id="_validate_typ_header_with_jwttypevalidator"></a>
+
+## Validate `typ` Header with `JwtTypeValidator`
+
+If when following the 6.5 preparatory steps you set `validateTypes` to `false`, you can now remove it.
+You can also remove explicitly adding `JwtTypeValidator` to the list of defaults.
+
+For example, change this:
+
+#### Java
+
+```java
+@Bean
+JwtDecoder jwtDecoder() {
+	NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withIssuerLocation(location)
+        .validateTypes(false) <1>
+        // ... your remaining configuration
+        .build();
+	jwtDecoder.setJwtValidator(JwtValidators.createDefaultWithValidators(
+		new JwtIssuerValidator(location), JwtTypeValidator.jwt())); <2>
+	return jwtDecoder;
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun jwtDecoder(): JwtDecoder {
+    val jwtDecoder = NimbusJwtDecoder.withIssuerLocation(location)
+        .validateTypes(false) <1>
+        // ... your remaining configuration
+        .build()
+    jwtDecoder.setJwtValidator(JwtValidators.createDefaultWithValidators(
+        JwtIssuerValidator(location), JwtTypeValidator.jwt())) <2>
+    return jwtDecoder
+}
+```
+
+1. - Switch off Nimbus verifying the `typ`
+1. - Add the default `typ` validator
+
+to this:
+
+#### Java
+
+```java
+@Bean
+JwtDecoder jwtDecoder() {
+	NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withIssuerLocation(location)
+        // ... your remaining configuration <1>
+        .build();
+	jwtDecoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(location)); <2>
+	return jwtDecoder;
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun jwtDecoder(): JwtDecoder {
+    val jwtDecoder = NimbusJwtDecoder.withIssuerLocation(location)
+        // ... your remaining configuration
+        .build()
+    jwtDecoder.setJwtValidator(JwtValidators.createDefaultWithIssuer(location)) <2>
+    return jwtDecoder
+}
+```
+
+1. - `validateTypes` now defaults to `false`
+1. - `JwtTypeValidator#jwt` is added by all `createDefaultXXX` methods
+
+<a id="_provide_an_authenticationconverter_to_bearertokenauthenticationfilter"></a>
+
+## Provide an AuthenticationConverter to BearerTokenAuthenticationFilter
+
+In Spring Security 7, `BearerTokenAuthenticationFilter#setBearerTokenResolver` and `#setAuthenticaionDetailsSource` are deprecated in favor of configuring those on `BearerTokenAuthenticationConverter`.
+
+The `oauth2ResourceServer` DSL addresses most use cases and you need to nothing.
+
+If you are setting a `BearerTokenResolver` or `AuthenticationDetailsSource` directly on `BearerTokenAuthenticationFilter` similar to the following:
+
+#### Java
+
+```java
+BearerTokenAuthenticationFilter filter = new BearerTokenAuthenticationFilter(authenticationManager);
+filter.setBearerTokenResolver(myBearerTokenResolver);
+filter.setAuthenticationDetailsSource(myAuthenticationDetailsSource);
+```
+
+#### Kotlin
+
+```kotlin
+val filter = BearerTokenAuthenticationFilter(authenticationManager)
+filter.setBearerTokenResolver(myBearerTokenResolver)
+filter.setAuthenticationDetailsSource(myAuthenticationDetailsSource)
+```
+
+you are encouraged to use `BearerTokenAuthenticationConverter` to specify both:
+
+#### Java
+
+```java
+BearerTokenAuthenticationConverter authenticationConverter =
+    new BearerTokenAuthenticationConverter();
+authenticationConverter.setBearerTokenResolver(myBearerTokenResolver);
+authenticationConverter.setAuthenticationDetailsSource(myAuthenticationDetailsSource);
+BearerTokenAuthenticationFilter filter = new BearerTokenAuthenticationFilter(authenticationManager, authenicationConverter);
+```
+
+#### Kotlin
+
+```kotlin
+val authenticationConverter = BearerTokenAuthenticationConverter()
+authenticationConverter.setBearerTokenResolver(myBearerTokenResolver)
+authenticationConverter.setAuthenticationDetailsSource(myAuthenticationDetailsSource)
+val filter = BearerTokenAuthenticationFilter(authenticationManager, authenticationConverter)
+```
+
+== `NimbusJwtDecoder’s Default Connect and Read Timeouts Are Now 30 Seconds
+
+``NimbusJwtDecoder’s default `RestOperations``, used to fetch a JWK Set when no `RestOperations` is otherwise configured, previously used a 500 millisecond connect and read timeout.
+This value was too short for many deployments and is now 30 seconds, aligning with the connect and read timeouts already used elsewhere in the OAuth2 Client and Resource Server support, such as [`ClientRegistrations`](../../servlet/oauth2/client/index.md).
+
+If your application relies on the previous, shorter timeout — for example, expecting a fast failure when the authorization server is unreachable — you can restore it either by setting the JDK’s `sun.net.client.defaultConnectTimeout` and `sun.net.client.defaultReadTimeout` system properties (in milliseconds), or by providing your own `RestOperations`, as described in [Configuring Timeouts](../../servlet/oauth2/resource-server/jwt.md#oauth2resourceserver-jwt-timeouts).
