@@ -343,7 +343,7 @@ spring:
 
 ### MongoTemplate
 
-[Spring Data MongoDB](https://spring.io/projects/spring-data-mongodb) provides a [`MongoTemplate`](https://docs.spring.io/spring-data/mongodb/docs/{version-spring-data-mongodb-javadoc}/api/org/springframework/data/mongodb/core/MongoTemplate.html) class that is very similar in its design to Spring’s `JdbcTemplate`.
+[Spring Data MongoDB](https://spring.io/projects/spring-data-mongodb) provides a [`MongoTemplate`](https://docs.spring.io/spring-data/mongodb/docs/4.3.x/api/org/springframework/data/mongodb/core/MongoTemplate.html) class that is very similar in its design to Spring’s `JdbcTemplate`.
 As with `JdbcTemplate`, Spring Boot auto-configures a bean for you to inject the template, as follows:
 
 #### Java
@@ -385,7 +385,7 @@ class MyBean(private val mongoTemplate: MongoTemplate) {
 }
 ```
 
-See the [`MongoOperations`](https://docs.spring.io/spring-data/mongodb/docs/{version-spring-data-mongodb-javadoc}/api/org/springframework/data/mongodb/core/MongoOperations.html) API documentation for complete details.
+See the [`MongoOperations`](https://docs.spring.io/spring-data/mongodb/docs/4.3.x/api/org/springframework/data/mongodb/core/MongoOperations.html) API documentation for complete details.
 
 <a id="data.nosql.mongodb.repositories"></a>
 
@@ -432,7 +432,7 @@ By default, the [auto-configuration packages](../using/auto-configuration.md#usi
 You can customize the locations to look for repositories and documents by using `@EnableMongoRepositories` and `@EntityScan` respectively.
 
 > [!TIP]
-> For complete details of Spring Data MongoDB, including its rich object mapping technologies, see its [reference documentation](https://docs.spring.io/spring-data/mongodb/reference/{version-spring-data-mongodb-docs}).
+> For complete details of Spring Data MongoDB, including its rich object mapping technologies, see its [reference documentation](https://docs.spring.io/spring-data/mongodb/reference/4.3).
 
 <a id="data.nosql.neo4j"></a>
 
@@ -536,7 +536,7 @@ Each will be called in order with the `ConfigBuilder` that is used to build the 
 ### Spring Data Neo4j Repositories
 
 Spring Data includes repository support for Neo4j.
-For complete details of Spring Data Neo4j, see the [reference documentation](https://docs.spring.io/spring-data/neo4j/reference/{version-spring-data-neo4j-docs}).
+For complete details of Spring Data Neo4j, see the [reference documentation](https://docs.spring.io/spring-data/neo4j/reference/7.3).
 
 Spring Data Neo4j shares the common infrastructure with Spring Data JPA as many other Spring Data modules do.
 You could take the JPA example from earlier and define `City` as Spring Data Neo4j `@Node` rather than JPA `@Entity` and the repository abstraction works in the same way, as shown in the following example:
@@ -777,7 +777,7 @@ By default, the [auto-configuration packages](../using/auto-configuration.md#usi
 You can customize the locations to look for repositories and documents by using `@EnableElasticsearchRepositories` and `@EntityScan` respectively.
 
 > [!TIP]
-> For complete details of Spring Data Elasticsearch, see the [reference documentation](https://docs.spring.io/spring-data/elasticsearch/reference/{version-spring-data-elasticsearch-docs}).
+> For complete details of Spring Data Elasticsearch, see the [reference documentation](https://docs.spring.io/spring-data/elasticsearch/reference/5.3).
 
 Spring Boot supports both classic and reactive Elasticsearch repositories, using the `ElasticsearchRestTemplate` or `ReactiveElasticsearchTemplate` beans.
 Most likely those beans are auto-configured by Spring Boot given the required dependencies are present.
@@ -1041,7 +1041,7 @@ Repositories and documents are found through scanning.
 By default, the [auto-configuration packages](../using/auto-configuration.md#using.auto-configuration.packages) are scanned.
 You can customize the locations to look for repositories and documents by using `@EnableCouchbaseRepositories` and `@EntityScan` respectively.
 
-For complete details of Spring Data Couchbase, see the [reference documentation](https://docs.spring.io/spring-data/couchbase/reference/{version-spring-data-couchbase-docs}).
+For complete details of Spring Data Couchbase, see the [reference documentation](https://docs.spring.io/spring-data/couchbase/reference/5.3).
 
 You can inject an auto-configured `CouchbaseTemplate` instance as you would with any other Spring Bean, provided a `CouchbaseClientFactory` bean is available.
 This happens when a `Cluster` is available, as described above, and a bucket name has been specified:
