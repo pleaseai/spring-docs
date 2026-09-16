@@ -4,6 +4,7 @@ import {
   parseManagedVersions,
   parseProperties,
   synthesizeAttributes,
+  versionSourceBoms,
 } from '../../scripts/lib/antora-attributes.ts'
 
 describe('parseProperties', () => {
@@ -151,6 +152,29 @@ describe('synthesizeAttributes', () => {
       .toBe('https://docs.spring.io/spring-data/jpa/docs/3.5.x/api')
   })
 
+  test('emits the spring-data documentation versions 3.3.4 and 3.3.5 link through', () => {
+    // Those two releases put these two names in the descriptor itself; 3.3.6
+    // moved the same values behind `antoraversion-`/`dotxversion-`. Both shapes
+    // are emitted, so the older corpus resolves without the newer one changing.
+    expect(attributes['version-spring-data-jpa-docs']).toBe('3.5')
+    expect(attributes['version-spring-data-jpa-javadoc']).toBe('3.5.x')
+  })
+
+  test('names every testcontainers module the corpus references', () => {
+    const withTestcontainers = synthesizeAttributes(sources({
+      managedVersions: {
+        'org.testcontainers:jdbc': '1.20.4',
+        'org.testcontainers:postgresql': '1.20.4',
+      },
+    }))
+
+    expect(withTestcontainers.attributes['version-testcontainers-jdbc']).toBe('1.20.4')
+    expect(withTestcontainers.attributes['version-testcontainers-postgresql']).toBe('1.20.4')
+    // A module the release does not manage is absent rather than dangling —
+    // upstream's own list grew and shrank across the era.
+    expect('version-testcontainers-redpanda' in withTestcontainers.attributes).toBe(false)
+  })
+
   test('passes attribute cross-references through for Asciidoctor to resolve', () => {
     expect(attributes['code-spring-boot']).toBe('https://github.com/{github-repo}/tree/{github-ref}')
     expect(attributes['url-ant-docs']).toBe('https://ant.apache.org/manual')
@@ -265,5 +289,35 @@ bom {
     expect(orphaned.unresolved).toContain('url-hibernate-javadoc')
     expect(orphaned.unresolved).toContain('javadoc-location-org-hibernate')
     expect(orphaned.attributes['javadoc-location-org-hibernate']).toBeUndefined()
+  })
+})
+
+describe('versionSourceBoms', () => {
+  test('fetches the testcontainers bom, which pins every module attribute', () => {
+    const boms = versionSourceBoms(
+      `
+bom {
+  library("Testcontainers", "1.20.4") {
+    group("org.testcontainers") {
+      imports = [
+        "testcontainers-bom"
+      ]
+    }
+  }
+  library("Unreferenced", "1.0.0") {
+    group("com.example") {
+      imports = [
+        "example-bom"
+      ]
+    }
+  }
+}
+`,
+      'version=3.5.16\n',
+    )
+
+    expect(boms).toEqual([
+      { groupId: 'org.testcontainers', artifactId: 'testcontainers-bom', version: '1.20.4' },
+    ])
   })
 })
