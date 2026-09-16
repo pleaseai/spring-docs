@@ -82,7 +82,7 @@ You should have a `<parent>` section that looks like this:
 <parent>
 	<groupId>org.springframework.boot</groupId>
 	<artifactId>spring-boot-starter-parent</artifactId>
-	<version>{version-spring-boot}</version>
+	<version>3.4.3</version>
 </parent>
 ```
 
