@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-15T13:47:09.470Z",
+  "generated_at": "2026-09-16T03:59:46.087Z",
   "projects": {
     "boot": {
       "3.3.0": {
@@ -401,6 +401,12 @@
       "7.0.9": {
         "tag": "framework-7.0.9",
         "released_at": "2026-09-15T13:43:47Z"
+      }
+    },
+    "security": {
+      "6.5.10": {
+        "tag": "security-6.5.10",
+        "released_at": "2026-09-16T03:59:45Z"
       }
     }
   }
