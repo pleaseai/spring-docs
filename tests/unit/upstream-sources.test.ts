@@ -73,7 +73,7 @@ describe('resolveUpstream', () => {
 
 describe('supportedProjects', () => {
   test('lists the known projects', () => {
-    expect(supportedProjects()).toEqual(['boot', 'framework'])
+    expect(supportedProjects()).toEqual(['boot', 'framework', 'security'])
   })
 })
 
@@ -354,5 +354,53 @@ describe('boot image base', () => {
     expect(resolveUpstream('boot', '4.1.1').imageBase).toBe(
       'https://docs.spring.io/spring-boot/4.1.1/_images',
     )
+  })
+})
+
+describe('resolveUpstream for Spring Security', () => {
+  test('tags a release as the bare version, with no v prefix', () => {
+    expect(resolveUpstream('security', '6.5.6').tag).toBe('6.5.6')
+  })
+
+  test('refuses a version older than the catalog its attributes are derived from', () => {
+    // `gradle/libs.versions.toml` first appears at 6.2.0; 6.1.x declares its
+    // dependency versions elsewhere, so the derivation has nothing to read.
+    expect(() => resolveUpstream('security', '6.1.0')).toThrow(/not buildable/)
+  })
+
+  test('resolves both eras to the same component path', () => {
+    expect(resolveUpstream('security', '6.2.0').componentPath).toBe('docs')
+    expect(resolveUpstream('security', '7.1.1').componentPath).toBe('docs')
+  })
+
+  test('checks out the two files its attributes are derived from', () => {
+    const { checkoutPaths } = resolveUpstream('security', '6.5.6')
+
+    // The sparse checkout and the derivation cannot disagree about these: the
+    // era declares them once and both sides read that declaration.
+    expect(checkoutPaths).toEqual(['docs', 'gradle/libs.versions.toml', 'gradle.properties'])
+  })
+
+  test('declares the examples symlink only for the era that ships one', () => {
+    // 6.5.1 added `modules/ROOT/examples/docs-src`; before it the component has
+    // no examples tree, and a declared-but-absent link fails the materialization.
+    const before = resolveUpstream('security', '6.5.0').assembly
+    const after = resolveUpstream('security', '6.5.1').assembly
+
+    expect(before.descriptor === 'overlay' && before.internalSymlinks).toEqual([])
+    expect(after.descriptor === 'overlay' && after.internalSymlinks).toEqual([
+      { path: 'modules/ROOT/examples/docs-src', target: 'src' },
+    ])
+  })
+
+  test('waits on no published artifact, because the tag carries everything', () => {
+    expect(requiredArtifactUrls('security', '6.5.6')).toEqual([])
+  })
+
+  test('points javadoc macros at the api root, which is not nested under java', () => {
+    // Unlike Boot, whose javadoc sits at `api/java`. Verified against
+    // `…/6.5.6/api/org/springframework/security/core/Authentication.html`.
+    expect(resolveUpstream('security', '6.5.6').javadocLocation)
+      .toBe('https://docs.spring.io/spring-security/site/docs/6.5.6/api')
   })
 })

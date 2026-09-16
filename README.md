@@ -42,8 +42,10 @@ pleaseai/spring-docs/
 ├── markdown/                    ← Generated content, organized by project/version
 │   ├── boot/
 │   │   └── 4.1.1/
-│   └── framework/
-│       └── 6.2.0/
+│   ├── framework/
+│   │   └── 6.2.0/
+│   └── security/
+│       └── 6.5.6/
 ├── scripts/                     ← Conversion pipeline
 │   ├── fetch-upstream.ts        ← Sparse checkout + archives, or reconstruction
 │   ├── convert.ts               ← AsciiDoc/Antora → Markdown
@@ -79,6 +81,7 @@ Each `(project, version)` pair gets its own tag and Release.
 |---|---|
 | `boot-4.1.1` | `boot-4.1.1.tar.gz`<br>`boot-4.1.1.tar.gz.sha256`<br>`manifest.json` |
 | `framework-6.2.0` | `framework-6.2.0.tar.gz` + checksum + manifest |
+| `security-6.5.6` | `security-6.5.6.tar.gz` + checksum + manifest |
 
 ### Archive contents
 
@@ -177,7 +180,7 @@ Consumers should prefer `catalog.json` over scraping the Releases page — it's 
 ## Generation pipeline
 
 1. **Detect new upstream release** — `nightly-detect.yml` runs `detect-upstream-versions.ts`, which diffs upstream's tags against `catalog.json` and files one issue per missing GA version. It builds nothing: a new upstream line can change the documentation layout, so a human decides.
-2. **Fetch** — `fetch-upstream.ts` assembles one Antora content source from two halves. The authored half is always a sparse checkout of the docs subtree at the release tag. The generated half — the resolved `antora.yml` attributes, the sample sources `include-code::` reads, and the configuration-property metadata `configprop:` validates against — depends on the version's layout era ([ADR-0004](./.please/docs/decisions/0004-synthesize-3x-component.md)): Spring Boot 4.0.8+ merge the content archive published to Maven Central; Boot 3.3-3.x reconstruct it from the tag plus the published `spring-boot-*` jars, because those archives are excluded from Spring's Maven Central sync; and Spring Framework 6.1+ need neither, because the tag already carries a complete descriptor and its own examples — its Gradle build contributes one attribute, so the committed `antora.yml` is overlaid with the version rather than rebuilt. Either way: no submodules, no Gradle, no JVM.
+2. **Fetch** — `fetch-upstream.ts` assembles one Antora content source from two halves. The authored half is always a sparse checkout of the docs subtree at the release tag. The generated half — the resolved `antora.yml` attributes, the sample sources `include-code::` reads, and the configuration-property metadata `configprop:` validates against — depends on the version's layout era ([ADR-0004](./.please/docs/decisions/0004-synthesize-3x-component.md)): Spring Boot 4.0.8+ merge the content archive published to Maven Central; Boot 3.3-3.x reconstruct it from the tag plus the published `spring-boot-*` jars, because those archives are excluded from Spring's Maven Central sync; and Spring Framework 6.1+ and Spring Security 6.2+ need neither, because the tag already carries a complete descriptor and its own examples — the committed `antora.yml` is overlaid rather than rebuilt, with the version for Framework and, for Security, with the documentation URLs and four dependency versions its build resolves, all read out of the committed version catalog and `gradle.properties`. Either way: no submodules, no Gradle, no JVM.
 3. **Convert** — `convert.ts` drives Antora's own pipeline modules with Spring's Asciidoctor extensions registered, so `xref:`, `include::`, `include-code::`, `javadoc:` and `configprop:` are resolved by the same code that produces docs.spring.io. Our converter then emits Markdown from the resolved AST: GFM alerts for admonitions, headed code fences for tab groups, relative `.md` links for internal xrefs, absolute `docs.spring.io` URLs for references into components we do not build. An unhandled construct fails the build rather than being dropped.
 4. **Package** — `package-release.ts` writes `NOTICE`, checksums every file, and builds a reproducible `tar.gz`: entries sorted, timestamps and ownership pinned, gzip's mtime field suppressed. The same converted tree always yields byte-identical bytes.
 5. **Release** — a `<project>-<version>` tag push runs `release.yml`, which rebuilds from the tag, verifies the manifest against it, and publishes the archive, its checksum and the manifest.

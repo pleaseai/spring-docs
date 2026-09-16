@@ -440,3 +440,67 @@ val x = 1
     expect(warnings).toEqual([])
   })
 })
+
+describe('listings that declare attribute substitution', () => {
+  test('resolves the attributes, so a copied snippet carries the version', () => {
+    // How every project writes its "add the dependency" snippet. The raw source
+    // is the one text where substitution has not happened yet, and it is what
+    // listings are otherwise read from.
+    const { markdown } = convert(`= T
+:spring-security-version: 6.5.6
+
+[source,xml,subs="verbatim,attributes"]
+----
+<version>{spring-security-version}</version>
+----`)
+
+    expect(markdown).toContain('<version>6.5.6</version>')
+    expect(markdown).not.toContain('{spring-security-version}')
+  })
+
+  test('leaves a plain listing untouched, placeholders included', () => {
+    // A code sample's own braces are content: substituting them would rewrite
+    // the program the reader is meant to copy.
+    const { markdown } = convert(`= T
+:name: resolved
+
+[source,java]
+----
+String greeting = "Hello, {name}";
+----`)
+
+    expect(markdown).toContain('"Hello, {name}"')
+  })
+})
+
+describe('inline images', () => {
+  const imageBase = 'https://example.test/images'
+
+  test('links to the published, version-pinned base', () => {
+    // Antora resolves the src against the page's depth, so it arrives as
+    // `../_images/…` rather than as the target the AsciiDoc wrote.
+    const { markdown, warnings } = convert('= T\n\nStep image:icons/number_1.png[number 1] first.', {
+      imageBase,
+    })
+
+    expect(markdown).toContain('![number 1](https://example.test/images/icons/number_1.png)')
+    expect(warnings).toEqual([])
+  })
+
+  test('keeps the alt text and reports the drop when no base is configured', () => {
+    const { markdown, warnings } = convert('= T\n\nStep image:icons/number_1.png[number 1] first.')
+
+    expect(markdown).toContain('![number 1]()')
+    expect(warnings.some(w => w.includes('inline image'))).toBe(true)
+  })
+
+  test('leaves an absolute image URL alone', () => {
+    const { markdown, warnings } = convert(
+      '= T\n\nBadge image:https://img.example/badge.svg[build] here.',
+      { imageBase },
+    )
+
+    expect(markdown).toContain('![build](https://img.example/badge.svg)')
+    expect(warnings).toEqual([])
+  })
+})
