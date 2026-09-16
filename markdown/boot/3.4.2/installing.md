@@ -98,16 +98,16 @@ Get SDKMAN! from [sdkman.io](https://sdkman.io) and install Spring Boot by using
 ```shell
 $ sdk install springboot
 $ spring --version
-Spring CLI v{version-spring-boot}
+Spring CLI v3.4.2
 ```
 
 If you develop features for the CLI and want access to the version you built, use the following commands:
 
 ```shell
-$ sdk install springboot dev /path/to/spring-boot/spring-boot-cli/target/spring-boot-cli-{version-spring-boot}-bin/spring-{version-spring-boot}/
+$ sdk install springboot dev /path/to/spring-boot/spring-boot-cli/target/spring-boot-cli-3.4.2-bin/spring-3.4.2/
 $ sdk default springboot dev
 $ spring --version
-Spring CLI v{version-spring-boot}
+Spring CLI v3.4.2
 ```
 
 The preceding instructions install a local instance of `spring` called the `dev` instance.
@@ -122,7 +122,7 @@ $ sdk ls springboot
 Available Springboot Versions
 ================================================================================
 > + dev
-* {version-spring-boot}
+* 3.4.2
 
 ================================================================================
 + - local version
