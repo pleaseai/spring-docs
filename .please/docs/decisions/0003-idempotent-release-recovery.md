@@ -67,7 +67,8 @@ still outstanding and completes only those.
    | no             | a newer rebuild of the pair                  | `publish`* |
    | no             | this tag                                     | refuse     |
 
-   \* The one row this decision leaves as it found it — see Negative.
+   \* The one row this decision leaves as it found it — see Negative. **Amended by ADR-0005**,
+   which classifies that row `complete` and removes the asterisk.
 
    `publish` runs both phases. `register` skips publication and runs registration only.
    `complete` is a successful no-op. The last row cannot arise from an interrupted run —
@@ -149,7 +150,8 @@ still outstanding and completes only those.
   it then registers it and moves the entry backwards. That path predates this decision — the
   guard it replaced keyed on the release existing, so it never fired here either — and closing
   it means deciding whether a superseded tag should still be publishable at all, which is a
-  separate question from recovery. Tracked as a follow-up.
+  separate question from recovery. Tracked as a follow-up. **Closed by ADR-0005** (issue #9),
+  which answers that question no and classifies the row `complete`.
 
 ### Neutral
 
@@ -202,4 +204,6 @@ still outstanding and completes only those.
 - `scripts/release-mode.ts` — the entry point the workflow calls.
 - `scripts/lib/catalog-update.ts` — the tag-immutability rules this decision leaves intact.
 - `ARCHITECTURE.md` § "Release Invariants" — updated by this decision.
+- ADR-0005 (`0005-supersession-on-the-publish-path.md`) — amends the decision table's fifth
+  row and closes the Negative bullet above.
 - Issue #6, and the Greptile review thread on PR #5 that raised it.

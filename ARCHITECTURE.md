@@ -64,7 +64,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `convert.ts`               | Pipeline entry — drive Antora's pipeline modules over a fetched tree and emit one Markdown file per page plus `_index.md`.                          |
 | `package-release.ts`       | Pipeline entry — produce a reproducible `tar.gz` + `manifest.json` + SHA-256 checksum.                                                             |
 | `update-catalog.ts`        | Pipeline entry — record a published `(project, version) → tag` in `catalog.json`.                                                                 |
-| `release-mode.ts`          | Pipeline entry — report whether a tag still owes publication, registration, or nothing (ADR-0003).                                                |
+| `release-mode.ts`          | Pipeline entry — report whether a tag still owes publication, registration, or nothing (ADR-0003, ADR-0005).                                                |
 | `promote-markdown.ts`      | Pipeline entry — copy a converted tree into the committed `markdown/<project>/<version>/`.                                                       |
 | `detect-upstream-versions.ts` | Tooling entry — list GA versions upstream has released that the catalog does not carry. Read-only; feeds the nightly issues and the build matrix. |
 | `lib/catalog-schema.ts`    | zod schema for `catalog.json`. Owns the public catalog shape; changes require an ADR.                                                             |
