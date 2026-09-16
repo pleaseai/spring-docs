@@ -89,7 +89,7 @@ You should have a `<parent>` section that looks like this:
 <parent>
 	<groupId>org.springframework.boot</groupId>
 	<artifactId>spring-boot-starter-parent</artifactId>
-	<version>{version-spring-boot}</version>
+	<version>3.3.3</version>
 </parent>
 ```
 
@@ -189,8 +189,8 @@ To install the native image compiler on macOS or Linux, we recommend using SDKMA
 Get SDKMAN! from [sdkman.io](https://sdkman.io) and install the Liberica GraalVM distribution by using the following commands:
 
 ```shell
-$ sdk install java {version-graal}.r17-nik
-$ sdk use java {version-graal}.r17-nik
+$ sdk install java 22.3.r17-nik
+$ sdk use java 22.3.r17-nik
 ```
 
 Verify that the correct version has been configured by checking the output of `java -version`:
@@ -263,7 +263,7 @@ You should see output similar to the following:
  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::  (v{version-spring-boot})
+ :: Spring Boot ::  (v3.3.3)
 ....... . . .
 ....... . . . (log output here)
 ....... . . .
