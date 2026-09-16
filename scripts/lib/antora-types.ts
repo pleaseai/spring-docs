@@ -22,6 +22,10 @@ export interface AsciidoctorNode {
   getAttribute: (name: string, fallback?: unknown) => unknown
   getLineNumber: () => number | undefined
   hasBlocks?: () => boolean
+  /** Whether this block declares one of AsciiDoc's substitution groups. */
+  hasSubstitution?: (name: string) => boolean
+  /** Apply named substitutions to text, the way Asciidoctor itself would. */
+  applySubstitutions?: (text: string, subs: readonly string[]) => string
 }
 
 /** A table cell. */

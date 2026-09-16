@@ -28,7 +28,7 @@
 
 import type { Fetcher } from './lib/artifact-availability.ts'
 import type { Attributes } from './lib/component-descriptor.ts'
-import type { SynthesisSources, UpstreamCoordinates } from './lib/upstream-sources.ts'
+import type { DerivedAttributes, SynthesisSources, UpstreamCoordinates } from './lib/upstream-sources.ts'
 import { Buffer } from 'node:buffer'
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -258,6 +258,37 @@ async function writeOverlaidDescriptor(
 }
 
 /**
+ * Evaluate the attributes an overlay era derives from files in the checkout.
+ *
+ * Spring Security's build resolves its documentation URLs and four dependency
+ * versions out of the committed version catalog and `gradle.properties` rather
+ * than out of the version alone, so those files are read here — from the same
+ * sparse checkout the prose came from, which is why the era declares their paths
+ * as part of `checkoutPaths`.
+ *
+ * An attribute the checkout does not declare is reported. It is upstream's own
+ * shape rather than a failure — the dependency set moves with the line — but a
+ * page referencing one publishes a literal `{name}`, so the name is printed
+ * rather than the count alone.
+ */
+async function deriveAttributes(
+  derived: DerivedAttributes,
+  version: string,
+  checkout: string,
+): Promise<Attributes> {
+  const sources: Record<string, string> = {}
+  for (const path of derived.sources)
+    sources[path] = await readFile(join(checkout, path), 'utf8')
+
+  const { attributes, absent } = derived.resolve(version, sources)
+  if (absent.length > 0) {
+    console.warn(
+      `  ${absent.length} derived attribute(s) this version declares no value for: ${absent.join(', ')}`,
+    )
+  }
+  return attributes
+}
+/**
  * Resolve every managed dependency version the attribute set needs.
  *
  * The build script imports a BOM for these instead of naming them, so each such
@@ -437,7 +468,14 @@ async function main(): Promise<void> {
       }
       case 'overlay': {
         console.log('Overlaying the checked-in component descriptor')
-        await writeOverlaidDescriptor(upstream, upstream.assembly.generatedAttributes, outDir)
+        const { generatedAttributes, derivedAttributes } = upstream.assembly
+        const attributes = derivedAttributes === undefined
+          ? generatedAttributes
+          : {
+              ...generatedAttributes,
+              ...await deriveAttributes(derivedAttributes, upstream.version, workDir),
+            }
+        await writeOverlaidDescriptor(upstream, attributes, outDir)
         break
       }
     }

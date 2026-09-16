@@ -193,6 +193,9 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
   const inline = (html: unknown): string =>
     inlineHtmlToMarkdown(asInlineHtml(html), {
       externalComponents: options.externalComponents,
+      ...(options.imageBase === undefined ? {} : { imageBase: options.imageBase }),
+      onImageWithoutBase: src =>
+        warnings.add(`inline image "${src}" dropped: no published image base for this project`),
       onUnknownTag: tag => warnings.add(`unknown inline tag <${tag}>`),
     })
 
@@ -216,11 +219,28 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
   const renderBody = (node: AsciidoctorNode): string =>
     node.getBlocks().length > 0 ? renderChildren(node) : inline(node.getContent())
 
+  /**
+   * A listing block: the source, fenced, with its language.
+   *
+   * `getSource()`, not `getContent()`: the latter carries the code-folding
+   * extension's `<span class="fold-block">` wrappers. The raw source instead
+   * carries the fold directives themselves, which are stripped here.
+   *
+   * A listing that opts into attribute substitution — `[source,xml,
+   * subs="verbatim,attributes"]`, how every project writes its "add the
+   * dependency" snippet — gets it applied, because the raw source is the one
+   * text where that has *not* happened yet. Without this the snippet a reader
+   * copies carries `{spring-security-version}` where the version belongs.
+   * Asciidoctor applies it rather than a regex over the source, so the result is
+   * what upstream publishes; only `attributes` is applied, since the other
+   * substitutions a listing can declare (`specialcharacters`, `macros`) produce
+   * HTML, which has no place inside a fence.
+   */
   const renderListing = (node: AsciidoctorNode): string => {
-    // `getSource()`, not `getContent()`: the latter carries the code-folding
-    // extension's `<span class="fold-block">` wrappers. The raw source instead
-    // carries the fold directives themselves, which are stripped here.
-    const body = node.getSource().replace(FOLD_DIRECTIVE, '').replace(BLANK_LINE_RUN, '\n')
+    const raw = node.hasSubstitution?.('attributes') === true
+      ? node.applySubstitutions?.(node.getSource(), ['attributes']) ?? node.getSource()
+      : node.getSource()
+    const body = raw.replace(FOLD_DIRECTIVE, '').replace(BLANK_LINE_RUN, '\n')
     const language = node.getAttribute('language')
     const fence = fenceFor(body)
     return `${fence}${typeof language === 'string' ? language : ''}\n${body}\n${fence}`

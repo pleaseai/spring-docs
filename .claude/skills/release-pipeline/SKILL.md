@@ -13,9 +13,9 @@ before answering "is X supported" — they answer different questions.
 
 | | |
 |---|---|
-| Projects | `boot`, `framework` |
+| Projects | `boot`, `framework`, `security` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Buildable ranges | `boot` → `3.3.0`–`<4.0.0` (synthesized) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay) |
+| Buildable ranges | `boot` → `3.3.0`–`<4.0.0` (synthesized) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
 A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
@@ -27,6 +27,8 @@ without the other yields a tree that classifies but converts wrongly:
 | `boot` `3.3.0` – `<4.0.0` | `spring-boot-project/spring-boot-docs/src/docs/antora` | `synthesized` | rebuilt from the tag (`SynthesisSources`) plus the eight published `spring-boot-*` jars carrying configuration-property metadata | yes — metadata jars |
 | `boot` `>= 4.0.8` | `documentation/spring-boot-docs/src/docs/antora` | `archive` | the published `root-aggregate-content` zip, merged over the checkout | yes — content zips |
 | `framework` `>= 6.1.0` | `framework-docs` | `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no |
+| `security` `6.2.0` – `<6.5.1` | `docs` | `overlay` | the committed `antora.yml`, topped up with attributes derived from `gradle/libs.versions.toml` and `gradle.properties` | no |
+| `security` `>= 6.5.1` | `docs` | `overlay` | the same, plus the `modules/ROOT/examples/docs-src` symlink that era added | no |
 
 `overlay` is the cheapest to add and the one to reach for first on a new project: check what
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
@@ -118,7 +120,10 @@ Then add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
   not on the project
 - `assembly` — one of the three descriptors above, per era. `archive` takes
   `archiveClassifiers`; `synthesized` takes a `SynthesisSources`; `overlay` takes
-  `generatedAttributesFor(version)` and `internalSymlinks`
+  `generatedAttributesFor(version)`, `internalSymlinks`, and — where the build resolves values
+  the version alone does not give — `derivedAttributes`, which names the committed files to read
+  and a pure function over their contents (Spring Security reads its version catalog and
+  `gradle.properties` that way; the named files are added to the sparse checkout automatically)
 - `mavenGroupPath` / `mavenArtifact` — where its published artifacts live; only for a project
   with an archive or synthesized era, omit them for an overlay-only project
 - `javadocLocationFor(version)` — retargets `javadoc:` macros, which otherwise dangle as

@@ -13,6 +13,9 @@
 
 import type { Attributes } from './component-descriptor.ts'
 import type { DeclaredSymlink } from './reject-symlinks.ts'
+import { parseProperties } from './antora-attributes.ts'
+import { securityAttributes } from './security-attributes.ts'
+import { parseVersionCatalog } from './version-catalog.ts'
 
 /** Plain `major.minor.patch`; anything else is a pre-release. */
 const GA_VERSION = /^\d+\.\d+\.\d+$/
@@ -22,6 +25,9 @@ const SPRING_BOOT_DOCS = 'https://docs.spring.io/spring-boot'
 
 /** Spring Framework sources served straight from a release tag. */
 const SPRING_FRAMEWORK_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-framework'
+
+/** Spring Security sources served straight from a release tag. */
+const SPRING_SECURITY_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-security'
 
 /** Maven Central base for released Spring artifacts. */
 const MAVEN_CENTRAL = 'https://repo1.maven.org/maven2'
@@ -143,11 +149,55 @@ export interface SynthesisSources {
 }
 
 /**
+ * Attributes an overlay era derives from files in the checkout.
+ *
+ * Spring Framework's generated half is a function of the version alone, so it is
+ * resolved before the clone. Spring Security's is not: its build reads the
+ * committed version catalog and `gradle.properties`, so the values only exist
+ * once the tag is checked out. Naming those files here rather than reading them
+ * in the era keeps this module free of I/O and keeps the sparse checkout and the
+ * derivation from disagreeing about which paths are needed.
+ */
+export interface DerivedAttributes {
+  /**
+   * Repo-relative files the derivation reads.
+   *
+   * Added to the era's `checkoutPaths`, so declaring one is what makes it
+   * present.
+   */
+  readonly sources: readonly string[]
+  /**
+   * Pure: the version plus the contents of {@link sources}, keyed by path.
+   *
+   * @throws if a source has moved or lost a value the upstream build reads.
+   */
+  readonly resolve: (
+    version: string,
+    sources: Readonly<Record<string, string>>,
+  ) => DerivedAttributeResult
+}
+
+/** What a {@link DerivedAttributes.resolve} produced, and what it could not. */
+export interface DerivedAttributeResult {
+  readonly attributes: Attributes
+  /**
+   * Attributes the checkout does not declare a value for.
+   *
+   * Reported rather than dropped: a corpus referencing one publishes a literal
+   * `{name}`, and the operator needs the name to tell an upstream change from a
+   * derivation bug.
+   */
+  readonly absent: readonly string[]
+}
+
+/**
  * How one era's component content is assembled, as resolved for one version.
  *
- * Pure data — {@link resolveUpstream} has already evaluated anything that
- * depended on the version, so a coordinate set can be serialized into the
- * release manifest.
+ * Pure data, with one exception: an overlay era's {@link DerivedAttributes}
+ * carries the function that reads its sources, because those sources do not
+ * exist until the checkout. Everything the *version* determines is already
+ * evaluated by {@link resolveUpstream}, and nothing here reaches the release
+ * manifest but `descriptor`.
  */
 export type ComponentAssembly
   = | { readonly descriptor: 'archive', readonly archiveClassifiers: readonly string[] }
@@ -155,6 +205,7 @@ export type ComponentAssembly
     | {
       readonly descriptor: 'overlay'
       readonly generatedAttributes: Attributes
+      readonly derivedAttributes?: DerivedAttributes
       readonly internalSymlinks: readonly DeclaredSymlink[]
     }
 
@@ -171,6 +222,8 @@ type EraAssembly
     | {
       readonly descriptor: 'overlay'
       readonly generatedAttributesFor: (version: string) => Attributes
+      /** Attributes read out of the checkout, for a build that resolves versions. */
+      readonly derivedAttributes?: DerivedAttributes
       /**
        * Component-root-relative symlinks this layout ships, each paired with
        * its expected component-root-relative target, to be replaced by real
@@ -255,6 +308,41 @@ const BOOT_3_METADATA_ARTIFACTS = [
   'spring-boot-test-autoconfigure',
   'spring-boot-testcontainers',
 ] as const
+
+/** The committed version catalog Spring Security's build resolves against. */
+const SECURITY_CATALOG_PATH = 'gradle/libs.versions.toml'
+
+/** Where Spring Security commits `springBootVersion` and `samplesBranch`. */
+const SECURITY_PROPERTIES_PATH = 'gradle.properties'
+
+/**
+ * Spring Security's generated attributes, derived from two committed files.
+ *
+ * Shared by both of its eras: the layout moved between them, the derivation did
+ * not. See `security-attributes.ts` for what the upstream build does with these.
+ */
+const SECURITY_ATTRIBUTES: DerivedAttributes = {
+  sources: [SECURITY_CATALOG_PATH, SECURITY_PROPERTIES_PATH],
+  resolve: (version, sources) => securityAttributes({
+    version,
+    catalog: parseVersionCatalog(requiredSource(sources, SECURITY_CATALOG_PATH)),
+    gradleProperties: parseProperties(requiredSource(sources, SECURITY_PROPERTIES_PATH)),
+  }),
+}
+
+/**
+ * One declared attribute source, as read by the caller.
+ *
+ * Reaching here without it means the fetch read a different set of paths than
+ * the era declared, which is a wiring bug rather than bad input — so it throws
+ * instead of deriving attributes from an empty file.
+ */
+function requiredSource(sources: Readonly<Record<string, string>>, path: string): string {
+  const contents = sources[path]
+  if (contents === undefined)
+    throw new Error(`Declared attribute source "${path}" was not read before deriving attributes`)
+  return contents
+}
 
 const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
   boot: {
@@ -376,6 +464,66 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
     // which `image::` names resolve against unchanged.
     imageBaseFor: version =>
       `${SPRING_FRAMEWORK_RAW}/v${version}/framework-docs/modules/ROOT/assets/images`,
+  },
+
+  security: {
+    repo: 'spring-projects/spring-security',
+    // No Maven coordinates: both eras are overlays. `spring-security-docs` is not
+    // on Maven Central at all (probed 2026-09-14, #73), and nothing here needs
+    // it — the descriptor, the examples and the versions behind the generated
+    // attributes are all committed in the tag.
+    externalComponentsFor: () => ({}),
+    // Spring Security tags a release as the bare version: `6.5.6`, not `v6.5.6`.
+    tagPrefix: '',
+    eras: [
+      {
+        // 6.2.0 is where `gradle/libs.versions.toml` first appears; 6.0.x and
+        // 6.1.x declare their dependency versions elsewhere, so the four
+        // `<artifact>-version` attributes the corpus reads cannot be derived from
+        // a checkout there.
+        since: '6.2.0',
+        // 6.5.1 added `modules/ROOT/examples/docs-src` and the `include-java` /
+        // `include-kotlin` attributes that resolve against it. Before that the
+        // component ships no examples tree at all, so declaring the link here
+        // would fail on every version of this era.
+        until: '6.5.1',
+        componentPath: 'docs',
+        assembly: {
+          descriptor: 'overlay',
+          generatedAttributesFor: () => ({}),
+          derivedAttributes: SECURITY_ATTRIBUTES,
+          internalSymlinks: [],
+        },
+      },
+      {
+        since: '6.5.1',
+        componentPath: 'docs',
+        assembly: {
+          descriptor: 'overlay',
+          // Everything Spring Security's build generates depends on files in the
+          // checkout rather than on the version alone, so it is all derived.
+          generatedAttributesFor: () => ({}),
+          derivedAttributes: SECURITY_ATTRIBUTES,
+          // A mode 120000 blob holding `../../../src`, present at 6.5.1 through
+          // 7.1.1. It resolves to `docs/src`, inside the checked-out component,
+          // and is what `include-java` / `include-kotlin` name.
+          internalSymlinks: [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
+        },
+      },
+    ],
+    // `javadoc:` macros and the `{security-api-url}` attribute point at the same
+    // site, whose javadoc root is `api` — unlike Boot, which nests it under
+    // `api/java`. Verified against
+    // `…/6.5.6/api/org/springframework/security/core/Authentication.html`.
+    javadocLocationFor: version =>
+      `https://docs.spring.io/spring-security/site/docs/${version}/api`,
+    // The release tag, not the reference site: docs.spring.io collapses a patch
+    // to its minor there (`/reference/6.5.6/_images/…` answers a 301 to
+    // `/reference/6.5/_images/…`, verified 2026-09-16), so a URL built from a
+    // catalog version would be pinned in appearance only. The same reason the
+    // Framework era takes its images from the tag.
+    imageBaseFor: version =>
+      `${SPRING_SECURITY_RAW}/${version}/docs/modules/ROOT/assets/images`,
   },
 }
 
@@ -516,6 +664,9 @@ function resolveAssembly(assembly: EraAssembly, version: string): ComponentAssem
     ? {
         descriptor: 'overlay',
         generatedAttributes: assembly.generatedAttributesFor(version),
+        ...(assembly.derivedAttributes === undefined
+          ? {}
+          : { derivedAttributes: assembly.derivedAttributes }),
         internalSymlinks: assembly.internalSymlinks,
       }
     : assembly
@@ -550,9 +701,14 @@ function mavenArtifactOf(definition: ProjectDefinition, project: string): string
 
 /** Repo-relative paths the sparse checkout must materialize for one era. */
 function checkoutPathsFor(era: LayoutEra): readonly string[] {
-  // An overlay era assembles from the component root alone. That root is also
-  // where its `example$` tree lives — Spring Framework reaches it through a
-  // relative symlink that stays inside the checked-out path.
+  // An overlay era assembles from the component root alone — plus, where its
+  // build resolves versions rather than inventing them, the committed files
+  // those versions are declared in. That root is also where its `example$` tree
+  // lives: Spring Framework and Spring Security both reach it through a relative
+  // symlink that stays inside the checked-out path.
+  if (era.assembly.descriptor === 'overlay') {
+    return [era.componentPath, ...(era.assembly.derivedAttributes?.sources ?? [])]
+  }
   if (era.assembly.descriptor !== 'synthesized')
     return [era.componentPath]
   const { synthesis } = era.assembly
