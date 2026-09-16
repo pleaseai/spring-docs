@@ -1,0 +1,24 @@
+scripts/lib/antora-attributes.ts
+  s_b177e6f69fce71::t_dda5fa4f14b5e6 80-110,132-137
+  s_b177e6f69fce71::t_1be512ba334840 188-194
+  s_b177e6f69fce71::t_fcc200d9b150e1 79
+tests/unit/antora-attributes.test.ts
+  s_b177e6f69fce71::t_2d15c026c9f540 7,155-177,294-322
+  s_b177e6f69fce71::t_99b140b6c5a91e 323
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "80a2c8955c1143fe6dcae2cb71182b206e424a6e",
+  "prompts": {},
+  "sessions": {
+    "s_b177e6f69fce71": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cde3ae28-e163-45ab-9aed-2661db427969",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
