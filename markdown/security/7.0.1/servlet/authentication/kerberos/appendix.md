@@ -1,0 +1,477 @@
+---
+title: "Appendices"
+source: "ROOT:servlet/authentication/kerberos/appendix.adoc"
+---
+
+<a id="appendices"></a>
+
+# Appendices
+
+<a id="_material_used_in_this_document"></a>
+
+## Material Used in this Document
+
+Dummy UserDetailsService used in samples because we don’t have a real
+user source.
+
+```java
+public class DummyUserDetailsService implements UserDetailsService {
+
+    @Override
+    public UserDetails loadUserByUsername(String username)
+            throws UsernameNotFoundException {
+        return new User(username, "notUsed", true, true, true, true,
+                AuthorityUtils.createAuthorityList("ROLE_USER"));
+    }
+
+}
+```
+
+<a id="_crash_course_to_kerberos"></a>
+
+## Crash Course to Kerberos
+
+In any authentication process there are usually a three parties
+involved.
+
+![drawio kerb cc1](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.1/docs/modules/ROOT/assets/images/servlet/authentication/kerberos/drawio-kerb-cc1.png)
+
+First is a `client` which sometimes is a client computer but in most
+of the scenarios it is the actual user sitting on a computer and
+trying to access resources. Then there is the `resource` user is trying
+to access. In this example it is a web server.
+
+Then there is a `Key Distribution Center` or `KDC`. In a case of
+Windows environment this would be a `Domain Controller`. `KDC` is the
+one which really brings everything together and thus is the most
+critical component in your environment. Because of this it is also
+considered as a single point of failure.
+
+Initially when `Kerberos` environment is setup and domain user
+principals created into a database, encryption keys are also
+created. These encryption keys are based on shared secrets(i.e. user
+password) and actual passwords are never kept in a clear text.
+Effectively `KDC` has its own key and other keys for domain users.
+
+Interestingly there is no communication between a `resource` and a
+`KDC` during the authentication process.
+
+![drawio kerb cc2](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.1/docs/modules/ROOT/assets/images/servlet/authentication/kerberos/drawio-kerb-cc2.png)
+
+When client wants to authenticate itself with a `resource` it first
+needs to communicate with a `KDC`. `Client` will craft a special package
+which contains encrypted and unencrypted parts. Unencrypted part
+contains i.e. information about a user and encrypted part other
+information which is part of a protocol. `Client` will encrypt package
+data with its own key.
+
+When `KDC` receives this authentication package from a client it
+checks who this `client` claims to be from an unencrypted part and based
+on that information it uses `client` decryption key it already have in
+its database. If this decryption is succesfull `KDC` knows that this
+`client` is the one it claims to be.
+
+What KDC returns to a client is a ticket called `Ticket Granting
+Ticket` which is signed by a KDC’s own private key. Later when
+`client` sends back this ticket it can try to decrypt it and if that
+operation is succesfull it knows that it was a ticket it itself
+originally signed and gave to a `client`.
+
+![drawio kerb cc3](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.1/docs/modules/ROOT/assets/images/servlet/authentication/kerberos/drawio-kerb-cc3.png)
+
+When client wants to get a ticket which it can use to authenticate
+with a service, `TGT` is sent to `KDC` which then signs a service ticket
+with service’s own key. This a moment when a trust between
+`client` and `service` is created. This service ticket contains data
+which only `service` itself is able to decrypt.
+
+![drawio kerb cc4](https://raw.githubusercontent.com/spring-projects/spring-security/7.0.1/docs/modules/ROOT/assets/images/servlet/authentication/kerberos/drawio-kerb-cc4.png)
+
+When `client` is authenticating with a service it sends previously
+received service ticket to a service which then thinks that I don’t
+know anything about this guy but he gave me an authentication ticket.
+What `service` can do next is try to decrypt that ticket and if that
+operation is succesfull it knows that only other party who knows my
+credentials is the `KDC` and because I trust him I can also trust that
+this client is a one he claims to be.
+
+<a id="_setup_kerberos_environments"></a>
+
+## Setup Kerberos Environments
+
+Doing a production setup of Kerberos environment is out of scope of
+this document but this appendix provides some help to get you
+started for setting up needed components for development.
+
+<a id="setupmitkerberos"></a>
+
+### Setup MIT Kerberos
+
+First action is to setup a new realm and a database.
+
+```text
+# kdb5_util create -s -r EXAMPLE.ORG
+Loading random data
+Initializing database '/var/lib/krb5kdc/principal' for realm 'EXAMPLE.ORG',
+master key name 'K/M@EXAMPLE.ORG'
+You will be prompted for the database Master Password.
+It is important that you NOT FORGET this password.
+Enter KDC database master key:
+Re-enter KDC database master key to verify:
+```
+
+`kadmin` command can be used to administer Kerberos environment but
+you can’t yet use it because there are no admin users in a database.
+
+```text
+root@neo:/etc/krb5kdc# kadmin
+Authenticating as principal root/admin@EXAMPLE.ORG with password.
+kadmin: Client not found in Kerberos database while initializing
+kadmin interface
+```
+
+Lets use `kadmin.local` command to create one.
+
+```text
+root@neo:/etc/krb5kdc# kadmin.local
+Authenticating as principal root/admin@EXAMPLE.ORG with password.
+
+kadmin.local:  listprincs
+K/M@EXAMPLE.ORG
+kadmin/admin@EXAMPLE.ORG
+kadmin/changepw@EXAMPLE.ORG
+kadmin/cypher@EXAMPLE.ORG
+krbtgt/EXAMPLE.ORG@EXAMPLE.ORG
+
+kadmin.local:  addprinc root/admin@EXAMPLE.ORG
+WARNING: no policy specified for root/admin@EXAMPLE.ORG; defaulting to
+no policy
+Enter password for principal "root/admin@EXAMPLE.ORG":
+Re-enter password for principal "root/admin@EXAMPLE.ORG":
+Principal "root/admin@EXAMPLE.ORG" created.
+```
+
+Then enable admins by modifying `kadm5.acl` file and restart Kerberos
+services.
+
+```text
+# cat /etc/krb5kdc/kadm5.acl
+# This file Is the access control list for krb5 administration.
+*/admin *
+```
+
+Now you can use `kadmin` with previously created `root/admin`
+principal. Lets create our first user `user1`.
+
+```text
+kadmin:  addprinc user1
+WARNING: no policy specified for user1@EXAMPLE.ORG; defaulting to no
+policy
+Enter password for principal "user1@EXAMPLE.ORG":
+Re-enter password for principal "user1@EXAMPLE.ORG":
+Principal "user1@EXAMPLE.ORG" created.
+```
+
+Lets create our second user `user2` and export a keytab file.
+
+```text
+kadmin:  addprinc user2
+WARNING: no policy specified for user2@EXAMPLE.ORG; defaulting to no
+policy
+Enter password for principal "user2@EXAMPLE.ORG":
+Re-enter password for principal "user2@EXAMPLE.ORG":
+Principal "user2@EXAMPLE.ORG" created.
+
+kadmin:  ktadd -k /tmp/user2.keytab user2@EXAMPLE.ORG
+Entry for principal user2@EXAMPLE.ORG with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab WRFILE:/tmp/user2.keytab.
+Entry for principal user2@EXAMPLE.ORG with kvno 2, encryption type arcfour-hmac added to keytab WRFILE:/tmp/user2.keytab.
+Entry for principal user2@EXAMPLE.ORG with kvno 2, encryption type des3-cbc-sha1 added to keytab WRFILE:/tmp/user2.keytab.
+Entry for principal user2@EXAMPLE.ORG with kvno 2, encryption type des-cbc-crc added to keytab WRFILE:/tmp/user2.keytab.
+```
+
+Lets create a service ticket for tomcat and export credentials to a
+keytab file named `tomcat.keytab`.
+
+```text
+kadmin:  addprinc -randkey HTTP/neo.example.org@EXAMPLE.ORG
+WARNING: no policy specified for HTTP/neo.example.org@EXAMPLE.ORG;
+defaulting to no policy
+Principal "HTTP/neo.example.org@EXAMPLE.ORG" created.
+
+kadmin:  ktadd -k /tmp/tomcat.keytab HTTP/neo.example.org@EXAMPLE.ORG
+Entry for principal HTTP/neo.example.org@EXAMPLE.ORG with kvno 2, encryption type aes256-cts-hmac-sha1-96 added to keytab WRFILE:/tmp/tomcat2.keytab.
+Entry for principal HTTP/neo.example.org@EXAMPLE.ORG with kvno 2, encryption type arcfour-hmac added to keytab WRFILE:/tmp/tomcat2.keytab.
+Entry for principal HTTP/neo.example.org@EXAMPLE.ORG with kvno 2, encryption type des3-cbc-sha1 added to keytab WRFILE:/tmp/tomcat2.keytab.
+Entry for principal HTTP/neo.example.org@EXAMPLE.ORG with kvno 2, encryption type des-cbc-crc added to keytab WRFILE:/tmp/tomcat2.keytab.
+```
+
+<a id="setupwinkerberos"></a>
+
+### Setup Windows Domain Controller
+
+This was tested using `Windows Server 2012 R2`
+
+> [!TIP]
+> Internet is full of good articles and videos how to setup Windows AD
+> but these two are quite usefull
+> [Rackspace](https://www.rackspace.com/knowledge_center/article/installing-active-directory-on-windows-server-2012) and
+> [Microsoft
+> Technet](https://social.technet.microsoft.com/wiki/contents/articles/12370.windows-server-2012-set-up-your-first-domain-controller-step-by-step.aspx).
+
+- Normal domain controller and active directory setup was done.
+- Used dns domain `example.org` and windows domain `EXAMPLE`.
+- I created various domain users like `user1`, `user2`, `user3`,
+`tomcat` and set passwords to `Password#`.
+
+I eventually also added all ip’s of my vm’s to AD’s dns server for
+that not to cause any trouble.
+
+```text
+Name: WIN-EKBO0EQ7TS7.example.org
+Address: 172.16.101.135
+
+Name: win8vm.example.org
+Address: 172.16.101.136
+
+Name: neo.example.org
+Address: 172.16.101.1
+```
+
+Service Principal Name(SPN) needs to be setup with `HTTP` and a
+server name `neo.example.org` where tomcat servlet container is run. This
+is used with `tomcat` domain user and its `keytab` is then used as a
+service credential.
+
+```text
+PS C:\> setspn -A HTTP/neo.example.org tomcat
+```
+
+I exported keytab file which is copied to linux server running tomcat.
+
+```text
+PS C:\> ktpass /out c:\tomcat.keytab /mapuser tomcat@EXAMPLE.ORG /princ HTTP/neo.example.org@EXAMPLE.ORG /pass Password# /ptype KRB5_NT_PRINCIPAL /crypto All
+ Targeting domain controller: WIN-EKBO0EQ7TS7.example.org
+ Using legacy password setting method
+ Successfully mapped HTTP/neo.example.org to tomcat.
+```
+
+<a id="_troubleshooting"></a>
+
+## Troubleshooting
+
+This appendix provides generic information about troubleshooting
+errors and problems.
+
+> [!IMPORTANT]
+> If you think environment and configuration is correctly setup, do
+> double check and ask other person to check possible obvious mistakes
+> or typos. Kerberos setup is generally very brittle and it is not
+> always very easy to debug where the problem lies.
+
+#### Cannot find key of appropriate type to decrypt
+
+```text
+GSSException: Failure unspecified at GSS-API level (Mechanism level:
+Invalid argument (400) - Cannot find key of appropriate type to
+decrypt AP REP - RC4 with HMAC)
+```
+
+If you see abore error indicating missing key type, this will happen
+with two different use cases. Firstly your JVM may not support
+appropriate encryption type or it is disabled in your `krb5.conf`
+file.
+
+```text
+default_tkt_enctypes = rc4-hmac
+default_tgs_enctypes = rc4-hmac
+```
+
+Second case is less obvious and hard to track because it will lead
+into same error. This specific `GSSException` is throws also if you
+simply don’t have a required encryption key which then may be caused
+by a misconfiguration in your kerberos server or a simply typo in your
+principal.
+
+​
+
+In most system all commands and libraries will search kerberos
+configuration either from a default locations or special locations
+like JDKs. It’s easy to get mixed up especially if working from unix
+systems, which already may have default settings to work with MIT
+kerberos, towards Windows domains.
+
+This is a specific example what happens with `ldapsearch` trying to
+query Windows AD using kerberos authentication.
+
+```text
+$ ldapsearch -H ldap://WIN-EKBO0EQ7TS7.example.org -b "dc=example,dc=org"
+SASL/GSSAPI authentication started
+ldap_sasl_interactive_bind_s: Local error (-2)
+  additional info: SASL(-1): generic failure: GSSAPI Error:
+  Unspecified GSS failure.  Minor code may provide more information
+  (No Kerberos credentials available)
+```
+
+Well that doesn’t look good and is a simple indication that I don’t
+have a valid kerberos tickets as shown below.
+
+```text
+$ klist
+klist: Credentials cache file '/tmp/krb5cc_1000' not found
+```
+
+We already have a keytab file we exported from Windows AD to be used
+with tomcat running on Linux. Lets try to use that to authenticate
+with Windows AD.
+
+You can have a dedicated config file which usually can be used with
+native Linux commands and JVMs via system propertys.
+
+```text
+$ cat krb5.ini
+[libdefaults]
+default_realm = EXAMPLE.ORG
+default_keytab_name = /tmp/tomcat.keytab
+forwardable=true
+
+[realms]
+EXAMPLE.ORG = {
+  kdc = WIN-EKBO0EQ7TS7.example.org:88
+}
+
+[domain_realm]
+example.org=EXAMPLE.ORG
+.example.org=EXAMPLE.ORG
+```
+
+Lets use that config and a keytab to get initial credentials.
+
+```text
+$ env KRB5_CONFIG=/path/to/krb5.ini kinit -kt tomcat.keytab HTTP/neo.example.org@EXAMPLE.ORG
+
+$ klist
+Ticket cache: FILE:/tmp/krb5cc_1000
+Default principal: HTTP/neo.example.org@EXAMPLE.ORG
+
+Valid starting     Expires            Service principal
+26/03/15 09:04:37  26/03/15 19:04:37  krbtgt/EXAMPLE.ORG@EXAMPLE.ORG
+  renew until 27/03/15 09:04:37
+```
+
+Lets see what happens if we now try to do a simple query against
+Windows AD.
+
+```text
+$ ldapsearch -H ldap://WIN-EKBO0EQ7TS7.example.org -b "dc=example,dc=org"
+SASL/GSSAPI authentication started
+ldap_sasl_interactive_bind_s: Local error (-2)
+  additional info: SASL(-1): generic failure: GSSAPI Error:
+  Unspecified GSS failure.  Minor code may provide more information
+  (KDC returned error string: PROCESS_TGS)
+```
+
+This may be simply because `ldapsearch` is getting confused and simply
+using wrong configuration. You can tell `ldapsearch` to use a
+different configuration via `KRB5_CONFIG` env variable just like we
+did with `kinit`. You can also use `KRB5_TRACE=/dev/stderr` to get
+more verbose output of what native libraries are doing.
+
+```text
+$ env KRB5_CONFIG=/path/to/krb5.ini ldapsearch -H ldap://WIN-EKBO0EQ7TS7.example.org -b "dc=example,dc=org"
+
+$ klist
+Ticket cache: FILE:/tmp/krb5cc_1000
+Default principal: HTTP/neo.example.org@EXAMPLE.ORG
+
+Valid starting     Expires            Service principal
+26/03/15 09:11:03  26/03/15 19:11:03  krbtgt/EXAMPLE.ORG@EXAMPLE.ORG
+  renew until 27/03/15 09:11:03
+  26/03/15 09:11:44  26/03/15 19:11:03
+  ldap/win-ekbo0eq7ts7.example.org@EXAMPLE.ORG
+    renew until 27/03/15 09:11:03
+```
+
+Above you can see what happened if query was successful by looking
+kerberos tickets. Now you can experiment with further query commands
+i.e. if you working with `KerberosLdapContextSource`.
+
+```text
+$ ldapsearch -H ldap://WIN-EKBO0EQ7TS7.example.org \
+-b "dc=example,dc=org" \
+"(| (userPrincipalName=user2@EXAMPLE.ORG)
+(sAMAccountName=user2@EXAMPLE.ORG))" \
+dn
+
+...
+# test user, example.org
+dn: CN=test user,DC=example,DC=org
+```
+
+<a id="browserspnegoconfig"></a>
+
+## Configure Browsers for Spnego Negotiation
+
+<a id="_firefox"></a>
+
+### Firefox
+
+Complete following steps to ensure that your Firefox browser is
+enabled to perform Spnego authentication.
+
+- Open Firefox.
+- At address field, type **about:config**.
+- In filter/search, type **negotiate**.
+- Parameter **network.negotiate-auth.trusted-uris** may be set to
+default **https://** which doesn’t work for you. Generally speaking
+this parameter has to replaced with the server address if Kerberos
+delegation is required.
+- It is recommended to use `https` for all communication.
+
+<a id="_chrome"></a>
+
+### Chrome
+
+With Google Chrome you generally need to set command-line parameters
+order to white list servers with Chrome will negotiate.
+
+- on Windows machines (clients): Chrome shares the configuration with
+Internet Explorer so if all changes were applied to IE (as described
+in E.3), nothing has to be passed via command-line parameters.
+- on Linux/Mac OS machines (clients): the command-line parameter
+`--auth-negotiate-delegate-whitelist` should only used if Kerberos
+delegation is required (otherwise do not set this parameter).
+- It is recommended to use `https` for all communication.
+
+```text
+--auth-server-whitelist="*.example.com"
+--auth-negotiate-delegate-whitelist="*.example.com"
+```
+
+You can see which policies are enable by typing **chrome://policy/**
+into Chrome’s address bar.
+
+With Linux Chrome will also read policy files from
+`/etc/opt/chrome/policies/managed` directory.
+
+#### mypolicy.json
+
+```json
+{
+  "AuthServerWhitelist" : "*.example.org",
+  "AuthNegotiateDelegateWhitelist" : "*.example.org",
+  "DisableAuthNegotiateCnameLookup" : true,
+  "EnableAuthNegotiatePort" : true
+}
+```
+
+<a id="_internet_explorer"></a>
+
+### Internet Explorer
+
+Complete following steps to ensure that your Internet Explorer browser
+is enabled to perform Spnego authentication.
+
+- Open Internet Explorer.
+- Click **Tools > Intenet Options > Security** tab.
+- In **Local intranet** section make sure your server is trusted by i.e.
+adding it into a list.
