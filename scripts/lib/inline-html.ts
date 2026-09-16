@@ -332,7 +332,34 @@ export interface InlineOptions {
    * References into them are rewritten there rather than left dangling.
    */
   readonly externalComponents?: Readonly<Record<string, string>>
+  /**
+   * Base URL of the project's published `_images/` directory, version-pinned.
+   *
+   * Inline images are linked there for the same reason block images are: the
+   * asset ships in the component but not in the release archive, so a relative
+   * link dangles the moment the archive is extracted.
+   */
+  readonly imageBase?: string
+  /** Called with the `src` of an image that could not be given a base URL. */
+  readonly onImageWithoutBase?: (src: string) => void
 }
+
+/**
+ * The part of an image `src` that follows the assets directory.
+ *
+ * Antora resolves an inline image against the page's own depth, so `src` arrives
+ * as `../_images/icons/number_1.png` rather than as the target the AsciiDoc
+ * wrote. The published base URL replaces everything up to and including that
+ * segment — which is exactly the target a block image reports through its
+ * `target` attribute.
+ */
+const IMAGES_SEGMENT = /^.*?_images\//
+
+/** A trailing slash on a base URL, so joining never doubles it. */
+const IMAGE_BASE_SLASH = /\/+$/
+
+/** An absolute URL, which is already where the image lives. */
+const ABSOLUTE_URL = /^[a-z][\w+.-]*:\/\//i
 
 /**
  * Convert the restricted inline HTML of one block to Markdown.
@@ -344,7 +371,7 @@ export interface InlineOptions {
  * @returns Markdown equivalent of `html`.
  */
 export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}): string {
-  const { onUnknownTag, externalComponents = {} } = options
+  const { onUnknownTag, externalComponents = {}, imageBase, onImageWithoutBase } = options
   let out = ''
   const emit = (text: string): void => {
     out += text
@@ -415,6 +442,27 @@ export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}):
         case 'span':
           walk(node.children)
           break
+        case 'img': {
+          // An inline image: `image:icons/number_1.png[number 1]`, which Spring
+          // Security writes 13 pages' worth of and Boot and Framework never do.
+          // It carries no children — the alt text is an attribute — so nothing
+          // is walked.
+          const src = node.attrs.get('src') ?? ''
+          const alt = escapeText(decodeEntities(node.attrs.get('alt') ?? ''), false)
+          if (src === '' || (imageBase === undefined && !ABSOLUTE_URL.test(src))) {
+            // Same rule as a block image with no base: an empty destination
+            // reads as a broken image, while the alt text alone still says what
+            // the icon or diagram carried.
+            onImageWithoutBase?.(src)
+            emit(alt === '' ? '' : `![${alt}]()`)
+            break
+          }
+          const target = ABSOLUTE_URL.test(src)
+            ? src
+            : `${(imageBase ?? '').replace(IMAGE_BASE_SLASH, '')}/${src.replace(IMAGES_SEGMENT, '')}`
+          emit(`![${alt}](${formatDestination(target)})`)
+          break
+        }
         default:
           onUnknownTag?.(node.tag)
           walk(node.children)
