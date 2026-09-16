@@ -1,196 +1,196 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-16T04:25:04.881Z",
+  "generated_at": "2026-09-16T09:26:09.961Z",
   "projects": {
     "boot": {
       "3.3.0": {
-        "tag": "boot-3.3.0",
-        "released_at": "2026-09-12T12:37:44Z"
+        "tag": "boot-3.3.0+rebuild.1",
+        "released_at": "2026-09-16T08:43:07Z"
       },
       "3.3.1": {
-        "tag": "boot-3.3.1",
-        "released_at": "2026-09-12T12:37:47Z"
+        "tag": "boot-3.3.1+rebuild.1",
+        "released_at": "2026-09-16T08:43:03Z"
       },
       "3.3.2": {
-        "tag": "boot-3.3.2",
-        "released_at": "2026-09-12T12:37:45Z"
+        "tag": "boot-3.3.2+rebuild.1",
+        "released_at": "2026-09-16T08:45:16Z"
       },
       "3.3.3": {
-        "tag": "boot-3.3.3",
-        "released_at": "2026-09-12T12:38:50Z"
+        "tag": "boot-3.3.3+rebuild.1",
+        "released_at": "2026-09-16T08:45:09Z"
       },
       "3.3.4": {
-        "tag": "boot-3.3.4",
-        "released_at": "2026-09-12T12:38:52Z"
+        "tag": "boot-3.3.4+rebuild.1",
+        "released_at": "2026-09-16T08:45:12Z"
       },
       "3.3.5": {
-        "tag": "boot-3.3.5",
-        "released_at": "2026-09-12T12:38:51Z"
+        "tag": "boot-3.3.5+rebuild.1",
+        "released_at": "2026-09-16T08:46:15Z"
       },
       "3.3.6": {
-        "tag": "boot-3.3.6",
-        "released_at": "2026-09-12T12:39:50Z"
+        "tag": "boot-3.3.6+rebuild.1",
+        "released_at": "2026-09-16T09:21:58Z"
       },
       "3.3.7": {
-        "tag": "boot-3.3.7",
-        "released_at": "2026-09-12T12:39:55Z"
+        "tag": "boot-3.3.7+rebuild.1",
+        "released_at": "2026-09-16T09:21:58Z"
       },
       "3.3.8": {
-        "tag": "boot-3.3.8",
-        "released_at": "2026-09-12T12:39:56Z"
+        "tag": "boot-3.3.8+rebuild.1",
+        "released_at": "2026-09-16T08:47:24Z"
       },
       "3.3.9": {
-        "tag": "boot-3.3.9",
-        "released_at": "2026-09-12T12:40:53Z"
+        "tag": "boot-3.3.9+rebuild.1",
+        "released_at": "2026-09-16T08:47:14Z"
       },
       "3.3.10": {
-        "tag": "boot-3.3.10",
-        "released_at": "2026-09-12T12:28:23Z"
+        "tag": "boot-3.3.10+rebuild.1",
+        "released_at": "2026-09-16T08:43:10Z"
       },
       "3.3.11": {
-        "tag": "boot-3.3.11",
-        "released_at": "2026-09-12T12:28:24Z"
+        "tag": "boot-3.3.11+rebuild.1",
+        "released_at": "2026-09-16T08:44:08Z"
       },
       "3.3.12": {
-        "tag": "boot-3.3.12",
-        "released_at": "2026-09-12T12:28:27Z"
+        "tag": "boot-3.3.12+rebuild.1",
+        "released_at": "2026-09-16T08:44:12Z"
       },
       "3.3.13": {
-        "tag": "boot-3.3.13",
-        "released_at": "2026-09-12T12:29:13Z"
+        "tag": "boot-3.3.13+rebuild.1",
+        "released_at": "2026-09-16T08:44:10Z"
       },
       "3.4.0": {
-        "tag": "boot-3.4.0",
-        "released_at": "2026-09-12T12:27:11Z"
+        "tag": "boot-3.4.0+rebuild.1",
+        "released_at": "2026-09-16T08:47:17Z"
       },
       "3.4.1": {
-        "tag": "boot-3.4.1",
-        "released_at": "2026-09-12T12:27:09Z"
+        "tag": "boot-3.4.1+rebuild.1",
+        "released_at": "2026-09-16T08:48:33Z"
       },
       "3.4.2": {
-        "tag": "boot-3.4.2",
-        "released_at": "2026-09-12T12:29:06Z"
+        "tag": "boot-3.4.2+rebuild.1",
+        "released_at": "2026-09-16T08:49:29Z"
       },
       "3.4.3": {
-        "tag": "boot-3.4.3",
-        "released_at": "2026-09-12T12:27:12Z"
+        "tag": "boot-3.4.3+rebuild.1",
+        "released_at": "2026-09-16T08:50:23Z"
       },
       "3.4.4": {
-        "tag": "boot-3.4.4",
-        "released_at": "2026-09-12T12:29:10Z"
+        "tag": "boot-3.4.4+rebuild.1",
+        "released_at": "2026-09-16T08:50:27Z"
       },
       "3.4.5": {
-        "tag": "boot-3.4.5",
-        "released_at": "2026-09-12T12:30:02Z"
+        "tag": "boot-3.4.5+rebuild.1",
+        "released_at": "2026-09-16T08:50:24Z"
       },
       "3.4.6": {
-        "tag": "boot-3.4.6",
-        "released_at": "2026-09-12T12:30:00Z"
+        "tag": "boot-3.4.6+rebuild.1",
+        "released_at": "2026-09-16T08:51:27Z"
       },
       "3.4.7": {
-        "tag": "boot-3.4.7",
-        "released_at": "2026-09-12T12:29:58Z"
+        "tag": "boot-3.4.7+rebuild.1",
+        "released_at": "2026-09-16T08:51:32Z"
       },
       "3.4.8": {
-        "tag": "boot-3.4.8",
-        "released_at": "2026-09-12T12:30:45Z"
+        "tag": "boot-3.4.8+rebuild.1",
+        "released_at": "2026-09-16T08:51:28Z"
       },
       "3.4.9": {
-        "tag": "boot-3.4.9",
-        "released_at": "2026-09-12T12:36:06Z"
+        "tag": "boot-3.4.9+rebuild.1",
+        "released_at": "2026-09-16T08:52:32Z"
       },
       "3.4.10": {
-        "tag": "boot-3.4.10",
-        "released_at": "2026-09-12T12:30:44Z"
+        "tag": "boot-3.4.10+rebuild.1",
+        "released_at": "2026-09-16T08:48:25Z"
       },
       "3.4.11": {
-        "tag": "boot-3.4.11",
-        "released_at": "2026-09-12T12:31:31Z"
+        "tag": "boot-3.4.11+rebuild.1",
+        "released_at": "2026-09-16T08:48:18Z"
       },
       "3.4.12": {
-        "tag": "boot-3.4.12",
-        "released_at": "2026-09-12T12:31:32Z"
+        "tag": "boot-3.4.12+rebuild.1",
+        "released_at": "2026-09-16T08:49:24Z"
       },
       "3.4.13": {
-        "tag": "boot-3.4.13",
-        "released_at": "2026-09-12T12:31:32Z"
+        "tag": "boot-3.4.13+rebuild.1",
+        "released_at": "2026-09-16T08:49:24Z"
       },
       "3.5.0": {
-        "tag": "boot-3.5.0",
-        "released_at": "2026-09-12T12:32:23Z"
+        "tag": "boot-3.5.0+rebuild.1",
+        "released_at": "2026-09-16T08:52:31Z"
       },
       "3.5.1": {
-        "tag": "boot-3.5.1",
-        "released_at": "2026-09-12T12:32:29Z"
+        "tag": "boot-3.5.1+rebuild.1",
+        "released_at": "2026-09-16T08:53:41Z"
       },
       "3.5.2": {
-        "tag": "boot-3.5.2",
-        "released_at": "2026-09-12T12:32:18Z"
+        "tag": "boot-3.5.2+rebuild.1",
+        "released_at": "2026-09-16T08:55:45Z"
       },
       "3.5.3": {
-        "tag": "boot-3.5.3",
-        "released_at": "2026-09-12T12:33:08Z"
+        "tag": "boot-3.5.3+rebuild.1",
+        "released_at": "2026-09-16T08:55:45Z"
       },
       "3.5.4": {
-        "tag": "boot-3.5.4",
-        "released_at": "2026-09-12T12:36:01Z"
+        "tag": "boot-3.5.4+rebuild.1",
+        "released_at": "2026-09-16T08:56:45Z"
       },
       "3.5.5": {
-        "tag": "boot-3.5.5",
-        "released_at": "2026-09-12T12:33:11Z"
+        "tag": "boot-3.5.5+rebuild.1",
+        "released_at": "2026-09-16T08:56:49Z"
       },
       "3.5.6": {
-        "tag": "boot-3.5.6",
-        "released_at": "2026-09-12T12:33:55Z"
+        "tag": "boot-3.5.6+rebuild.1",
+        "released_at": "2026-09-16T09:22:11Z"
       },
       "3.5.7": {
-        "tag": "boot-3.5.7",
-        "released_at": "2026-09-12T12:33:53Z"
+        "tag": "boot-3.5.7+rebuild.1",
+        "released_at": "2026-09-16T09:22:17Z"
       },
       "3.5.8": {
-        "tag": "boot-3.5.8",
-        "released_at": "2026-09-12T12:33:54Z"
+        "tag": "boot-3.5.8+rebuild.1",
+        "released_at": "2026-09-16T08:57:52Z"
       },
       "3.5.9": {
-        "tag": "boot-3.5.9",
-        "released_at": "2026-09-12T12:34:39Z"
+        "tag": "boot-3.5.9+rebuild.1",
+        "released_at": "2026-09-16T08:57:51Z"
       },
       "3.5.10": {
-        "tag": "boot-3.5.10",
-        "released_at": "2026-09-12T12:34:46Z"
+        "tag": "boot-3.5.10+rebuild.1",
+        "released_at": "2026-09-16T08:53:36Z"
       },
       "3.5.11": {
-        "tag": "boot-3.5.11",
-        "released_at": "2026-09-12T12:34:44Z"
+        "tag": "boot-3.5.11+rebuild.1",
+        "released_at": "2026-09-16T08:53:38Z"
       },
       "3.5.12": {
-        "tag": "boot-3.5.12",
-        "released_at": "2026-09-12T12:35:27Z"
+        "tag": "boot-3.5.12+rebuild.1",
+        "released_at": "2026-09-16T08:53:36Z"
       },
       "3.5.13": {
-        "tag": "boot-3.5.13",
-        "released_at": "2026-09-12T12:35:28Z"
+        "tag": "boot-3.5.13+rebuild.1",
+        "released_at": "2026-09-16T08:54:36Z"
       },
       "3.5.14": {
-        "tag": "boot-3.5.14",
-        "released_at": "2026-09-12T12:35:31Z"
+        "tag": "boot-3.5.14+rebuild.1",
+        "released_at": "2026-09-16T08:54:38Z"
       },
       "3.5.15": {
-        "tag": "boot-3.5.15",
-        "released_at": "2026-09-12T12:36:18Z"
+        "tag": "boot-3.5.15+rebuild.1",
+        "released_at": "2026-09-16T08:54:38Z"
       },
       "3.5.16": {
-        "tag": "boot-3.5.16",
-        "released_at": "2026-09-12T12:36:20Z"
+        "tag": "boot-3.5.16+rebuild.1",
+        "released_at": "2026-09-16T08:55:43Z"
       },
       "4.0.8": {
-        "tag": "boot-4.0.8",
-        "released_at": "2026-09-11T19:11:35Z"
+        "tag": "boot-4.0.8+rebuild.1",
+        "released_at": "2026-09-16T08:58:57Z"
       },
       "4.1.1": {
-        "tag": "boot-4.1.1",
-        "released_at": "2026-09-11T19:16:46Z"
+        "tag": "boot-4.1.1+rebuild.1",
+        "released_at": "2026-09-16T08:58:53Z"
       }
     },
     "framework": {

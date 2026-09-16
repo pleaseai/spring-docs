@@ -1087,8 +1087,8 @@ Note that if you are using Spring Data REST, you must use the properties in the 
 Spring Data REST can expose the `Repository` implementations as REST endpoints for you,
 provided Spring MVC has been enabled for the application.
 
-Spring Boot exposes a set of useful properties (from the `spring.data.rest` namespace) that customize the [`RepositoryRestConfiguration`](https://docs.spring.io/spring-data/rest/docs/{version-spring-data-rest-javadoc}/api/org/springframework/data/rest/core/config/RepositoryRestConfiguration.html).
-If you need to provide additional customization, you should use a [`RepositoryRestConfigurer`](https://docs.spring.io/spring-data/rest/docs/{version-spring-data-rest-javadoc}/api/org/springframework/data/rest/webmvc/config/RepositoryRestConfigurer.html) bean.
+Spring Boot exposes a set of useful properties (from the `spring.data.rest` namespace) that customize the [`RepositoryRestConfiguration`](https://docs.spring.io/spring-data/rest/docs/4.3.x/api/org/springframework/data/rest/core/config/RepositoryRestConfiguration.html).
+If you need to provide additional customization, you should use a [`RepositoryRestConfigurer`](https://docs.spring.io/spring-data/rest/docs/4.3.x/api/org/springframework/data/rest/webmvc/config/RepositoryRestConfigurer.html) bean.
 
 > [!NOTE]
 > If you do not specify any order on your custom `RepositoryRestConfigurer`, it runs after the one Spring Boot uses internally.

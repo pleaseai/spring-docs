@@ -92,7 +92,7 @@ The `version` command provides a quick way to check which version of Spring Boot
 
 ```shell
 $ spring version
-Spring CLI v{version-spring-boot}
+Spring CLI v3.3.9
 ```
 
 <a id="cli.using-the-cli.initialize-new-project"></a>
@@ -153,7 +153,7 @@ If you do not use either of these shells (perhaps you are a Windows user), you c
 
 ```shell
 $ spring shell
-*Spring Boot* (v{version-spring-boot})
+*Spring Boot* (v3.3.9)
 Hit TAB to complete. Type \'help' and hit RETURN for help, and \'exit' to quit.
 ```
 
@@ -161,7 +161,7 @@ From inside the embedded shell, you can run other commands directly:
 
 ```shell
 $ version
-Spring CLI v{version-spring-boot}
+Spring CLI v3.3.9
 ```
 
 The embedded shell supports ANSI color output as well as `tab` completion.

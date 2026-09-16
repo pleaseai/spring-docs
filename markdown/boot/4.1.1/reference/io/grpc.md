@@ -73,7 +73,7 @@ The following shows a typical Maven POM file that uses the plugin:
     <parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>{version-spring-boot}</version>
+		<version>4.1.1</version>
 	</parent>
 	<groupId>com.example</groupId>
 	<artifactId>myproject</artifactId>
@@ -119,9 +119,9 @@ The following shows a typical Gradle file that uses the plugin:
 ```gradle
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '{version-spring-boot}'
-	id 'io.spring.dependency-management' version '{version-dependency-management-plugin}'
-	id 'com.google.protobuf' version '{version-protobuf-gradle-plugin}'
+	id 'org.springframework.boot' version '4.1.1'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.google.protobuf' version '0.9.6'
 }
 
 group = 'com.example'

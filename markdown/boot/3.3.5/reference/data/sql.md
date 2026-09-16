@@ -429,9 +429,9 @@ class City : Serializable {
 JPA queries are created automatically from your method names.
 For example, a `CityRepository` interface might declare a `findAllByState(String state)` method to find all the cities in a given state.
 
-For more complex queries, you can annotate your method with Spring Data’s [`Query`](https://docs.spring.io/spring-data/jpa/docs/{version-spring-data-jpa-javadoc}/api/org/springframework/data/jpa/repository/Query.html) annotation.
+For more complex queries, you can annotate your method with Spring Data’s [`Query`](https://docs.spring.io/spring-data/jpa/docs/3.3.x/api/org/springframework/data/jpa/repository/Query.html) annotation.
 
-Spring Data repositories usually extend from the [`Repository`](https://docs.spring.io/spring-data/commons/docs/{version-spring-data-commons-javadoc}/api/org/springframework/data/repository/Repository.html) or [`CrudRepository`](https://docs.spring.io/spring-data/commons/docs/{version-spring-data-commons-javadoc}/api/org/springframework/data/repository/CrudRepository.html) interfaces.
+Spring Data repositories usually extend from the [`Repository`](https://docs.spring.io/spring-data/commons/docs/3.3.x/api/org/springframework/data/repository/Repository.html) or [`CrudRepository`](https://docs.spring.io/spring-data/commons/docs/3.3.x/api/org/springframework/data/repository/CrudRepository.html) interfaces.
 If you use auto-configuration, the [auto-configuration packages](../using/auto-configuration.md#using.auto-configuration.packages) are searched for repositories.
 
 > [!TIP]
@@ -485,7 +485,7 @@ If more than one exists, the one named `applicationTaskExecutor` will be used.
 
 > [!TIP]
 > We have barely scratched the surface of Spring Data JPA.
-> For complete details, see the [Spring Data JPA reference documentation](https://docs.spring.io/spring-data/jpa/reference/{version-spring-data-jpa-docs}).
+> For complete details, see the [Spring Data JPA reference documentation](https://docs.spring.io/spring-data/jpa/reference/3.3).
 
 <a id="data.sql.jpa-and-spring-data.envers-repositories"></a>
 
@@ -530,7 +530,7 @@ interface CountryRepository :
 ```
 
 > [!NOTE]
-> For more details, check the [Spring Data Envers reference documentation](https://docs.spring.io/spring-data/jpa/reference/{version-spring-data-jpa-docs}/envers.html).
+> For more details, check the [Spring Data Envers reference documentation](https://docs.spring.io/spring-data/jpa/reference/3.3/envers.html).
 
 <a id="data.sql.jpa-and-spring-data.creating-and-dropping"></a>
 
@@ -598,7 +598,7 @@ They can be added to your project with a single dependency on `spring-boot-start
 If necessary, you can take control of Spring Data JDBC’s configuration by adding the `@EnableJdbcRepositories` annotation or an `AbstractJdbcConfiguration` subclass to your application.
 
 > [!TIP]
-> For complete details of Spring Data JDBC, see the [reference documentation](https://docs.spring.io/spring-data/relational/reference/{version-spring-data-jdbc-docs}).
+> For complete details of Spring Data JDBC, see the [reference documentation](https://docs.spring.io/spring-data/relational/reference/3.3).
 
 <a id="data.sql.h2-web-console"></a>
 
@@ -1049,9 +1049,9 @@ class MyBean(private val databaseClient: DatabaseClient) {
 Queries are created automatically from your method names.
 For example, a `CityRepository` interface might declare a `findAllByState(String state)` method to find all the cities in a given state.
 
-For more complex queries, you can annotate your method with Spring Data’s [`@Query`](https://docs.spring.io/spring-data/r2dbc/docs/{version-spring-data-r2dbc-javadoc}/api/org/springframework/data/r2dbc/repository/Query.html) annotation.
+For more complex queries, you can annotate your method with Spring Data’s [`@Query`](https://docs.spring.io/spring-data/r2dbc/docs/3.3.x/api/org/springframework/data/r2dbc/repository/Query.html) annotation.
 
-Spring Data repositories usually extend from the [`Repository`](https://docs.spring.io/spring-data/commons/docs/{version-spring-data-commons-javadoc}/api/org/springframework/data/repository/Repository.html) or [`CrudRepository`](https://docs.spring.io/spring-data/commons/docs/{version-spring-data-commons-javadoc}/api/org/springframework/data/repository/CrudRepository.html) interfaces.
+Spring Data repositories usually extend from the [`Repository`](https://docs.spring.io/spring-data/commons/docs/3.3.x/api/org/springframework/data/repository/Repository.html) or [`CrudRepository`](https://docs.spring.io/spring-data/commons/docs/3.3.x/api/org/springframework/data/repository/CrudRepository.html) interfaces.
 If you use auto-configuration, the [auto-configuration packages](../using/auto-configuration.md#using.auto-configuration.packages) are searched for repositories.
 
 The following example shows a typical Spring Data repository interface definition:
@@ -1084,4 +1084,4 @@ interface CityRepository : Repository<City?, Long?> {
 ```
 
 > [!TIP]
-> We have barely scratched the surface of Spring Data R2DBC. For complete details, see the [Spring Data R2DBC reference documentation](https://docs.spring.io/spring-data/relational/reference/{version-spring-data-r2dbc-docs}).
+> We have barely scratched the surface of Spring Data R2DBC. For complete details, see the [Spring Data R2DBC reference documentation](https://docs.spring.io/spring-data/relational/reference/3.3).
