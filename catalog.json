@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-16T04:25:04.881Z",
+  "generated_at": "2026-09-16T08:51:28.262Z",
   "projects": {
     "boot": {
       "3.3.0": {
@@ -85,8 +85,8 @@
         "released_at": "2026-09-12T12:30:02Z"
       },
       "3.4.6": {
-        "tag": "boot-3.4.6",
-        "released_at": "2026-09-12T12:30:00Z"
+        "tag": "boot-3.4.6+rebuild.1",
+        "released_at": "2026-09-16T08:51:27Z"
       },
       "3.4.7": {
         "tag": "boot-3.4.7",
