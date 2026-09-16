@@ -21,6 +21,13 @@
  * own pair — that walks consumers backwards onto a superseded archive. A run
  * whose tag the catalog has moved past owes nothing.
  *
+ * That last verdict does not depend on publication having happened. A tag whose
+ * run failed *before* `gh release create` is superseded the same way — by the
+ * rebuild cut in its place — and re-running it publishes an archive nobody
+ * asked for and then makes exactly that backwards catalog write. So supersession
+ * is decided before the two facts are split, not on the recovery path alone
+ * (ADR-0005).
+ *
  * Pure — the caller observes both facts and applies the verdict.
  */
 
@@ -32,7 +39,8 @@
  *   skip publication and record it, once the published bytes are shown to
  *   match this run's rebuild.
  * - `complete` — the run is a no-op, because it owes nothing: both phases are
- *   done, or the catalog has already moved past this tag to a newer rebuild.
+ *   done, or the catalog has already moved past this tag to a newer rebuild —
+ *   whether or not this tag was ever published.
  *   The modes are named after what a run still owes rather than after the state
  *   it found (ADR-0003), so both cases are the same instruction to the caller.
  */
@@ -98,24 +106,24 @@ function isSupersededBy(tag: string, catalogTag: string): boolean {
 export function classifyRelease(state: ReleaseState): ReleaseMode {
   const registered = state.catalogTag === state.tag
 
-  if (!state.releaseExists) {
-    if (registered) {
+  if (registered) {
+    if (!state.releaseExists) {
       throw new Error(
         `catalog.json records tag "${state.tag}" but no such release exists. `
         + 'A release is never recorded before it is published, so the release was '
         + 'deleted or the catalog was edited by hand; repair the catalog before re-running.',
       )
     }
-    return 'publish'
+    return 'complete'
   }
 
-  if (registered)
-    return 'complete'
-
-  // Published, unregistered, and the catalog has already moved on: the entry
-  // this run would write is the one a later rebuild replaced on purpose.
+  // The catalog has already moved on: the entry this run would write is the one
+  // a later rebuild replaced on purpose. Asked before publication is considered,
+  // because publication is not what makes the write wrong — both phases run
+  // together on the `publish` path, so a superseded tag that never published
+  // reaches the same backwards catalog write by a longer route.
   if (state.catalogTag !== null && isSupersededBy(state.tag, state.catalogTag))
     return 'complete'
 
-  return 'register'
+  return state.releaseExists ? 'register' : 'publish'
 }

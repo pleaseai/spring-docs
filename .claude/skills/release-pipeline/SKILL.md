@@ -201,6 +201,12 @@ archive's sha256 to match the published one — the archive is reproducible by c
 (sorted entries, pinned timestamps, `gzip -n`), so a mismatch means the published bytes came
 from different input and must not be indexed. Publish a `+rebuild.N` tag in that case.
 
+`complete` also covers a tag a later rebuild has taken over, including one whose run failed
+before it published anything — re-running it would otherwise publish a stale archive and open a
+catalog pull request moving the entry backwards (ADR-0005). The notice names the tag consumers
+resolve to now. If you cut a `+rebuild.N` instead of re-running a failed job, the abandoned tag
+stays abandoned; re-running it is a safe no-op.
+
 ## Invariants not to break
 
 - GA versions only; no pre-releases.
