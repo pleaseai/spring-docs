@@ -77,6 +77,38 @@ const SPRING_DATA_MODULES: readonly (readonly [name: string, artifact: string])[
 ]
 
 /**
+ * Testcontainers modules upstream turns into one attribute each.
+ *
+ * Mirrors `addTestcontainersDependencyVersion`, which 3.3.6 added and 3.3.13,
+ * 3.4.7 and 3.5.1 dropped again once the corpus stopped referencing them. The
+ * list is the union across the era: a module a given release does not manage
+ * resolves to nothing and is simply not emitted, exactly as upstream's own
+ * per-release list produces.
+ */
+const TESTCONTAINERS_MODULES: readonly string[] = [
+  'activemq',
+  'cassandra',
+  'clickhouse',
+  'couchbase',
+  'elasticsearch',
+  'grafana',
+  'jdbc',
+  'kafka',
+  'mariadb',
+  'mongodb',
+  'mssqlserver',
+  'mysql',
+  'neo4j',
+  'oracle-free',
+  'oracle-xe',
+  'postgresql',
+  'pulsar',
+  'r2dbc',
+  'rabbitmq',
+  'redpanda',
+]
+
+/**
  * Other managed dependencies upstream names one by one, and the BOM library
  * whose import pins each.
  *
@@ -97,6 +129,12 @@ const MANAGED_VERSION_ATTRIBUTES: readonly {
   { attribute: 'jackson-dataformat-xml', library: 'Jackson Bom', groupId: 'com.fasterxml.jackson.dataformat', artifactId: 'jackson-dataformat-xml' },
   { attribute: 'pulsar-client-api', library: 'Pulsar', groupId: 'org.apache.pulsar', artifactId: 'pulsar-client-api' },
   { attribute: 'pulsar-client-reactive-api', library: 'Pulsar Reactive', groupId: 'org.apache.pulsar', artifactId: 'pulsar-client-reactive-api' },
+  ...TESTCONTAINERS_MODULES.map(artifactId => ({
+    attribute: `testcontainers-${artifactId}`,
+    library: 'Testcontainers',
+    groupId: 'org.testcontainers',
+    artifactId,
+  })),
 ]
 
 /** BOM libraries whose imported BOMs have to be resolved for the attributes above. */
@@ -147,6 +185,13 @@ export function synthesizeAttributes(sources: AttributeSources): SynthesizedAttr
     const snapshot = version.endsWith('-SNAPSHOT') ? '-SNAPSHOT' : ''
     internal.set(`antoraversion-${name}`, majorMinor + snapshot)
     internal.set(`dotxversion-${name}`, `${majorMinor}.x`)
+    // 3.3.4 and 3.3.5 emit these two publicly instead of keeping them internal,
+    // and their corpus links through them. Later releases moved the same values
+    // behind `antoraversion-`/`dotxversion-` and stopped referencing the public
+    // names, so emitting both shapes resolves the older pages without changing
+    // a single byte of the newer ones.
+    attributes.set(`version-${name}-docs`, majorMinor + snapshot)
+    attributes.set(`version-${name}-javadoc`, `${majorMinor}.x`)
   }
 
   for (const managed of MANAGED_VERSION_ATTRIBUTES) {
