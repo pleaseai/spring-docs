@@ -1,0 +1,237 @@
+---
+title: "CORS"
+source: "ROOT:servlet/integrations/cors.adoc"
+---
+
+<a id="cors"></a>
+
+# CORS
+
+Spring Framework provides [first class support for CORS](https://docs.spring.io/spring-framework/reference/7.0.9/web/webmvc-cors.html).
+CORS must be processed before Spring Security, because the pre-flight request does not contain any cookies (that is, the `JSESSIONID`).
+If the request does not contain any cookies and Spring Security is first, the request determines that the user is not authenticated (since there are no cookies in the request) and rejects it.
+
+<a id="cors-configuration-source"></a>
+
+## Providing a `CorsConfigurationSource`
+
+The easiest way to ensure that CORS is handled first is to use the `CorsFilter`.
+Users can integrate the `CorsFilter` with Spring Security by providing a `CorsConfigurationSource`.
+Note that Spring Security will automatically configure CORS only if a `UrlBasedCorsConfigurationSource` instance is present.
+For example, the following will integrate CORS support within Spring Security:
+
+#### Java
+
+```java
+@Bean
+UrlBasedCorsConfigurationSource corsConfigurationSource() {
+    CorsConfiguration configuration = new CorsConfiguration();
+    configuration.setAllowedOrigins(Arrays.asList("https://example.com"));
+    configuration.setAllowedMethods(Arrays.asList("GET","POST"));
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/**", configuration);
+    return source;
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun corsConfigurationSource(): UrlBasedCorsConfigurationSource {
+    val configuration = CorsConfiguration()
+    configuration.allowedOrigins = listOf("https://example.com")
+    configuration.allowedMethods = listOf("GET", "POST")
+    val source = UrlBasedCorsConfigurationSource()
+    source.registerCorsConfiguration("/**", configuration)
+    return source
+}
+```
+
+The following listing does the same thing in XML:
+
+```xml
+<http>
+	<cors configuration-source-ref="corsSource"/>
+	...
+</http>
+<b:bean id="corsSource" class="org.springframework.web.cors.UrlBasedCorsConfigurationSource">
+	...
+</b:bean>
+```
+
+<a id="cors-spring-mvc-integration"></a>
+
+## Spring MVC Integration
+
+If you use Spring MVC’s CORS support, you can omit specifying the `CorsConfigurationSource` and Spring Security uses the CORS configuration provided to Spring MVC:
+
+#### Java
+
+```java
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig {
+
+	@Bean
+	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+		http
+			// if Spring MVC is on classpath and no CorsConfigurationSource is provided,
+			// Spring Security will use CORS configuration provided to Spring MVC
+			.cors(withDefaults())
+			...
+		return http.build();
+	}
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Configuration
+@EnableWebSecurity
+open class WebSecurityConfig {
+    @Bean
+    open fun filterChain(http: HttpSecurity): SecurityFilterChain {
+        http {
+            // if Spring MVC is on classpath and no CorsConfigurationSource is provided,
+            // Spring Security will use CORS configuration provided to Spring MVC
+            cors { }
+            // ...
+        }
+        return http.build()
+    }
+}
+```
+
+The following listing does the same thing in XML:
+
+```xml
+<http>
+	<!-- Default to Spring MVC's CORS configuration -->
+	<cors />
+	...
+</http>
+```
+
+<a id="cors-per-chain-configuration"></a>
+
+## Per-Chain Configuration
+
+If you have more than one `CorsConfigurationSource` bean, Spring Security won’t automatically configure CORS support for you, because it cannot decide which one to use.
+If you want to specify a different `CorsConfigurationSource` for each `SecurityFilterChain`, you can pass it directly into the `.cors()` DSL.
+
+#### Java
+
+```java
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig {
+
+	@Bean
+	@Order(0)
+	public SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
+		http
+			.securityMatcher("/api/**")
+			.cors((cors) -> cors
+				.configurationSource(apiConfigurationSource())
+			)
+			...
+		return http.build();
+	}
+
+	@Bean
+	@Order(1)
+	public SecurityFilterChain myOtherFilterChain(HttpSecurity http) throws Exception {
+		http
+			.cors((cors) -> cors
+				.configurationSource(myWebsiteConfigurationSource())
+			)
+			...
+		return http.build();
+	}
+
+	UrlBasedCorsConfigurationSource apiConfigurationSource() {
+		CorsConfiguration configuration = new CorsConfiguration();
+		configuration.setAllowedOrigins(Arrays.asList("https://api.example.com"));
+		configuration.setAllowedMethods(Arrays.asList("GET","POST"));
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
+	}
+
+	UrlBasedCorsConfigurationSource myWebsiteConfigurationSource() {
+		CorsConfiguration configuration = new CorsConfiguration();
+		configuration.setAllowedOrigins(Arrays.asList("https://example.com"));
+		configuration.setAllowedMethods(Arrays.asList("GET","POST"));
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
+	}
+
+}
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun corsConfigurationSource(): UrlBasedCorsConfigurationSource {
+    val configuration = CorsConfiguration()
+    configuration.allowedOrigins = listOf("https://example.com")
+    configuration.allowedMethods = listOf("GET", "POST")
+    val source = UrlBasedCorsConfigurationSource()
+    source.registerCorsConfiguration("/**", configuration)
+    return source
+}
+```
+
+<a id="cors-preflight-request-handler"></a>
+
+## `PreFlightRequestHandler` and `PreFlightRequestFilter`
+
+Spring Framework defines [`PreFlightRequestHandler`](https://docs.spring.io/spring-framework/docs/7.0.9/javadoc-api/org/springframework/web/cors/PreFlightRequestHandler.html) for applications that need to handle CORS preflight (`OPTIONS`) requests outside of `CorsFilter`.
+When Spring Security selects a `PreFlightRequestHandler` for a filter chain, it registers [`PreFlightRequestFilter`](https://docs.spring.io/spring-framework/docs/7.0.9/javadoc-api/org/springframework/web/filter/PreFlightRequestFilter.html) in the security filter chain (before `CorsFilter`) so preflight can be handled early in the request lifecycle.
+
+You can supply a handler in either of these ways:
+
+- Pass a handler directly with the `preFlightRequestHandler` attribute.
+- Register a `PreFlightRequestHandler` bean when cors is enabled and when no `CorsConfigurationSource` or `CorsFilter` is chosen for that chain.
+
+You must not configure both `configurationSource` and `preFlightRequestHandler` on the same `CorsConfigurer`; doing so results in an error at startup.
+
+The following example explicitly registers a `PreFlightRequestHandler` using the `preFlightRequestHandler`:
+
+#### Java
+
+```java
+http
+	// ..
+	.cors((cors) -> cors
+		.preFlightRequestHandler(preFlightRequestHandler)
+	);
+return http.build();
+```
+
+#### Kotlin
+
+```kotlin
+@Bean
+fun springSecurity(http: HttpSecurity, preFlightRequestHandler: PreFlightRequestHandler): SecurityFilterChain {
+    http {
+        authorizeHttpRequests {
+            authorize(anyRequest, authenticated)
+        }
+        cors {
+            this.preFlightRequestHandler = preFlightRequestHandler
+        }
+    }
+    return http.build()
+}
+```
+
+> [!WARNING]
+> CORS is a browser-based security feature.
+> By disabling CORS in Spring Security with `.cors(CorsConfigurer::disable)`, you are not removing CORS protection from your browser.
+> Instead, you are removing CORS support from Spring Security, and users will not be able to interact with your Spring backend from a cross-origin browser application.
+> To fix CORS errors in your application, you must enable CORS support, and provide an appropriate configuration source.
