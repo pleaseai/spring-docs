@@ -93,7 +93,7 @@ You should have a `<parent>` section that looks like this:
 <parent>
 	<groupId>org.springframework.boot</groupId>
 	<artifactId>spring-boot-starter-parent</artifactId>
-	<version>{version-spring-boot}</version>
+	<version>4.0.8</version>
 </parent>
 ```
 
@@ -267,7 +267,7 @@ You should see output similar to the following:
  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::  (v{version-spring-boot})
+ :: Spring Boot ::  (v4.0.8)
 ....... . . .
 ....... . . . (log output here)
 ....... . . .
