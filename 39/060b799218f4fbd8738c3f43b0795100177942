@@ -1,0 +1,62 @@
+scripts/lib/security-attributes.ts
+  s_b177e6f69fce71::t_8c9d2998d90707 1-159
+tests/unit/detect-upstream-versions.test.ts
+  s_b177e6f69fce71::t_9518ec52ff3dbb 8,19
+tests/unit/markdown-converter.test.ts
+  s_b177e6f69fce71::t_2eaa1fd4af88c3 443-506
+scripts/fetch-upstream.ts
+  s_b177e6f69fce71::t_a1c3c72f274851 471-478
+  s_b177e6f69fce71::t_be7b666a1d626f 31
+  s_b177e6f69fce71::t_f3dadaf32ef215 286
+  s_b177e6f69fce71::t_1d4fc413b00c67 261-285,287-290
+  s_f0da7c274ea423::t_bb4dd643426613 260
+tests/unit/upstream-sources.test.ts
+  s_b177e6f69fce71::t_9a9204e31811dc 359-405
+  s_b177e6f69fce71::t_9518ec52ff3dbb 76
+  s_b177e6f69fce71::t_fd65b13d29ef2b 406
+tests/unit/security-attributes.test.ts
+  s_b177e6f69fce71::t_420421b421b652 1-107
+README.md
+  s_b177e6f69fce71::t_adeb6195c94be5 45-48,84,183
+.claude/skills/release-pipeline/SKILL.md
+  s_b177e6f69fce71::t_5a88ee09f3ff42 123-126
+  s_b177e6f69fce71::t_366b03acf94ca3 16,18,30-31
+scripts/lib/version-catalog.ts
+  s_b177e6f69fce71::t_b475ff27d0f8a6 1-95
+tests/unit/version-catalog.test.ts
+  s_b177e6f69fce71::t_d0a939b64704f3 1-71
+scripts/lib/upstream-sources.ts
+  s_b177e6f69fce71::t_df5bc302b5abd9 468-526
+  s_b177e6f69fce71::t_d67e279952d737 29-31
+  s_b177e6f69fce71::t_f3c3c45cd7aa4a 16-18
+  s_b177e6f69fce71::t_c2fdfe8144fc9c 225-226
+  s_b177e6f69fce71::t_f038e5a93f5660 667-669
+  s_b177e6f69fce71::t_06d781348162ae 704-711
+  s_b177e6f69fce71::t_d18ab81725beeb 152-192,196-200,208
+  s_b177e6f69fce71::t_2b9fcbbafc8d0a 151,312-345
+  s_f0da7c274ea423::t_057a1ccbea522f 346,527
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "39060b799218f4fbd8738c3f43b0795100177942",
+  "prompts": {},
+  "sessions": {
+    "s_b177e6f69fce71": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cde3ae28-e163-45ab-9aed-2661db427969",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    },
+    "s_f0da7c274ea423": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35a18c1f-0ad3-42d0-b277-613dc632cb1e",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
