@@ -105,6 +105,122 @@ function sources(overrides: Partial<AttributeSources> = {}): AttributeSources {
   }
 }
 
+/**
+ * `testcontainers-bom` 1.20.4, reduced to the modules the Boot corpus links to.
+ *
+ * Transcribed from the published pom rather than from `TESTCONTAINERS_MODULES`,
+ * so it is an independent statement of what those coordinates are actually
+ * called — which is the only way a test can catch a typo in that list.
+ */
+const TESTCONTAINERS_BOM = `
+<project>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>activemq</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>cassandra</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>clickhouse</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>couchbase</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>elasticsearch</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>grafana</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>jdbc</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>kafka</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>mariadb</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>mongodb</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>mssqlserver</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>mysql</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>neo4j</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>oracle-free</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>oracle-xe</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>postgresql</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>pulsar</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>r2dbc</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>rabbitmq</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.testcontainers</groupId>
+        <artifactId>redpanda</artifactId>
+        <version>\${project.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
+`
+
 describe('synthesizeAttributes', () => {
   const { attributes, unresolved } = synthesizeAttributes(sources())
 
@@ -160,19 +276,32 @@ describe('synthesizeAttributes', () => {
     expect(attributes['version-spring-data-jpa-javadoc']).toBe('3.5.x')
   })
 
-  test('names every testcontainers module the corpus references', () => {
-    const withTestcontainers = synthesizeAttributes(sources({
-      managedVersions: {
-        'org.testcontainers:jdbc': '1.20.4',
-        'org.testcontainers:postgresql': '1.20.4',
-      },
+  test('names every testcontainers module against the published bom', () => {
+    // `TESTCONTAINERS_BOM` is transcribed from testcontainers-bom 1.20.4, not
+    // from the module list under test, so the count below is what pins each of
+    // the 20 literals: a typo names a coordinate the real bom does not manage,
+    // its attribute is silently omitted, and 20 becomes 19. Asserting the
+    // mapping itself would prove nothing — the attribute name and the lookup
+    // coordinate are built from the same string.
+    const { attributes: emitted } = synthesizeAttributes(sources({
+      managedVersions: parseManagedVersions(TESTCONTAINERS_BOM, '1.20.4'),
+    }))
+    const named = Object.keys(emitted).filter(name => name.startsWith('version-testcontainers-'))
+
+    expect(named).toHaveLength(20)
+    expect(emitted['version-testcontainers-jdbc']).toBe('1.20.4')
+    expect(emitted['version-testcontainers-oracle-free']).toBe('1.20.4')
+  })
+
+  test('omits a testcontainers module the release does not manage', () => {
+    // Upstream's own list grew and shrank across the era, so a module a given
+    // bom does not carry is absent rather than left dangling in the descriptor.
+    const { attributes: emitted } = synthesizeAttributes(sources({
+      managedVersions: { 'org.testcontainers:jdbc': '1.20.4' },
     }))
 
-    expect(withTestcontainers.attributes['version-testcontainers-jdbc']).toBe('1.20.4')
-    expect(withTestcontainers.attributes['version-testcontainers-postgresql']).toBe('1.20.4')
-    // A module the release does not manage is absent rather than dangling —
-    // upstream's own list grew and shrank across the era.
-    expect('version-testcontainers-redpanda' in withTestcontainers.attributes).toBe(false)
+    expect(emitted['version-testcontainers-jdbc']).toBe('1.20.4')
+    expect('version-testcontainers-redpanda' in emitted).toBe(false)
   })
 
   test('passes attribute cross-references through for Asciidoctor to resolve', () => {
