@@ -1,0 +1,19 @@
+tests/unit/antora-attributes.test.ts
+  s_09b9bac9f8b29d::t_c8c571dabbb2c9 108-223,279-300,303-304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "c0d85761c20066e4d376cb04514acc82f7e092fa",
+  "prompts": {},
+  "sessions": {
+    "s_09b9bac9f8b29d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "72f6f9de-e967-467b-a65b-306abbb6147d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
