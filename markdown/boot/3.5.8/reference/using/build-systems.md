@@ -78,7 +78,7 @@ A typical `build.xml` looks like the following example:
 	xmlns:spring-boot="antlib:org.springframework.boot.ant"
 	name="myapp" default="build">
 
-	<property name="spring-boot.version" value="{version-spring-boot}" />
+	<property name="spring-boot.version" value="3.5.8" />
 
 	<target name="resolve" description="--> retrieve dependencies with ivy">
 		<ivy:retrieve pattern="lib/[conf]/[artifact]-[type]-[revision].[ext]" />

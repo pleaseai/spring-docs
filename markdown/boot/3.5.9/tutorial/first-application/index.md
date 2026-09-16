@@ -93,7 +93,7 @@ Open your favorite text editor and add the following:
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>{version-spring-boot}</version>
+		<version>3.5.9</version>
 	</parent>
 
 	<!-- Additional lines to be added here... -->
@@ -120,7 +120,7 @@ Open your favorite text editor and add the following:
 ```gradle
 plugins {
 	id 'java'
-	id 'org.springframework.boot' version '{version-spring-boot}'
+	id 'org.springframework.boot' version '3.5.9'
 }
 
 apply plugin: 'io.spring.dependency-management'
@@ -347,7 +347,7 @@ $ mvn spring-boot:run
  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::  (v{version-spring-boot})
+ :: Spring Boot ::  (v3.5.9)
 ....... . . .
 ....... . . . (log output here)
 ....... . . .
@@ -380,7 +380,7 @@ $ gradle bootRun
  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::  (v{version-spring-boot})
+ :: Spring Boot ::  (v3.5.9)
 ....... . . .
 ....... . . . (log output here)
 ....... . . .
@@ -451,7 +451,7 @@ $ mvn package
 [INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ myproject ---
 [INFO] Building jar: /Users/developer/example/spring-boot-example/target/myproject-0.0.1-SNAPSHOT.jar
 [INFO]
-[INFO] --- spring-boot-maven-plugin:{version-spring-boot}:repackage (default) @ myproject ---
+[INFO] --- spring-boot-maven-plugin:3.5.9:repackage (default) @ myproject ---
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
 [INFO] ------------------------------------------------------------------------
@@ -479,7 +479,7 @@ $ java -jar target/myproject-0.0.1-SNAPSHOT.jar
  \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
   '  |____| .__|_| |_|_| |_\__, | / / / /
  =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::  (v{version-spring-boot})
+ :: Spring Boot ::  (v3.5.9)
 ....... . . .
 ....... . . . (log output here)
 ....... . . .

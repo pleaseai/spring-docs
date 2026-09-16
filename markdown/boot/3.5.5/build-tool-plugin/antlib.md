@@ -22,7 +22,7 @@ To use the module, you need to declare an additional `spring-boot` namespace in 
 You need to remember to start Ant using the `-lib` option, as shown in the following example:
 
 ```shell
-$ ant -lib <directory containing spring-boot-antlib-{version-spring-boot}.jar>
+$ ant -lib <directory containing spring-boot-antlib-3.5.5.jar>
 ```
 
 > [!TIP]

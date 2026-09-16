@@ -26,7 +26,7 @@ To generate build information with Maven, add an execution for the `build-info` 
 		<plugin>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-maven-plugin</artifactId>
-			<version>{version-spring-boot}</version>
+			<version>3.4.1</version>
 			<executions>
 				<execution>
 					<goals>
@@ -158,7 +158,7 @@ However, you must additionally add an `<executions>` section, as follows:
 		<plugin>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-maven-plugin</artifactId>
-			<version>{version-spring-boot}</version>
+			<version>3.4.1</version>
 			<executions>
 				<execution>
 					<goals>
