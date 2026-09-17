@@ -37,6 +37,15 @@ export interface AttributeSources {
    * Assemble it with {@link versionSourceBoms} and {@link parseManagedVersions}.
    */
   readonly managedVersions: Readonly<Record<string, string>>
+  /**
+   * The `addDependencyVersion` calls this version's build makes.
+   *
+   * Era-scoped rather than global: the calls live in upstream's Java source, not
+   * in the checkout, and 4.x renamed the Jackson coordinates behind three of
+   * them. {@link BOOT_3_MANAGED_VERSIONS} and {@link BOOT_4_MANAGED_VERSIONS} are
+   * the two the eras name.
+   */
+  readonly managedVersionAttributes: readonly ManagedVersionAttribute[]
 }
 
 /** The reconstructed attribute map, plus what could not be reconstructed. */
@@ -108,40 +117,73 @@ const TESTCONTAINERS_MODULES: readonly string[] = [
   'redpanda',
 ]
 
+/** One `addDependencyVersion` call: an attribute and the coordinate behind it. */
+export interface ManagedVersionAttribute {
+  /** Attribute name without the `version-` prefix. */
+  readonly attribute: string
+  /** BOM library whose import pins the coordinate, as the build script names it. */
+  readonly library: string
+  readonly groupId: string
+  readonly artifactId: string
+}
+
+/** The testcontainers rows, identical in both eras. */
+const TESTCONTAINERS_VERSION_ATTRIBUTES: readonly ManagedVersionAttribute[]
+  = TESTCONTAINERS_MODULES.map(artifactId => ({
+    attribute: `testcontainers-${artifactId}`,
+    library: 'Testcontainers',
+    groupId: 'org.testcontainers',
+    artifactId,
+  }))
+
 /**
- * Other managed dependencies upstream names one by one, and the BOM library
- * whose import pins each.
+ * Other managed dependencies upstream names one by one, for the 3.3-3.x line.
  *
  * Mirrors the explicit `addDependencyVersion` calls in
  * `AntoraAsciidocAttributes.addVersionAttributes`. The corpus references these
  * directly — `version-jackson-databind` alone appears 30 times in 3.5.16 — so
  * leaving them out is visible in the output.
  */
-const MANAGED_VERSION_ATTRIBUTES: readonly {
-  readonly attribute: string
-  readonly library: string
-  readonly groupId: string
-  readonly artifactId: string
-}[] = [
+export const BOOT_3_MANAGED_VERSIONS: readonly ManagedVersionAttribute[] = [
   { attribute: 'jackson-annotations', library: 'Jackson Bom', groupId: 'com.fasterxml.jackson.core', artifactId: 'jackson-annotations' },
   { attribute: 'jackson-core', library: 'Jackson Bom', groupId: 'com.fasterxml.jackson.core', artifactId: 'jackson-core' },
   { attribute: 'jackson-databind', library: 'Jackson Bom', groupId: 'com.fasterxml.jackson.core', artifactId: 'jackson-databind' },
   { attribute: 'jackson-dataformat-xml', library: 'Jackson Bom', groupId: 'com.fasterxml.jackson.dataformat', artifactId: 'jackson-dataformat-xml' },
   { attribute: 'pulsar-client-api', library: 'Pulsar', groupId: 'org.apache.pulsar', artifactId: 'pulsar-client-api' },
   { attribute: 'pulsar-client-reactive-api', library: 'Pulsar Reactive', groupId: 'org.apache.pulsar', artifactId: 'pulsar-client-reactive-api' },
-  ...TESTCONTAINERS_MODULES.map(artifactId => ({
-    attribute: `testcontainers-${artifactId}`,
-    library: 'Testcontainers',
-    groupId: 'org.testcontainers',
-    artifactId,
-  })),
+  ...TESTCONTAINERS_VERSION_ATTRIBUTES,
 ]
 
-/** BOM libraries whose imported BOMs have to be resolved for the attributes above. */
-const VERSION_SOURCE_LIBRARIES: readonly string[] = [
-  'Spring Data Bom',
-  ...new Set(MANAGED_VERSION_ATTRIBUTES.map(managed => managed.library)),
+/**
+ * The same calls as `AntoraAsciidocAttributes` makes them in the 4.0.x line.
+ *
+ * Kept as a separate table rather than merged into {@link BOOT_3_MANAGED_VERSIONS},
+ * because the difference is upstream's Java source and not the checkout: 4.x
+ * moved Jackson 3 to the `tools.jackson` coordinates, kept the 2.x line as a
+ * second `Jackson 2 Bom` library behind `version-jackson2-databind`, and dropped
+ * `pulsar-client-reactive-api`. A union would emit a `version-jackson2-databind`
+ * for 3.x too, where `com.fasterxml.jackson.core:jackson-databind` is managed and
+ * upstream names no such attribute.
+ *
+ * `jackson-annotations` stays on the 2.x coordinates in both: 4.x's `Jackson Bom`
+ * permits that one artifact through explicitly.
+ */
+export const BOOT_4_MANAGED_VERSIONS: readonly ManagedVersionAttribute[] = [
+  { attribute: 'jackson-annotations', library: 'Jackson Bom', groupId: 'com.fasterxml.jackson.core', artifactId: 'jackson-annotations' },
+  { attribute: 'jackson-core', library: 'Jackson Bom', groupId: 'tools.jackson.core', artifactId: 'jackson-core' },
+  { attribute: 'jackson-databind', library: 'Jackson Bom', groupId: 'tools.jackson.core', artifactId: 'jackson-databind' },
+  { attribute: 'jackson-dataformat-xml', library: 'Jackson Bom', groupId: 'tools.jackson.dataformat', artifactId: 'jackson-dataformat-xml' },
+  { attribute: 'jackson2-databind', library: 'Jackson 2 Bom', groupId: 'com.fasterxml.jackson.core', artifactId: 'jackson-databind' },
+  { attribute: 'pulsar-client-api', library: 'Pulsar', groupId: 'org.apache.pulsar', artifactId: 'pulsar-client-api' },
+  ...TESTCONTAINERS_VERSION_ATTRIBUTES,
 ]
+
+/** BOM libraries whose imported BOMs have to be resolved for one era's attributes. */
+function versionSourceLibraries(
+  managedVersionAttributes: readonly ManagedVersionAttribute[],
+): ReadonlySet<string> {
+  return new Set(['Spring Data Bom', ...managedVersionAttributes.map(managed => managed.library)])
+}
 
 /** A library version declared as a single Groovy property reference. */
 const INTERPOLATED_VERSION = /^\$\{([^}]+)\}$/
@@ -194,7 +236,7 @@ export function synthesizeAttributes(sources: AttributeSources): SynthesizedAttr
     attributes.set(`version-${name}-javadoc`, `${majorMinor}.x`)
   }
 
-  for (const managed of MANAGED_VERSION_ATTRIBUTES) {
+  for (const managed of sources.managedVersionAttributes) {
     setIfPresent(
       attributes,
       `version-${managed.attribute}`,
@@ -423,19 +465,23 @@ export interface VersionSourceBom extends ImportedBom {
 /**
  * The BOMs whose contents the attribute set depends on.
  *
- * Only the few libraries {@link MANAGED_VERSION_ATTRIBUTES} and the Spring Data
- * modules draw from — resolving every imported BOM would mean ~45 downloads for
- * versions nothing references.
+ * Only the few libraries `managedVersionAttributes` and the Spring Data modules
+ * draw from — resolving every imported BOM would mean ~45 downloads for versions
+ * nothing references. Takes the same era-scoped table
+ * {@link synthesizeAttributes} reads, so the fetch cannot resolve a different set
+ * of BOMs than the attributes are built from.
  */
 export function versionSourceBoms(
   bomBuildScript: string,
   gradleProperties: string,
+  managedVersionAttributes: readonly ManagedVersionAttribute[],
 ): readonly VersionSourceBom[] {
   const properties = parseProperties(gradleProperties)
+  const wanted = versionSourceLibraries(managedVersionAttributes)
   const boms: VersionSourceBom[] = []
 
   for (const library of parseBomLibraries(bomBuildScript)) {
-    if (!VERSION_SOURCE_LIBRARIES.includes(library.name))
+    if (!wanted.has(library.name))
       continue
     const version = libraryVersion(library, properties)
     if (version === undefined)

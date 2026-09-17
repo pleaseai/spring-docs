@@ -7,13 +7,18 @@
  * out from the release tag, plus the generated half of the component. Where that
  * generated half comes from depends on the version's layout era (ADR-0004):
  * published content zips for Boot 4.0.8+, reconstruction from the tag for Boot
- * 3.3-3.x, and — where a project commits a descriptor its build only tops up —
+ * 3.3-4.0.7, and — where a project commits a descriptor its build only tops up —
  * an overlay of the checked-in one.
  */
 
+import type { ManagedVersionAttribute } from './antora-attributes.ts'
 import type { Attributes } from './component-descriptor.ts'
 import type { DeclaredSymlink } from './reject-symlinks.ts'
-import { parseProperties } from './antora-attributes.ts'
+import {
+  BOOT_3_MANAGED_VERSIONS,
+  BOOT_4_MANAGED_VERSIONS,
+  parseProperties,
+} from './antora-attributes.ts'
 import { securityAttributes } from './security-attributes.ts'
 import { parseVersionCatalog } from './version-catalog.ts'
 
@@ -138,6 +143,15 @@ export interface SynthesisSources {
   /** Properties file holding toolchain versions the BOM does not manage. */
   readonly gradlePropertiesPath: string
   /**
+   * The dependency-version attributes this era's upstream build declares.
+   *
+   * Not derivable from the paths above: the `addDependencyVersion` calls live in
+   * `AntoraAsciidocAttributes.java`, and 4.x renamed the Jackson coordinates
+   * three of them read. Pinned with the paths so an era cannot take one line's
+   * build inputs and the other line's reading of them.
+   */
+  readonly managedVersionAttributes: readonly ManagedVersionAttribute[]
+  /**
    * Maven artifact ids whose published jar ships
    * `META-INF/spring-configuration-metadata.json`.
    *
@@ -241,13 +255,15 @@ type EraAssembly
 /**
  * One documentation layout era of an upstream project.
  *
- * Spring Boot has moved its Antora component twice and changed how — and
- * whether — the generated half of it reaches the public: 3.3.0 introduced the
- * component but its content archives are excluded from the Maven Central sync
- * (`.github/actions/sync-to-maven-central/artifacts.spec`), while 4.x dropped
- * that exclusion and publishes them. An era pins both facts together, because
- * getting one without the other produces a tree that classifies but converts
- * with unresolved attributes.
+ * Spring Boot has moved its Antora component and changed how — and whether —
+ * the generated half of it reaches the public, and the two did not move
+ * together: 3.3.0 introduced the component but its content archives are
+ * excluded from the Maven Central sync
+ * (`.github/actions/sync-to-maven-central/artifacts.spec`); 4.0.0 relocated it
+ * under `documentation/` while the archives stayed unpublished; 4.0.8 is where
+ * they first appear. An era pins both facts together, because getting one
+ * without the other produces a tree that classifies but converts with
+ * unresolved attributes.
  */
 interface LayoutEra {
   /** Inclusive floor: the oldest version built with this layout. */
@@ -255,10 +271,11 @@ interface LayoutEra {
   /**
    * Exclusive ceiling, when the era does not run to the newest release.
    *
-   * Eras are not contiguous: 4.0.0-4.0.7 changed to the 4.x component path but
-   * published no content archive, so they belong to neither era and are not
-   * buildable at all. Without a ceiling they would fall back to the preceding
-   * era and be fetched from a path that does not exist at their tag.
+   * Adjacent eras can share neither their component path nor their assembly:
+   * 4.0.0 moved the component to `documentation/` while still publishing no
+   * content archive, and 4.0.8 began publishing one without moving anything.
+   * Each boundary needs a ceiling — without one an era would swallow the next
+   * and fetch from a path, or an archive, that does not exist at its tag.
    */
   readonly until?: string
   /** Repo-relative path of the Antora component root (holds `antora.yml`). */
@@ -307,6 +324,124 @@ const BOOT_3_METADATA_ARTIFACTS = [
   'spring-boot-docker-compose',
   'spring-boot-test-autoconfigure',
   'spring-boot-testcontainers',
+] as const
+
+/**
+ * Modules whose jar carries configuration-property metadata in the 4.0.x line.
+ *
+ * Boot 4 split the three 3.x module trees into ~140 projects, so
+ * {@link BOOT_3_METADATA_ARTIFACTS} does not carry over. Measured two ways that
+ * agree exactly on these 103 (2026-09-17): they are the artifacts the 4.0.8
+ * content archive ships a `spring-configuration-metadata.json` partial for, and
+ * every one of them publishes a 4.0.0 and a 4.0.7 jar carrying
+ * `META-INF/spring-configuration-metadata.json`. Of the 34 other modules v4.0.0
+ * declares, 4 publish no jar and 30 publish one with no metadata file —
+ * `spring-boot-test` among them, as in 3.x.
+ */
+const BOOT_4_METADATA_ARTIFACTS = [
+  'spring-boot',
+  'spring-boot-activemq',
+  'spring-boot-actuator',
+  'spring-boot-actuator-autoconfigure',
+  'spring-boot-amqp',
+  'spring-boot-artemis',
+  'spring-boot-autoconfigure',
+  'spring-boot-batch',
+  'spring-boot-batch-jdbc',
+  'spring-boot-cache',
+  'spring-boot-cache-test',
+  'spring-boot-cassandra',
+  'spring-boot-couchbase',
+  'spring-boot-data-cassandra',
+  'spring-boot-data-commons',
+  'spring-boot-data-couchbase',
+  'spring-boot-data-elasticsearch',
+  'spring-boot-data-jdbc',
+  'spring-boot-data-jpa',
+  'spring-boot-data-ldap',
+  'spring-boot-data-mongodb',
+  'spring-boot-data-neo4j',
+  'spring-boot-data-r2dbc',
+  'spring-boot-data-redis',
+  'spring-boot-data-rest',
+  'spring-boot-devtools',
+  'spring-boot-docker-compose',
+  'spring-boot-elasticsearch',
+  'spring-boot-flyway',
+  'spring-boot-freemarker',
+  'spring-boot-graphql',
+  'spring-boot-groovy-templates',
+  'spring-boot-gson',
+  'spring-boot-h2console',
+  'spring-boot-hateoas',
+  'spring-boot-hazelcast',
+  'spring-boot-health',
+  'spring-boot-hibernate',
+  'spring-boot-http-client',
+  'spring-boot-http-codec',
+  'spring-boot-http-converter',
+  'spring-boot-integration',
+  'spring-boot-jackson',
+  'spring-boot-jackson2',
+  'spring-boot-jdbc',
+  'spring-boot-jdbc-test',
+  'spring-boot-jersey',
+  'spring-boot-jetty',
+  'spring-boot-jms',
+  'spring-boot-jooq',
+  'spring-boot-jpa',
+  'spring-boot-kafka',
+  'spring-boot-kotlinx-serialization-json',
+  'spring-boot-ldap',
+  'spring-boot-liquibase',
+  'spring-boot-mail',
+  'spring-boot-micrometer-metrics',
+  'spring-boot-micrometer-metrics-test',
+  'spring-boot-micrometer-observation',
+  'spring-boot-micrometer-tracing',
+  'spring-boot-micrometer-tracing-brave',
+  'spring-boot-micrometer-tracing-opentelemetry',
+  'spring-boot-micrometer-tracing-test',
+  'spring-boot-mongodb',
+  'spring-boot-mustache',
+  'spring-boot-neo4j',
+  'spring-boot-netty',
+  'spring-boot-opentelemetry',
+  'spring-boot-persistence',
+  'spring-boot-pulsar',
+  'spring-boot-quartz',
+  'spring-boot-r2dbc',
+  'spring-boot-reactor',
+  'spring-boot-reactor-netty',
+  'spring-boot-restclient-test',
+  'spring-boot-restdocs',
+  'spring-boot-rsocket',
+  'spring-boot-security',
+  'spring-boot-security-oauth2-authorization-server',
+  'spring-boot-security-oauth2-client',
+  'spring-boot-security-oauth2-resource-server',
+  'spring-boot-security-saml2',
+  'spring-boot-sendgrid',
+  'spring-boot-servlet',
+  'spring-boot-session',
+  'spring-boot-session-data-redis',
+  'spring-boot-session-jdbc',
+  'spring-boot-sql',
+  'spring-boot-test-autoconfigure',
+  'spring-boot-testcontainers',
+  'spring-boot-thymeleaf',
+  'spring-boot-tomcat',
+  'spring-boot-transaction',
+  'spring-boot-validation',
+  'spring-boot-web-server',
+  'spring-boot-webflux',
+  'spring-boot-webflux-test',
+  'spring-boot-webmvc',
+  'spring-boot-webmvc-test',
+  'spring-boot-webservices',
+  'spring-boot-webservices-test',
+  'spring-boot-websocket',
+  'spring-boot-zipkin',
 ] as const
 
 /** The committed version catalog Spring Security's build resolves against. */
@@ -366,8 +501,9 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
         // ship the pre-Antora `src/docs/asciidoc` layout this pipeline cannot
         // classify. Verified by probing `antora.yml` at each minor's `.0` tag.
         since: '3.3.0',
-        // 4.0.0 moved the component to `documentation/`, so this era stops short
-        // of it even though 4.0.0-4.0.7 are equally archive-less.
+        // 4.0.0 moved the component to `documentation/` and restructured the
+        // build inputs the reconstruction reads, so the synthesis continues in
+        // the next era rather than here.
         until: '4.0.0',
         componentPath: 'spring-boot-project/spring-boot-docs/src/docs/antora',
         assembly: {
@@ -378,15 +514,47 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
               'buildSrc/src/main/resources/org/springframework/boot/build/antora/antora-asciidoc-attributes.properties',
             bomBuildScriptPath: 'spring-boot-project/spring-boot-dependencies/build.gradle',
             gradlePropertiesPath: 'gradle.properties',
+            managedVersionAttributes: BOOT_3_MANAGED_VERSIONS,
             metadataArtifacts: BOOT_3_METADATA_ARTIFACTS,
+          },
+        },
+      },
+      {
+        // 4.0.0-4.0.7 sit between the two published states: the 4.x component
+        // path, but no content archive on Maven Central (`root-aggregate-content`
+        // 404s for 4.0.0 and 4.0.7 and answers 200 from 4.0.8, probed
+        // 2026-09-17). Same shape as 3.3-3.x, so the same reconstruction runs —
+        // only the paths it reads moved, and `documentation/` is why this is a
+        // third era rather than a wider first one.
+        since: '4.0.0',
+        until: '4.0.8',
+        componentPath: 'documentation/spring-boot-docs/src/docs/antora',
+        assembly: {
+          descriptor: 'synthesized',
+          synthesis: {
+            // Moved with the component, out of `spring-boot-project/`.
+            examplesPath: 'documentation/spring-boot-docs/src/main',
+            // Unchanged across the restructure; its contents differ (123 entries
+            // against 3.5.16's 111) but the `key=value` shape `parseProperties`
+            // reads does not, and 4.0.0's file is byte-identical to 4.0.8's.
+            staticAttributesPath:
+              'buildSrc/src/main/resources/org/springframework/boot/build/antora/antora-asciidoc-attributes.properties',
+            // The dependency BOM moved to `platform/`. Same `library(...)`/`links`
+            // DSL: reconstructing 4.0.8 from it reproduces all 876 attributes of
+            // the descriptor its own content archive ships, none differing.
+            bomBuildScriptPath: 'platform/spring-boot-dependencies/build.gradle',
+            gradlePropertiesPath: 'gradle.properties',
+            managedVersionAttributes: BOOT_4_MANAGED_VERSIONS,
+            metadataArtifacts: BOOT_4_METADATA_ARTIFACTS,
           },
         },
       },
       {
         // `spring-boot-docs` is published to Maven Central only for 2.2.x-2.4.2
         // and then again from 4.0.8, and this era needs that artifact's
-        // `root-aggregate-content` archive. 4.0.0-4.0.7 and 4.1.0 have no archive
-        // at all, so they cannot be built however the converter behaves.
+        // `root-aggregate-content` archive. 4.1.0 has no archive at all, so it
+        // cannot be built however the converter behaves — a publication gap the
+        // availability gate catches, not an era gap.
         since: '4.0.8',
         componentPath: 'documentation/spring-boot-docs/src/docs/antora',
         assembly: {

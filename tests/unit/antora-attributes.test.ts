@@ -1,6 +1,8 @@
 import type { AttributeSources } from '../../scripts/lib/antora-attributes.ts'
 import { describe, expect, test } from 'bun:test'
 import {
+  BOOT_3_MANAGED_VERSIONS,
+  BOOT_4_MANAGED_VERSIONS,
   parseManagedVersions,
   parseProperties,
   synthesizeAttributes,
@@ -101,6 +103,7 @@ function sources(overrides: Partial<AttributeSources> = {}): AttributeSources {
     bomBuildScript: BOM_BUILD_SCRIPT,
     gradleProperties: GRADLE_PROPERTIES,
     managedVersions: { 'org.springframework.data:spring-data-jpa': '3.5.4' },
+    managedVersionAttributes: BOOT_3_MANAGED_VERSIONS,
     ...overrides,
   }
 }
@@ -443,10 +446,40 @@ bom {
 }
 `,
       'version=3.5.16\n',
+      BOOT_3_MANAGED_VERSIONS,
     )
 
     expect(boms).toEqual([
       { groupId: 'org.testcontainers', artifactId: 'testcontainers-bom', version: '1.20.4' },
+    ])
+  })
+
+  test('follows the era table, so 4.x also resolves the second jackson bom', () => {
+    // 4.x pins `version-jackson2-databind` through a `Jackson 2 Bom` library the
+    // 3.x table never names. Resolving the BOM set from the same table the
+    // attributes are built from is what keeps the fetch and the synthesis from
+    // disagreeing about which coordinates exist.
+    const buildScript = `
+bom {
+  library("Jackson 2 Bom", "2.21.5") {
+    group("com.fasterxml.jackson") {
+      bom("jackson-bom")
+    }
+  }
+  library("Jackson Bom", "3.1.5") {
+    group("tools.jackson") {
+      bom("jackson-bom")
+    }
+  }
+}
+`
+
+    expect(versionSourceBoms(buildScript, '', BOOT_4_MANAGED_VERSIONS)).toEqual([
+      { groupId: 'com.fasterxml.jackson', artifactId: 'jackson-bom', version: '2.21.5' },
+      { groupId: 'tools.jackson', artifactId: 'jackson-bom', version: '3.1.5' },
+    ])
+    expect(versionSourceBoms(buildScript, '', BOOT_3_MANAGED_VERSIONS)).toEqual([
+      { groupId: 'tools.jackson', artifactId: 'jackson-bom', version: '3.1.5' },
     ])
   })
 })

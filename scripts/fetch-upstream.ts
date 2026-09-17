@@ -26,6 +26,7 @@
  *   2 — bad arguments
  */
 
+import type { ManagedVersionAttribute } from './lib/antora-attributes.ts'
 import type { Fetcher } from './lib/artifact-availability.ts'
 import type { Attributes } from './lib/component-descriptor.ts'
 import type { DerivedAttributes, SynthesisSources, UpstreamCoordinates } from './lib/upstream-sources.ts'
@@ -215,7 +216,12 @@ async function writeSynthesizedDescriptor(
     staticAttributes: await readSource(synthesis.staticAttributesPath),
     bomBuildScript,
     gradleProperties,
-    managedVersions: await fetchManagedVersions(bomBuildScript, gradleProperties),
+    managedVersions: await fetchManagedVersions(
+      bomBuildScript,
+      gradleProperties,
+      synthesis.managedVersionAttributes,
+    ),
+    managedVersionAttributes: synthesis.managedVersionAttributes,
   })
 
   if (unresolved.length > 0)
@@ -306,10 +312,11 @@ async function deriveAttributes(
 async function fetchManagedVersions(
   bomBuildScript: string,
   gradleProperties: string,
+  managedVersionAttributes: readonly ManagedVersionAttribute[],
 ): Promise<Readonly<Record<string, string>>> {
   const versions: Record<string, string> = {}
 
-  for (const bom of versionSourceBoms(bomBuildScript, gradleProperties)) {
+  for (const bom of versionSourceBoms(bomBuildScript, gradleProperties, managedVersionAttributes)) {
     const path = `${bom.groupId.replaceAll('.', '/')}/${bom.artifactId}/${bom.version}`
     const url = `https://repo1.maven.org/maven2/${path}/${bom.artifactId}-${bom.version}.pom`
     try {
