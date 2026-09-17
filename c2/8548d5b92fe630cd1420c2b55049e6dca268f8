@@ -1,0 +1,24 @@
+.claude/agent-memory/review-review-ocr-reviewer/MEMORY.md
+  s_393d48c850df36::t_945f872cab3c23 1-2
+.claude/agent-memory/review-review-ocr-reviewer/feedback_review_tests_outside_ocr_scope.md
+  s_393d48c850df36::t_9cf0d528751d67 1-22
+.claude/agent-memory/review-review-ocr-reviewer/project_spring_docs_ocr_scope.md
+  s_393d48c850df36::t_9e0dd8c3c7b978 1-16,21-29
+  s_393d48c850df36::t_292fffc2237be1 17-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "c28548d5b92fe630cd1420c2b55049e6dca268f8",
+  "prompts": {},
+  "sessions": {
+    "s_393d48c850df36": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38e38f9e-15da-4daa-a623-b080641dfc00",
+        "model": "claude-opus-5"
+      },
+      "human_author": null
+    }
+  }
+}
