@@ -1,4 +1,4 @@
-# ADR-0005: Reconstruct the Generated Component for Spring Boot 4.0.0-4.0.7
+# ADR-0006: Reconstruct the Generated Component for Spring Boot 4.0.0-4.0.7
 
 ## Status
 

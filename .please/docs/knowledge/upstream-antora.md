@@ -51,7 +51,7 @@ not add up to 246.
 > before assuming a version is buildable.
 
 > **Update 2026-09-17**: the availability above still holds, but it no longer decides
-> buildability. 3.3-3.x (ADR-0004) and 4.0.0-4.0.7 (ADR-0005) reconstruct the generated half
+> buildability. 3.3-3.x (ADR-0004) and 4.0.0-4.0.7 (ADR-0006) reconstruct the generated half
 > from the release tag instead of downloading it. Only 4.1.0 is still unbuildable, because it
 > sits inside the archive era and that era does want the zip.
 
