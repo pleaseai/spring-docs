@@ -75,11 +75,31 @@ const CASES: readonly Case[] = [
     expected: 'complete',
   },
   {
+    name: 'is complete when a newer rebuild superseded a tag that was never published',
+    why: 'The rebuild.1 run failed before `gh release create`, so rebuild.2 was cut and '
+      + 'completed both phases instead. Re-running the stale rebuild.1 job owes nothing: '
+      + 'publishing it would be harmless on its own, but the catalog write that follows '
+      + 'repoints the entry back onto it and drags `released_at` backwards with it.',
+    tag: 'boot-4.1.1+rebuild.1',
+    releaseExists: false,
+    catalogTag: 'boot-4.1.1+rebuild.2',
+    expected: 'complete',
+  },
+  {
     name: 'is complete when a rebuild has superseded the base tag',
     why: 'The same supersession seen from ordinal 0: the base tag is published and '
       + 'was the catalog entry until a rebuild replaced it.',
     tag: 'boot-4.1.1',
     releaseExists: true,
+    catalogTag: 'boot-4.1.1+rebuild.1',
+    expected: 'complete',
+  },
+  {
+    name: 'is complete when a rebuild superseded a base tag that was never published',
+    why: 'The same supersession at ordinal 0: the original tag never got a release, and '
+      + 'the rebuild cut in its place is what consumers resolve to now.',
+    tag: 'boot-4.1.1',
+    releaseExists: false,
     catalogTag: 'boot-4.1.1+rebuild.1',
     expected: 'complete',
   },

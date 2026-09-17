@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { BOOT_4_MANAGED_VERSIONS } from '../../scripts/lib/antora-attributes.ts'
 import {
   cloneUrlFor,
   compareGaVersions,
@@ -127,8 +128,16 @@ describe('resolveUpstream version floor spellings', () => {
       expect(() => resolveUpstream('boot', version)).not.toThrow()
   })
 
-  test('still rejects a leading-zero spelling of a version inside the 4.0 gap', () => {
-    expect(() => resolveUpstream('boot', '04.0.7')).toThrow(/not buildable/)
+  test('canonicalizes on the way to an era, not just past the floor', () => {
+    // A padded spelling has to pick the same era as the plain one: 4.0.7 is the
+    // last version of the synthesized 4.x era, and reading "04.0.7" literally
+    // would order it below every floor.
+    expect(resolveUpstream('boot', '04.0.7').componentPath)
+      .toBe(resolveUpstream('boot', '4.0.7').componentPath)
+  })
+
+  test('still rejects a leading-zero spelling of a version below every floor', () => {
+    expect(() => resolveUpstream('boot', '03.2.12')).toThrow(/not buildable/)
   })
 })
 
@@ -148,10 +157,10 @@ describe('supportedVersionsFromTags', () => {
   })
 
   test('keeps 3.3+ tags and drops ones no era covers', () => {
-    // 4.0.7 is above the oldest floor yet belongs to no era, so era membership
-    // — not a bare floor comparison — has to decide.
+    // 3.2.12 is below the oldest floor, so era membership — not a bare
+    // comparison against the newest floor — has to decide.
     expect(supportedVersionsFromTags('boot', ['v4.0.7', 'v3.5.8', 'v4.0.8', 'v3.2.12']))
-      .toEqual(['3.5.8', '4.0.8'])
+      .toEqual(['3.5.8', '4.0.7', '4.0.8'])
   })
 
   test('drops pre-releases and unrelated tag names', () => {
@@ -176,25 +185,24 @@ describe('resolveUpstream layout eras', () => {
     expect(() => resolveUpstream('boot', '3.2.12')).toThrow(/not buildable/)
   })
 
-  test('refuses a version that falls in the gap between two eras', () => {
-    // 4.0.0-4.0.7 moved to the 4.x path but published no content archive.
-    expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/not buildable/)
-  })
-
-  test('treats an era ceiling as exclusive, so the ceiling itself is refused', () => {
-    // 4.0.0 is the only version that distinguishes `< until` from `<= until`:
-    // every other gap version is above the ceiling and refused either way. A
-    // ceiling read as inclusive would resolve 4.0.0 to the 3.x era and fetch a
-    // component path that does not exist at its tag.
-    expect(() => resolveUpstream('boot', '4.0.0')).toThrow(/not buildable/)
+  test('treats an era ceiling as exclusive, so the ceiling starts the next era', () => {
+    // The two ceilings are the only versions that distinguish `< until` from
+    // `<= until`. Read as inclusive, 4.0.0 would take the 3.x era and be fetched
+    // from a component path that does not exist at its tag, and 4.0.8 would be
+    // synthesized instead of taking the archive it does publish.
+    expect(resolveUpstream('boot', '4.0.0').componentPath)
+      .toBe('documentation/spring-boot-docs/src/docs/antora')
+    expect(resolveUpstream('boot', '4.0.8').assembly.descriptor).toBe('archive')
   })
 
   test('names the buildable ranges when it refuses', () => {
-    expect(() => resolveUpstream('boot', '4.0.7')).toThrow(/3\.3\.0-<4\.0\.0, >= 4\.0\.8/)
+    expect(() => resolveUpstream('boot', '3.2.12'))
+      .toThrow(/3\.3\.0-<4\.0\.0, 4\.0\.0-<4\.0\.8, >= 4\.0\.8/)
   })
 
   test('accepts each era floor itself', () => {
     expect(resolveUpstream('boot', '3.3.0').tag).toBe('v3.3.0')
+    expect(resolveUpstream('boot', '4.0.0').tag).toBe('v4.0.0')
     expect(resolveUpstream('boot', '4.0.8').tag).toBe('v4.0.8')
   })
 
@@ -205,6 +213,38 @@ describe('resolveUpstream layout eras', () => {
     expect(upstream.assembly.descriptor).toBe('synthesized')
     expect(upstream.archives).toEqual([])
     expect(upstream.checkoutPaths).toContain('gradle.properties')
+  })
+
+  test('resolves a 4.0.0-4.0.7 version to the synthesized era on the 4.x paths', () => {
+    // The two halves moved apart here: 4.0.0 relocated the component under
+    // `documentation/` while the content archive stayed unpublished until 4.0.8,
+    // so this era has to take the 4.x paths and the 3.x assembly.
+    for (const version of ['4.0.0', '4.0.7']) {
+      const upstream = resolveUpstream('boot', version)
+
+      expect(upstream.componentPath).toBe('documentation/spring-boot-docs/src/docs/antora')
+      expect(upstream.assembly.descriptor).toBe('synthesized')
+      expect(upstream.archives).toEqual([])
+      expect(upstream.checkoutPaths).toEqual([
+        'documentation/spring-boot-docs/src/docs/antora',
+        'documentation/spring-boot-docs/src/main',
+        'buildSrc/src/main/resources/org/springframework/boot/build/antora/antora-asciidoc-attributes.properties',
+        'platform/spring-boot-dependencies/build.gradle',
+        'gradle.properties',
+      ])
+    }
+  })
+
+  test('reads the 4.x dependency bom, not the one 3.x kept under spring-boot-project', () => {
+    const { assembly } = resolveUpstream('boot', '4.0.7')
+    if (assembly.descriptor !== 'synthesized')
+      throw new Error(`expected a synthesized era, got "${assembly.descriptor}"`)
+
+    expect(assembly.synthesis.bomBuildScriptPath)
+      .toBe('platform/spring-boot-dependencies/build.gradle')
+    // 4.x renamed the Jackson coordinates, so taking the 3.x table against the
+    // 4.x bom would silently drop `version-jackson-databind` and friends.
+    expect(assembly.synthesis.managedVersionAttributes).toBe(BOOT_4_MANAGED_VERSIONS)
   })
 
   test('resolves a 4.x version to the archive era', () => {
@@ -228,6 +268,24 @@ describe('metadataJars', () => {
         `https://repo1.maven.org/maven2/org/springframework/boot/${jar.artifact}/3.5.16/${jar.artifact}-3.5.16.jar`,
       )
     }
+  })
+
+  test('the 4.0.x era carries the 4.x metadata set, which 3.x does not cover', () => {
+    const { metadataJars } = resolveUpstream('boot', '4.0.7')
+    const artifacts = metadataJars.map(jar => jar.artifact)
+
+    // Boot 4 split the 3.x modules into ~140 projects. Measured 2026-09-17:
+    // 103 of them publish a 4.0.x jar carrying the metadata file, and those are
+    // exactly the partials the 4.0.8 content archive ships.
+    expect(artifacts).toHaveLength(103)
+    expect(artifacts).toContain('spring-boot-kafka')
+    // Split out of `spring-boot-autoconfigure` in 4.x, so a 3.x list would miss it.
+    expect(artifacts).toContain('spring-boot-webmvc')
+    // Publishes a jar and no metadata file, in both lines.
+    expect(artifacts).not.toContain('spring-boot-test')
+    expect(metadataJars[0]?.url).toBe(
+      'https://repo1.maven.org/maven2/org/springframework/boot/spring-boot/4.0.7/spring-boot-4.0.7.jar',
+    )
   })
 
   test('an archive era has none, because the zip already carries that metadata', () => {
