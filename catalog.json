@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-17T20:00:14.018Z",
+  "generated_at": "2026-09-17T20:01:35.404Z",
   "projects": {
     "ai": {
       "1.0.0": {
@@ -39,6 +39,10 @@
       "1.0.8": {
         "tag": "ai-1.0.8",
         "released_at": "2026-09-17T20:00:13Z"
+      },
+      "1.0.9": {
+        "tag": "ai-1.0.9",
+        "released_at": "2026-09-17T20:01:34Z"
       }
     },
     "boot": {
