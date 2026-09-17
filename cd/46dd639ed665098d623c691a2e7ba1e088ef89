@@ -1,0 +1,58 @@
+ARCHITECTURE.md
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 67,223
+.claude/skills/release-pipeline/SKILL.md
+  s_8a45ac404285b2::t_679a53384f8ddf 18
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 28,42,45-49,65-69,227-231
+  s_8a45ac404285b2::t_a461324c8d77f0 232
+scripts/fetch-upstream.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 29,219-224,315,319
+scripts/lib/release-state.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 24-30,42-43,109-110,118,120-124,128
+tests/unit/antora-attributes.test.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 4-5,106,425-470,495,502-530
+.github/workflows/release.yml
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 136-142,145
+scripts/lib/upstream-sources.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 10,14,17-21,148-156,261-269,277-281,332-449,580-582,593,598-627,631-633
+tests/unit/version-detect.test.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 50-51,53
+tests/unit/upstream-sources.test.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 2,131-140,160-161,163,188-195,199-200,205,218-249,273-289
+  s_8a45ac404285b2::t_e0f11e22300a37 290
+tests/unit/release-state.test.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 77-87,97-102,104-105
+  s_8a45ac404285b2::t_7c664063d8719c 103
+.please/docs/decisions/0005-supersession-on-the-publish-path.md
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 1-142
+.please/docs/knowledge/upstream-antora.md
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 53-57
+README.md
+  s_8a45ac404285b2::t_679a53384f8ddf 183,197
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 198
+.please/docs/decisions/index.md
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 11-12
+scripts/lib/antora-attributes.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 40-48,120-138,140,147,154,157-178,181-187,239,468-472,477,480,484
+.please/docs/decisions/0006-synthesize-4-0-x-component.md
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 1-162
+tests/unit/fetch-upstream.test.ts
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 82
+.please/docs/decisions/0003-idempotent-release-recovery.md
+  s_8a45ac404285b2::t_bfeb8bd1ce7304 70-71,153-154,207-208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "cd46dd639ed665098d623c691a2e7ba1e088ef89",
+  "prompts": {},
+  "sessions": {
+    "s_8a45ac404285b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "23b53575-687d-4e9a-8933-d188c51e7730",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
