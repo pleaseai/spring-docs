@@ -82,16 +82,30 @@ const MARKDOWN_SPECIALS = /[\\*_[\]]/g
  * so it has to be recognized here or not at all: escaped as prose,
  * `\$\vec{a}\$` reaches the reader as `\\$\\vec{a}\\$`, and every backslash the
  * expression carries doubles with it.
+ *
+ * A delimiter Asciidoctor emits carries exactly one backslash. Source that
+ * escapes one in order to write about it — `\\$x\\$`, or `\\(x\\)` — arrives
+ * with two, and is prose. The lookbehinds tell the two apart: without them the
+ * scan starts at the second backslash and publishes `$x\$`, live math where
+ * the page meant to show a delimiter.
+ *
+ * A singly escaped `\$x\$` written as prose stays indistinguishable, because
+ * Asciidoctor emits the same text for it as for `stem:[x]`. Nothing here can
+ * separate those: the substitution runs before the walker does and leaves the
+ * text node no provenance — not even the `stem` attribute, which is unset on
+ * the very pages that carry the macro.
  */
-const STEM_SPAN = /\\\$([\s\S]*?)\\\$|\\\(([\s\S]*?)\\\)/g
+const STEM_SPAN = /(?<!\\)\\\$([\s\S]*?)(?<!\\)\\\$|(?<!\\)\\\(([\s\S]*?)(?<!\\)\\\)/g
 
 /**
- * Any single stem delimiter.
+ * Any single unescaped stem delimiter.
  *
  * Used on what {@link STEM_SPAN} did not consume: a run whose delimiters all
- * pair up leaves none of these behind.
+ * pair up leaves none of these behind. An escaped delimiter is skipped for the
+ * reason {@link STEM_SPAN} skips it — prose, not a stray half of a pair, so it
+ * must not make the run look unpaired.
  */
-const STEM_DELIMITER = /\\[$()]/
+const STEM_DELIMITER = /(?<!\\)\\[$()]/
 
 /** A leading `#`, which would otherwise start a heading. */
 const LEADING_HASH = /^(\s*)#/

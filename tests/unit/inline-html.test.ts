@@ -158,6 +158,45 @@ describe('inlineHtmlToMarkdown', () => {
     expect(inlineHtmlToMarkdown('a $5 price and a_b')).toBe('a $5 price and a\\_b')
   })
 
+  test('leaves an escaped delimiter as prose, because it is not stem output', () => {
+    // Asciidoctor emits one backslash for a stem delimiter and passes a source
+    // `\\$` through as two, so a page writing *about* MathJax arrives here as
+    // `\\$x_1\\$`. Reading that as math would publish `$x\$` and strip the
+    // escaping from `_` on the way.
+    const runs: string[] = []
+    const result = inlineHtmlToMarkdown(
+      'prose \\\\$x_1\\\\$ here',
+      { onUnpairedStem: run => runs.push(run) },
+    )
+
+    expect(result).toBe('prose \\\\\\\\$x\\_1\\\\\\\\$ here')
+    expect(runs).toEqual([])
+  })
+
+  test('leaves an escaped paren delimiter as prose the same way', () => {
+    const runs: string[] = []
+    const result = inlineHtmlToMarkdown(
+      'prose \\\\(x_1\\\\) here',
+      { onUnpairedStem: run => runs.push(run) },
+    )
+
+    expect(result).toBe('prose \\\\\\\\(x\\_1\\\\\\\\) here')
+    expect(runs).toEqual([])
+  })
+
+  test('converts a stem expression that shares a run with an escaped literal', () => {
+    // The escaped pair must not count as a stray delimiter either, or the real
+    // expression beside it would be withheld as unpaired.
+    const runs: string[] = []
+    const result = inlineHtmlToMarkdown(
+      'math \\$x\\$ and literal \\\\$y\\\\$ end',
+      { onUnpairedStem: run => runs.push(run) },
+    )
+
+    expect(result).toBe('math $x$ and literal \\\\\\\\$y\\\\\\\\$ end')
+    expect(runs).toEqual([])
+  })
+
   test('returns an empty string for empty input', () => {
     expect(inlineHtmlToMarkdown('')).toBe('')
   })
