@@ -1,0 +1,11 @@
+---
+title: "Speech Model API"
+source: "ROOT:api/speech.adoc"
+---
+
+<a id="Speech"></a>
+
+# Speech Model API
+
+Spring AI provides support for OpenAI’s Text-To-Speech (TTS) API.
+When additional providers for Speech are implemented, a common `SpeechModel`  and `StreamingSpeechModel` interface will be extracted.
