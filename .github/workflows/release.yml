@@ -133,13 +133,16 @@ jobs:
           echo "mode=$mode" >> "$GITHUB_OUTPUT"
           case "$mode" in
             complete)
-              # Name the entry instead of asserting it is this tag. `complete`
-              # also covers a tag a later rebuild has superseded, for which
-              # "recorded in catalog.json" would be false and the operator's
-              # real question is which tag consumers resolve to now.
+              # Name the entry rather than asserting anything about this tag.
+              # `complete` also covers a tag a later rebuild has superseded, and
+              # such a tag need not be published at all — its run may have failed
+              # before `gh release create` (ADR-0005) — so neither "recorded in
+              # catalog.json" nor "is published" holds for every case reaching
+              # here. What the operator actually needs is the tag consumers
+              # resolve to now.
               current="$(jq -r --arg p "$PROJECT" --arg v "$VERSION" \
                 '.projects[$p][$v].tag' "$RUNNER_TEMP/catalog.json")"
-              echo "::notice::$TAG is published and catalog.json resolves $PROJECT $VERSION to $current; nothing to do. Correcting its archive needs a +rebuild.N tag." ;;
+              echo "::notice::catalog.json resolves $PROJECT $VERSION to $current; $TAG has nothing left to do. Correcting its archive needs a +rebuild.N tag." ;;
             register)
               echo "::notice::$TAG is published but catalog.json does not record it; completing registration only." ;;
           esac
