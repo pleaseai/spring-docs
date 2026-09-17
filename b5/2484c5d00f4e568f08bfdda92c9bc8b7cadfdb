@@ -1,0 +1,38 @@
+.claude/agent-memory/review-review-documentation-analyzer/MEMORY.md
+  s_8a45ac404285b2::t_1a70eebb87874e 3
+  s_8a45ac404285b2::t_9ba45203a6adf4 1-2,4
+.claude/agent-memory/review-review-pr-test-analyzer/project_testing_standard.md
+  s_8a45ac404285b2::t_e88cf431e2dc96 1-2,4-7,16,21
+  s_4e8827ae078ad8::t_11377271127cd7 3,8-15,17-20,22-26
+.claude/agent-memory/review-review-documentation-analyzer/project_spring_ai_page_counts.md
+  s_8a45ac404285b2::t_6d0e1f18fbaa5f 1-2,4-7
+  s_8a45ac404285b2::t_1b58a076beac6e 3,8-26
+.claude/agent-memory/review-review-documentation-analyzer/convention_dense_doc_comments.md
+  s_8a45ac404285b2::t_2d70da4ca53913 1-23
+.claude/agent-memory/review-review-pr-test-analyzer/MEMORY.md
+  s_4e8827ae078ad8::t_c3d1b1ac4d10f4 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "b52484c5d00f4e568f08bfdda92c9bc8b7cadfdb",
+  "prompts": {},
+  "sessions": {
+    "s_4e8827ae078ad8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c37be224-7f65-47bf-b5b4-cf9f07aeea69",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    },
+    "s_8a45ac404285b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "23b53575-687d-4e9a-8933-d188c51e7730",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
