@@ -1,0 +1,43 @@
+scripts/lib/inline-html.ts
+  s_8a45ac404285b2::t_ebcb115eb8a6a5 73-87
+  s_8a45ac404285b2::t_2c919bb675be88 337-347,349-362,364,368-371,374,376-385,388
+  s_8a45ac404285b2::t_ec6aa60067a8fa 434-442,472-478,487-491,559-563
+  s_8a45ac404285b2::t_ef034889145c24 320,325-336,348,363,365-367,372-373,375,386-387
+  s_8a45ac404285b2::t_eeabb3d798765b 88-95
+  s_8a45ac404285b2::t_eea815573cfe32 389-390
+tests/unit/inline-html.test.ts
+  s_8a45ac404285b2::t_eceb76012b26ae 108-109
+  s_8a45ac404285b2::t_9fa329aa63f232 112,117,121,125,127-160
+  s_8a45ac404285b2::t_ac6143c9f89c71 106-107,110-111,113-116,118-120,122-124,126
+scripts/lib/markdown-converter.ts
+  s_8a45ac404285b2::t_f3ef7741c355d0 213-216
+  s_8a45ac404285b2::t_8e28a6e98a7eed 118-120,186
+  s_8a45ac404285b2::t_07ee7807a6b386 180-185,187-188
+  s_8a45ac404285b2::t_144c875d936f62 189
+.claude/skills/release-pipeline/SKILL.md
+  s_17764040a87126::t_5d9aed02416607 148-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "207994b007f05b969fdc9a8254559636057e2ea9",
+  "prompts": {},
+  "sessions": {
+    "s_17764040a87126": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aee0545b1571a593a",
+        "model": "unknown"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    },
+    "s_8a45ac404285b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "23b53575-687d-4e9a-8933-d188c51e7730",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
