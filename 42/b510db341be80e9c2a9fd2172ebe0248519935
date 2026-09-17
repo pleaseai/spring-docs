@@ -1,0 +1,19 @@
+tests/unit/inline-html.test.ts
+  s_8a45ac404285b2::t_6afe3fb3221bbd 4-17,151,160,175,182,191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "42b510db341be80e9c2a9fd2172ebe0248519935",
+  "prompts": {},
+  "sessions": {
+    "s_8a45ac404285b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "23b53575-687d-4e9a-8933-d188c51e7730",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
