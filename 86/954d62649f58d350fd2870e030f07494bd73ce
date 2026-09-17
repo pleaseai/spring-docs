@@ -1,0 +1,21 @@
+.claude/agent-memory/review-review-issue-fixer/MEMORY.md
+  s_b177e6f69fce71::t_a3e6a28974b360 3
+.claude/agent-memory/review-review-issue-fixer/project_docs-spring-io-version-collapse.md
+  s_b177e6f69fce71::t_a3e6a28974b360 3,8-26,33-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "86954d62649f58d350fd2870e030f07494bd73ce",
+  "prompts": {},
+  "sessions": {
+    "s_b177e6f69fce71": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cde3ae28-e163-45ab-9aed-2661db427969",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
