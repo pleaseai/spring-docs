@@ -13,9 +13,9 @@ before answering "is X supported" — they answer different questions.
 
 | | |
 |---|---|
-| Projects | `boot`, `framework`, `security` |
+| Projects | `ai`, `boot`, `framework`, `security` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Buildable ranges | `boot` → `3.3.0`–`<4.0.0` (synthesized) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
+| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` (synthesized) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
 A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
@@ -29,10 +29,14 @@ without the other yields a tree that classifies but converts wrongly:
 | `framework` `>= 6.1.0` | `framework-docs` | `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no |
 | `security` `6.2.0` – `<6.5.1` | `docs` | `overlay` | the committed `antora.yml`, topped up with attributes derived from `gradle/libs.versions.toml` and `gradle.properties` | no |
 | `security` `>= 6.5.1` | `docs` | `overlay` | the same, plus the `modules/ROOT/examples/docs-src` symlink that era added | no |
+| `ai` `>= 1.0.0` | `spring-ai-docs/src/main/antora` | `overlay` | the committed `antora.yml` unchanged — its build contributes no attribute at all | no |
 
 `overlay` is the cheapest to add and the one to reach for first on a new project: check what
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
-attribute (`spring-version`), so nothing is downloaded at all.
+attribute (`spring-version`), so nothing is downloaded at all. Spring AI's is the degenerate
+case — its whole generated template is `version` plus `prerelease`, neither of which is an
+asciidoc attribute, so the overlay is pure passthrough and `generatedAttributesFor` returns
+`{}`.
 
 Eras are deliberately **not contiguous**, and `eraFor` returns `undefined` between them:
 
@@ -45,6 +49,11 @@ Eras are deliberately **not contiguous**, and `eraFor` returns `undefined` betwe
 - **4.1.0** is a *publication* fact, not a layout one: it is inside the archive era but its
   zip is unpublished, so it is probed over the network (below) instead of being encoded as an
   unbuildable range that would keep refusing it after upstream publishes.
+- **Spring AI 0.8.x** is a publication fact too, and a permanent one, so it *is* encoded as a
+  floor: `spring-ai-docs/src/main/antora/antora.yml` is byte-identical at v0.8.0 and v2.0.1, but
+  `org/springframework/ai/spring-ai-bom` on Maven Central begins at `1.0.0-M5` — 0.8.0 and 0.8.1
+  went to Spring's milestone repository only, and no consumer can pin a dependency to the
+  versions those 50 pages describe.
 
 The archive era's floor is not a compatibility guess either: upstream published that zip for
 2.2.x–2.4.2, then not again until 4.0.8. The synthesized era's 3.3.0 floor has nothing to do
