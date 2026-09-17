@@ -422,6 +422,52 @@ bom {
     expect(orphaned.unresolved).toContain('javadoc-location-org-hibernate')
     expect(orphaned.attributes['javadoc-location-org-hibernate']).toBeUndefined()
   })
+
+  test('reads each jackson attribute from the coordinate its era table names', () => {
+    // 4.0.0 moved Jackson 3 to `tools.jackson.*` and kept the 2.x line behind a
+    // separate `version-jackson2-databind`. Managing both coordinate sets at
+    // once is what makes a wrong groupId visible: the attribute resolves to the
+    // other line's version instead of to nothing, so it survives the
+    // `setIfPresent` that would otherwise hide it.
+    const managedVersions = {
+      'com.fasterxml.jackson.core:jackson-annotations': '2.21.5',
+      'com.fasterxml.jackson.core:jackson-core': '2.21.5',
+      'com.fasterxml.jackson.core:jackson-databind': '2.21.5',
+      'com.fasterxml.jackson.dataformat:jackson-dataformat-xml': '2.21.5',
+      // Managed at a coordinate neither table names, so only a regressed
+      // `jackson-annotations` row can reach it.
+      'tools.jackson.core:jackson-annotations': '3.1.5',
+      'tools.jackson.core:jackson-core': '3.1.5',
+      'tools.jackson.core:jackson-databind': '3.1.5',
+      'tools.jackson.dataformat:jackson-dataformat-xml': '3.1.5',
+    }
+
+    const boot4 = synthesizeAttributes(sources({
+      managedVersions,
+      managedVersionAttributes: BOOT_4_MANAGED_VERSIONS,
+    })).attributes
+
+    expect(boot4['version-jackson-core']).toBe('3.1.5')
+    expect(boot4['version-jackson-databind']).toBe('3.1.5')
+    expect(boot4['version-jackson-dataformat-xml']).toBe('3.1.5')
+    expect(boot4['version-jackson2-databind']).toBe('2.21.5')
+    // `jackson-annotations` is the one artifact 4.x's `Jackson Bom` permits
+    // through on the 2.x coordinate, so both tables read the same row.
+    expect(boot4['version-jackson-annotations']).toBe('2.21.5')
+
+    const boot3 = synthesizeAttributes(sources({
+      managedVersions,
+      managedVersionAttributes: BOOT_3_MANAGED_VERSIONS,
+    })).attributes
+
+    expect(boot3['version-jackson-core']).toBe('2.21.5')
+    expect(boot3['version-jackson-databind']).toBe('2.21.5')
+    expect(boot3['version-jackson-dataformat-xml']).toBe('2.21.5')
+    expect(boot3['version-jackson-annotations']).toBe('2.21.5')
+    // Upstream names no such attribute before 4.0.0, and the corpus never links
+    // through it; emitting it there would be a fabricated attribute.
+    expect(boot3['version-jackson2-databind']).toBeUndefined()
+  })
 })
 
 describe('versionSourceBoms', () => {
