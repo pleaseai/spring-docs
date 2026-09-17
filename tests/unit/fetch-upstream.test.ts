@@ -79,6 +79,7 @@ describe('copyExamples', () => {
     staticAttributesPath: 'static.properties',
     bomBuildScriptPath: 'build.gradle',
     gradlePropertiesPath: 'gradle.properties',
+    managedVersionAttributes: [],
     metadataArtifacts: [],
   }
 

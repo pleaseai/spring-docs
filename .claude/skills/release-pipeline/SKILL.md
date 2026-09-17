@@ -15,7 +15,7 @@ before answering "is X supported" — they answer different questions.
 |---|---|
 | Projects | `boot`, `framework`, `security` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Buildable ranges | `boot` → `3.3.0`–`<4.0.0` (synthesized) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
+| Buildable ranges | `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
 A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
@@ -25,6 +25,7 @@ without the other yields a tree that classifies but converts wrongly:
 | Era | Component path | `assembly.descriptor` | Generated half comes from | Needs Maven Central |
 |---|---|---|---|---|
 | `boot` `3.3.0` – `<4.0.0` | `spring-boot-project/spring-boot-docs/src/docs/antora` | `synthesized` | rebuilt from the tag (`SynthesisSources`) plus the eight published `spring-boot-*` jars carrying configuration-property metadata | yes — metadata jars |
+| `boot` `4.0.0` – `<4.0.8` | `documentation/spring-boot-docs/src/docs/antora` | `synthesized` | the same reconstruction, against the paths 4.x moved (`documentation/…/src/main`, `platform/spring-boot-dependencies/build.gradle`) and the 103 `spring-boot-*` jars Boot 4's module split carries the metadata in | yes — metadata jars |
 | `boot` `>= 4.0.8` | `documentation/spring-boot-docs/src/docs/antora` | `archive` | the published `root-aggregate-content` zip, merged over the checkout | yes — content zips |
 | `framework` `>= 6.1.0` | `framework-docs` | `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no |
 | `security` `6.2.0` – `<6.5.1` | `docs` | `overlay` | the committed `antora.yml`, topped up with attributes derived from `gradle/libs.versions.toml` and `gradle.properties` | no |
@@ -34,12 +35,14 @@ without the other yields a tree that classifies but converts wrongly:
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
 attribute (`spring-version`), so nothing is downloaded at all.
 
-Eras are deliberately **not contiguous**, and `eraFor` returns `undefined` between them:
+Eras need not be contiguous, and `eraFor` returns `undefined` below the oldest floor:
 
 - **3.2 and older** predate the Antora component (`antora.yml` first appears at v3.3.0).
-- **4.0.0–4.0.7** moved to the 4.x path but publish no content archive, so they belong to
-  neither era and are refused rather than fetched from a path their tag does not have.
-- **3.3–3.x archives exist but are unreachable** — Spring's
+- **4.0.0–4.0.7** moved to the 4.x path while still publishing no content archive. The two
+  halves moved apart, so they get their own synthesized era rather than widening a
+  neighbour: taking the 3.x era's paths would fetch a directory their tag does not have, and
+  taking the archive era's assembly would merge a zip that 404s.
+- **3.3–4.0.7 archives exist but are unreachable** — Spring's
   `sync-to-maven-central/artifacts.spec` excludes `spring-boot-docs` from the sync, and
   `repo.spring.io` returns 401 anonymously. Hence synthesis rather than download.
 - **4.1.0** is a *publication* fact, not a layout one: it is inside the archive era but its
@@ -50,9 +53,11 @@ The archive era's floor is not a compatibility guess either: upstream published 
 2.2.x–2.4.2, then not again until 4.0.8. The synthesized era's 3.3.0 floor has nothing to do
 with it — 3.3.x–3.x rebuilds from the tag's BOM, attributes file and metadata jars instead.
 
-3.x releases omit the generated appendix (auto-configuration listings and configuration-property
-tables, ~101 pages) — it is a Gradle build output with no published equivalent. The prose corpus
-is complete.
+Synthesized releases omit the generated appendix (auto-configuration listings and
+configuration-property tables) — it is a Gradle build output with no published equivalent.
+~101 pages for 3.3–3.x; 92 for 4.0.0–4.0.7, which convert 147 pages against 4.0.8's 239. The
+prose corpus is complete either way, and leaves the same two unresolved attribute references
+the 4.0.8 archive build does.
 
 ## What is buildable right now
 
