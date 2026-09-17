@@ -1,0 +1,19 @@
+tests/unit/upstream-sources.test.ts
+  s_8a45ac404285b2::t_4b8c586d9689fd 409,416-422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "ee29aa982470ffaef333976d9e1b18657fd0fc86",
+  "prompts": {},
+  "sessions": {
+    "s_8a45ac404285b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "23b53575-687d-4e9a-8933-d188c51e7730",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
