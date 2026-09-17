@@ -115,6 +115,9 @@ const BLOCK_TITLE_LEVEL = '#### '
 /** Deepest ATX heading GFM defines. */
 const MAX_HEADING_LEVEL = 6
 
+/** How much of a text run a warning quotes before eliding the rest. */
+const EXCERPT_LIMIT = 60
+
 /** A `dlist` item: a list of terms and the description that follows them. */
 type DefinitionItem = readonly [readonly AsciidoctorListItem[], AsciidoctorListItem | undefined]
 
@@ -175,6 +178,16 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
   const warnings = new Set<string>()
 
   /**
+   * A one-line, bounded excerpt of a text run, for naming it in a warning.
+   *
+   * The run can be a whole paragraph, and a warning is read in a terminal.
+   */
+  const excerpt = (run: string): string => {
+    const oneLine = run.replace(NEWLINE_RUN, ' ').trim()
+    return oneLine.length <= EXCERPT_LIMIT ? oneLine : `${oneLine.slice(0, EXCERPT_LIMIT)}…`
+  }
+
+  /**
    * Render an explicit `[[id]]` as its own inline-HTML anchor block.
    *
    * GFM derives a heading's slug from its text and generates nothing at all for
@@ -197,6 +210,10 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
       onImageWithoutBase: src =>
         warnings.add(`inline image "${src}" dropped: no published image base for this project`),
       onUnknownTag: tag => warnings.add(`unknown inline tag <${tag}>`),
+      onUnpairedStem: run =>
+        warnings.add(
+          `stem:[…] delimiters do not pair up, so the run was left escaped: "${excerpt(run)}"`,
+        ),
     })
 
   /** Render a node list into joinable chunks, dropping the ones that render empty. */

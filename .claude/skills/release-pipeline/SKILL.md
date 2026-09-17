@@ -145,6 +145,15 @@ exercise every AsciiDoc construct: adding Spring Framework surfaced hand-written
 `floating_title`, block images and role `<span>`s — none of which Boot uses. Run `--strict` and
 add a rule per construct.
 
+**`--strict` does not catch everything, so read the output too.** It gates on the converter's
+own unknown-construct warnings, which fire only for a node the walker does not recognise.
+Anything Asciidoctor substitutes *before* the walker runs is invisible to it: Spring AI's 16
+inline `stem:[…]` expressions arrive as plain text in MathJax delimiters (`\$…\$` for asciimath,
+`\(…\)` for latexmath), and were escaped as prose into `\\$\\vec{a}\\$` across a page of vector
+maths while `--strict` reported zero warnings. `escapeText` in `inline-html.ts` now carries them
+through as `$…$`. Diff a page or two of a new corpus against the upstream site before believing
+a clean run.
+
 Then:
 
 - extend `tests/unit/upstream-sources.test.ts`

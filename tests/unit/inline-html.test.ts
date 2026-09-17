@@ -103,6 +103,61 @@ describe('inlineHtmlToMarkdown', () => {
     expect(result).toBe('kept')
   })
 
+  test('carries a stem expression through unescaped, as inline math', () => {
+    // Asciidoctor substitutes `stem:[…]` before the converter sees it, so the
+    // expression arrives as text in MathJax delimiters — `\$…\$` for asciimath,
+    // Spring AI's notation. Escaped as prose it would read `\\$\\vec{a}\\$`.
+    expect(inlineHtmlToMarkdown('the vector \\$\\vec{a}\\$ is at \\$(a_1, a_2)\\$.'))
+      .toBe('the vector $\\vec{a}$ is at $(a_1, a_2)$.')
+  })
+
+  test('carries a latexmath stem expression through the same way', () => {
+    expect(inlineHtmlToMarkdown('angle \\(\\theta\\) between them'))
+      .toBe('angle $\\theta$ between them')
+  })
+
+  test('still escapes the prose around a stem expression', () => {
+    expect(inlineHtmlToMarkdown('a_b \\$x_1\\$ c_d')).toBe('a\\_b $x_1$ c\\_d')
+  })
+
+  test('keeps the leading-hash rule on whichever segment starts the line', () => {
+    expect(inlineHtmlToMarkdown('# heading \\$x\\$')).toBe('\\# heading $x$')
+  })
+
+  test('converts both notations in one run', () => {
+    expect(inlineHtmlToMarkdown('compare \\$a\\$ to \\(b\\) directly'))
+      .toBe('compare $a$ to $b$ directly')
+  })
+
+  test('withholds a run whose stem delimiters do not pair up, and reports it', () => {
+    // Pairing is positional, so there is no way to tell which of the three
+    // delimiters is the stray one. Pairing the first two would splice the prose
+    // between them into a formula and strip its escaping — `*emphasis*` would
+    // reach the page as live Markdown.
+    const runs: string[] = []
+    const result = inlineHtmlToMarkdown(
+      'broken \\$a and *emphasis* then \\$b\\$ end',
+      { onUnpairedStem: run => runs.push(run) },
+    )
+
+    expect(runs).toEqual(['broken \\$a and *emphasis* then \\$b\\$ end'])
+    expect(result).toBe('broken \\\\$a and \\*emphasis\\* then \\\\$b\\\\$ end')
+  })
+
+  test('withholds an empty stem expression rather than emitting bare $$', () => {
+    // `$$` is a display-math delimiter pair to most renderers, so emitting it
+    // would silently change the construct.
+    const runs: string[] = []
+    const result = inlineHtmlToMarkdown('empty \\$\\$ here', { onUnpairedStem: run => runs.push(run) })
+
+    expect(runs).toEqual(['empty \\$\\$ here'])
+    expect(result).toBe('empty \\\\$\\\\$ here')
+  })
+
+  test('leaves a run with no backslash untouched by the stem scan', () => {
+    expect(inlineHtmlToMarkdown('a $5 price and a_b')).toBe('a $5 price and a\\_b')
+  })
+
   test('returns an empty string for empty input', () => {
     expect(inlineHtmlToMarkdown('')).toBe('')
   })
