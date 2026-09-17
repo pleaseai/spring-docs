@@ -1,0 +1,25 @@
+README.md
+  s_393d48c850df36::t_59cd5705ed540d 183
+.please/docs/decisions/index.md
+  s_393d48c850df36::t_b74f14372a3aef 11
+.please/docs/knowledge/upstream-antora.md
+  s_393d48c850df36::t_59cd5705ed540d 54
+.please/docs/decisions/0006-synthesize-4-0-x-component.md
+  s_393d48c850df36::t_59cd5705ed540d 1-162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "cc3ab0d312819fef2403bbdf8a393dfc01b0f484",
+  "prompts": {},
+  "sessions": {
+    "s_393d48c850df36": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38e38f9e-15da-4daa-a623-b080641dfc00",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
