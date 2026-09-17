@@ -1,0 +1,2 @@
+- [ocr scope in spring-docs](project_spring_docs_ocr_scope.md) — default exclusions (md, tests/unit) and where era/version-resolution logic lives
+- [Review tests outside ocr scope on request](feedback_review_tests_outside_ocr_scope.md) — when asked about test weakening, manually check tests/unit even though ocr excludes them
