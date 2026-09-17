@@ -1,0 +1,208 @@
+---
+title: "Using Chat/Embedding Response Usage"
+source: "ROOT:api/usage-handling.adoc"
+---
+
+# Using Chat/Embedding Response Usage
+
+<a id="_overview"></a>
+
+## Overview
+
+Spring AI has enhanced its Model Usage handling by introducing `getNativeUsage()` method in the Usage interface and providing a `DefaultUsage` implementation.
+This change simplifies how different AI models can track and report their usage metrics while maintaining consistency across the framework.
+
+<a id="_key_changes"></a>
+
+## Key Changes
+
+<a id="_usage_interface_enhancement"></a>
+
+### Usage Interface Enhancement
+
+The `Usage` interface now includes a new method:
+
+```java
+Object getNativeUsage();
+```
+
+This method allows access to the model-specific native usage data, enabling more detailed usage tracking when needed.
+
+<a id="_using_with_chatmodel"></a>
+
+### Using with ChatModel
+
+Here’s a complete example showing how to track usage with OpenAI’s ChatModel:
+
+```java
+@SpringBootConfiguration
+public class Configuration {
+
+        @Bean
+        public OpenAiChatModel openAiChatModel() {
+            return OpenAiChatModel.builder()
+                .options(OpenAiChatOptions.builder()
+                    .apiKey(System.getenv("OPENAI_API_KEY"))
+                    .build())
+                .build();
+        }
+
+    }
+
+@Service
+public class ChatService {
+
+    private final OpenAiChatModel chatModel;
+
+    public ChatService(OpenAiChatModel chatModel) {
+        this.chatModel = chatModel;
+    }
+
+    public void demonstrateUsage() {
+        // Create a chat prompt
+        Prompt prompt = new Prompt("What is the weather like today?");
+
+        // Get the chat response
+        ChatResponse response = this.chatModel.call(prompt);
+
+        // Access the usage information
+        Usage usage = response.getMetadata().getUsage();
+
+        // Get standard usage metrics
+        System.out.println("Prompt Tokens: " + usage.getPromptTokens());
+        System.out.println("Completion Tokens: " + usage.getCompletionTokens());
+        System.out.println("Total Tokens: " + usage.getTotalTokens());
+
+        // Access native OpenAI usage data with detailed token information
+        if (usage.getNativeUsage() instanceof com.openai.models.completions.CompletionUsage) {
+            com.openai.models.completions.CompletionUsage nativeUsage =
+                (com.openai.models.completions.CompletionUsage) usage.getNativeUsage();
+
+            // Detailed prompt token information
+            nativeUsage.promptTokensDetails().ifPresent(details -> {
+                System.out.println("Prompt Tokens Details:");
+                details.audioTokens().ifPresent(tokens -> System.out.println("- Audio Tokens: " + tokens));
+                details.cachedTokens().ifPresent(tokens -> System.out.println("- Cached Tokens: " + tokens));
+            });
+
+            // Detailed completion token information
+            nativeUsage.completionTokensDetails().ifPresent(details -> {
+                System.out.println("Completion Tokens Details:");
+                details.reasoningTokens().ifPresent(tokens -> System.out.println("- Reasoning Tokens: " + tokens));
+                details.acceptedPredictionTokens().ifPresent(tokens -> System.out.println("- Accepted Prediction Tokens: " + tokens));
+                details.audioTokens().ifPresent(tokens -> System.out.println("- Audio Tokens: " + tokens));
+                details.rejectedPredictionTokens().ifPresent(tokens -> System.out.println("- Rejected Prediction Tokens: " + tokens));
+            });
+        }
+    }
+}
+```
+
+<a id="_using_with_chatclient"></a>
+
+### Using with ChatClient
+
+If you are using the `ChatClient`, you can access the usage information using the `ChatResponse` object:
+
+```java
+// Create a chat prompt
+Prompt prompt = new Prompt("What is the weather like today?");
+
+// Create a chat client
+ChatClient chatClient = ChatClient.create(chatModel);
+
+// Get the chat response
+ChatResponse response = chatClient.prompt(prompt)
+        .call()
+        .chatResponse();
+
+// Access the usage information
+Usage usage = response.getMetadata().getUsage();
+```
+
+<a id="_prompt_cache_usage_metrics"></a>
+
+## Prompt Cache Usage Metrics
+
+For providers that support prompt caching, the `Usage` interface provides unified access to cache metrics without requiring provider-specific casting:
+
+```java
+Usage usage = response.getMetadata().getUsage();
+
+// Unified cache metrics — works across all providers
+Long cacheReadTokens = usage.getCacheReadInputTokens();
+Long cacheWriteTokens = usage.getCacheWriteInputTokens();
+
+if (cacheReadTokens != null && cacheReadTokens > 0) {
+    System.out.println("Cache hit: " + cacheReadTokens + " tokens read from cache");
+}
+if (cacheWriteTokens != null && cacheWriteTokens > 0) {
+    System.out.println("Cache write: " + cacheWriteTokens + " tokens written to cache");
+}
+```
+
+These methods return `null` for providers that do not support prompt caching.
+
+The following table shows prompt cache metrics availability by provider:
+
+| Provider | Cache Read Tokens | Cache Write Tokens |
+| --- | --- | --- |
+| Anthropic | Yes | Yes (`cacheCreationInputTokens`) |
+| AWS Bedrock | Yes | Yes |
+| OpenAI | Yes (`cachedTokens`) | No |
+| Google Gemini | Yes (`cachedContentTokenCount`) | No |
+| DeepSeek | No | No |
+| Mistral | No | No |
+| Ollama | No | No |
+
+> [!NOTE]
+> For detailed provider-specific cache metrics (such as per-modality cache breakdowns in Gemini), use `getNativeUsage()` to access the provider’s native usage object.
+
+<a id="_cumulative_usage_across_multi_step_flows"></a>
+
+## Cumulative Usage Across Multi-Step Flows
+
+When a response is produced through a multi-step flow such as a tool-calling loop, `getUsage()` reports the **cumulative** token usage across every model call in that exchange, not just the last call.
+For example, a `ChatClient` conversation that triggers one tool call performs at least two model calls, and the returned `getUsage()` reflects the sum of both.
+
+```java
+ChatResponse response = chatClient.prompt("What is the weather in Paris?")
+        .tools(new WeatherTools())
+        .call()
+        .chatResponse();
+
+// Cumulative across all model calls in the tool-calling loop
+Usage usage = response.getMetadata().getUsage();
+int totalTokens = usage.getTotalTokens();
+```
+
+The cumulative total is computed via `org.springframework.ai.support.UsageCalculator`, which sums the standard token counts and the unified cache metrics (`getCacheReadInputTokens()` / `getCacheWriteInputTokens()`).
+
+> [!WARNING]
+> Provider-specific native usage objects cannot be merged across responses.
+> As a result, `getNativeUsage()` returns `null` once usage has been aggregated across more than one model call (for example after a tool-calling loop); it is preserved only for single-call responses.
+> If you need the provider’s native usage object, read it from an individual `ChatModel` call rather than from a multi-step `ChatClient` exchange.
+
+<a id="_benefits"></a>
+
+## Benefits
+
+**Standardization**: Provides a consistent way to handle usage across different AI models
+**Flexibility**: Supports model-specific usage data through the native usage feature
+**Simplification**: Reduces boilerplate code with the default implementation
+**Extensibility**: Easy to extend for specific model requirements while maintaining compatibility
+
+<a id="_type_safety_considerations"></a>
+
+### Type Safety Considerations
+
+When working with native usage data, consider type casting carefully:
+
+```java
+// Safe way to access native usage
+if (usage.getNativeUsage() instanceof com.openai.models.completions.CompletionUsage) {
+    com.openai.models.completions.CompletionUsage nativeUsage =
+        (com.openai.models.completions.CompletionUsage) usage.getNativeUsage();
+    // Work with native usage data
+}
+```
