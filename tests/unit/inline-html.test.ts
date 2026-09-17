@@ -1,6 +1,20 @@
 import { describe, expect, test } from 'bun:test'
 import { inlineHtmlToMarkdown } from '../../scripts/lib/inline-html.ts'
 
+/**
+ * Converts `html`, collecting the runs the stem rule refused to read as math.
+ *
+ * Every stem case asserts on both halves — what reached the page, and what the
+ * build was told about what did not — so they share one call rather than each
+ * rebuilding the collector.
+ */
+function convertStem(html: string): { result: string, runs: string[] } {
+  const runs: string[] = []
+  const result = inlineHtmlToMarkdown(html, { onUnpairedStem: run => runs.push(run) })
+
+  return { result, runs }
+}
+
 describe('inlineHtmlToMarkdown', () => {
   test('converts code, strong and em', () => {
     expect(inlineHtmlToMarkdown('<code>spring</code>')).toBe('`spring`')
@@ -101,6 +115,83 @@ describe('inlineHtmlToMarkdown', () => {
 
     expect(seen).toEqual(['mark'])
     expect(result).toBe('kept')
+  })
+
+  test('carries a stem expression through unescaped, as inline math', () => {
+    // Asciidoctor substitutes `stem:[…]` before the converter sees it, so the
+    // expression arrives as text in MathJax delimiters — `\$…\$` for asciimath,
+    // Spring AI's notation. Escaped as prose it would read `\\$\\vec{a}\\$`.
+    expect(inlineHtmlToMarkdown('the vector \\$\\vec{a}\\$ is at \\$(a_1, a_2)\\$.'))
+      .toBe('the vector $\\vec{a}$ is at $(a_1, a_2)$.')
+  })
+
+  test('carries a latexmath stem expression through the same way', () => {
+    expect(inlineHtmlToMarkdown('angle \\(\\theta\\) between them'))
+      .toBe('angle $\\theta$ between them')
+  })
+
+  test('still escapes the prose around a stem expression', () => {
+    expect(inlineHtmlToMarkdown('a_b \\$x_1\\$ c_d')).toBe('a\\_b $x_1$ c\\_d')
+  })
+
+  test('keeps the leading-hash rule on whichever segment starts the line', () => {
+    expect(inlineHtmlToMarkdown('# heading \\$x\\$')).toBe('\\# heading $x$')
+  })
+
+  test('converts both notations in one run', () => {
+    expect(inlineHtmlToMarkdown('compare \\$a\\$ to \\(b\\) directly'))
+      .toBe('compare $a$ to $b$ directly')
+  })
+
+  test('withholds a run whose stem delimiters do not pair up, and reports it', () => {
+    // Pairing is positional, so there is no way to tell which of the three
+    // delimiters is the stray one. Pairing the first two would splice the prose
+    // between them into a formula and strip its escaping — `*emphasis*` would
+    // reach the page as live Markdown.
+    const { result, runs } = convertStem('broken \\$a and *emphasis* then \\$b\\$ end')
+
+    expect(runs).toEqual(['broken \\$a and *emphasis* then \\$b\\$ end'])
+    expect(result).toBe('broken \\\\$a and \\*emphasis\\* then \\\\$b\\\\$ end')
+  })
+
+  test('withholds an empty stem expression rather than emitting bare $$', () => {
+    // `$$` is a display-math delimiter pair to most renderers, so emitting it
+    // would silently change the construct.
+    const { result, runs } = convertStem('empty \\$\\$ here')
+
+    expect(runs).toEqual(['empty \\$\\$ here'])
+    expect(result).toBe('empty \\\\$\\\\$ here')
+  })
+
+  test('leaves a run with no backslash untouched by the stem scan', () => {
+    expect(inlineHtmlToMarkdown('a $5 price and a_b')).toBe('a $5 price and a\\_b')
+  })
+
+  test('leaves an escaped delimiter as prose, because it is not stem output', () => {
+    // Asciidoctor emits one backslash for a stem delimiter and passes a source
+    // `\\$` through as two, so a page writing *about* MathJax arrives here as
+    // `\\$x_1\\$`. Reading that as math would publish `$x\$` and strip the
+    // escaping from `_` on the way.
+    const { result, runs } = convertStem('prose \\\\$x_1\\\\$ here')
+
+    expect(result).toBe('prose \\\\\\\\$x\\_1\\\\\\\\$ here')
+    expect(runs).toEqual([])
+  })
+
+  test('leaves an escaped paren delimiter as prose the same way', () => {
+    const { result, runs } = convertStem('prose \\\\(x_1\\\\) here')
+
+    expect(result).toBe('prose \\\\\\\\(x\\_1\\\\\\\\) here')
+    expect(runs).toEqual([])
+  })
+
+  test('converts a stem expression that shares a run with an escaped literal', () => {
+    // The escaped pair must not count as a stray delimiter either, or the real
+    // expression beside it would be withheld as unpaired.
+    const { result, runs } = convertStem('math \\$x\\$ and literal \\\\$y\\\\$ end')
+
+    expect(result).toBe('math $x$ and literal \\\\\\\\$y\\\\\\\\$ end')
+    expect(runs).toEqual([])
   })
 
   test('returns an empty string for empty input', () => {

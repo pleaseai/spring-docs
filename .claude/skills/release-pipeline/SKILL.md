@@ -13,9 +13,9 @@ before answering "is X supported" — they answer different questions.
 
 | | |
 |---|---|
-| Projects | `boot`, `framework`, `security` |
+| Projects | `ai`, `boot`, `framework`, `security` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Buildable ranges | `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
+| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
 A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
@@ -30,10 +30,14 @@ without the other yields a tree that classifies but converts wrongly:
 | `framework` `>= 6.1.0` | `framework-docs` | `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no |
 | `security` `6.2.0` – `<6.5.1` | `docs` | `overlay` | the committed `antora.yml`, topped up with attributes derived from `gradle/libs.versions.toml` and `gradle.properties` | no |
 | `security` `>= 6.5.1` | `docs` | `overlay` | the same, plus the `modules/ROOT/examples/docs-src` symlink that era added | no |
+| `ai` `>= 1.0.0` | `spring-ai-docs/src/main/antora` | `overlay` | the committed `antora.yml` unchanged — its build contributes no attribute at all | no |
 
 `overlay` is the cheapest to add and the one to reach for first on a new project: check what
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
-attribute (`spring-version`), so nothing is downloaded at all.
+attribute (`spring-version`), so nothing is downloaded at all. Spring AI's is the degenerate
+case — its whole generated template is `version` plus `prerelease`, neither of which is an
+asciidoc attribute, so the overlay is pure passthrough and `generatedAttributesFor` returns
+`{}`.
 
 Eras need not be contiguous, and `eraFor` returns `undefined` below the oldest floor:
 
@@ -48,6 +52,11 @@ Eras need not be contiguous, and `eraFor` returns `undefined` below the oldest f
 - **4.1.0** is a *publication* fact, not a layout one: it is inside the archive era but its
   zip is unpublished, so it is probed over the network (below) instead of being encoded as an
   unbuildable range that would keep refusing it after upstream publishes.
+- **Spring AI 0.8.x** is a publication fact too, and a permanent one, so it *is* encoded as a
+  floor: `spring-ai-docs/src/main/antora/antora.yml` is byte-identical at v0.8.0 and v2.0.1, but
+  `org/springframework/ai/spring-ai-bom` on Maven Central begins at `1.0.0-M5` — 0.8.0 and 0.8.1
+  went to Spring's milestone repository only, and no consumer can pin a dependency to the
+  versions those 50 pages describe.
 
 The archive era's floor is not a compatibility guess either: upstream published that zip for
 2.2.x–2.4.2, then not again until 4.0.8. The synthesized era's 3.3.0 floor has nothing to do
@@ -149,6 +158,15 @@ exercise every AsciiDoc construct: adding Spring Framework surfaced hand-written
 (`Java::` / `+` / listing, whose description is Ruby `nil`), `colist`, `literal`,
 `floating_title`, block images and role `<span>`s — none of which Boot uses. Run `--strict` and
 add a rule per construct.
+
+**`--strict` does not catch everything, so read the output too.** It gates on the converter's
+own unknown-construct warnings, which fire only for a node the walker does not recognise.
+Anything Asciidoctor substitutes *before* the walker runs is invisible to it: Spring AI's 16
+inline `stem:[…]` expressions arrive as plain text in MathJax delimiters (`\$…\$` for asciimath,
+`\(…\)` for latexmath), and were escaped as prose into `\\$\\vec{a}\\$` across a page of vector
+maths while `--strict` reported zero warnings. `escapeText` in `inline-html.ts` now carries them
+through as `$…$`. Diff a page or two of a new corpus against the upstream site before believing
+a clean run.
 
 Then:
 

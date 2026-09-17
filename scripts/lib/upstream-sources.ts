@@ -34,6 +34,9 @@ const SPRING_FRAMEWORK_RAW = 'https://raw.githubusercontent.com/spring-projects/
 /** Spring Security sources served straight from a release tag. */
 const SPRING_SECURITY_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-security'
 
+/** Spring AI sources served straight from a release tag. */
+const SPRING_AI_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-ai'
+
 /** Maven Central base for released Spring artifacts. */
 const MAVEN_CENTRAL = 'https://repo1.maven.org/maven2'
 
@@ -480,6 +483,79 @@ function requiredSource(sources: Readonly<Record<string, string>>, path: string)
 }
 
 const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
+  ai: {
+    repo: 'spring-projects/spring-ai',
+    // No Maven coordinates: the single era is an overlay. Spring AI publishes no
+    // Antora content archive — `org/springframework/ai/spring-ai-docs` is absent
+    // from Maven Central (probed 2026-09-17) — and needs none, because nothing
+    // its build generates reaches the corpus.
+    //
+    // No `xref:` names another component either: the only qualified references
+    // across the 121 pages of v2.0.1 are four `xref:ROOT:` into this component's
+    // own module, so there is nothing for a reference to dangle into.
+    externalComponentsFor: () => ({}),
+    tagPrefix: 'v',
+    eras: [
+      {
+        // The layout itself reaches further back than this floor — `spring-ai-docs/
+        // src/main/antora/antora.yml` is byte-identical at v0.8.0, v1.0.0, v1.1.0,
+        // v2.0.0 and v2.0.1, single `ROOT` module throughout — so 1.0.0 is a
+        // publication fact rather than a layout one, like Boot's 4.0.8 archive
+        // floor. `org/springframework/ai/spring-ai-bom` on Maven Central begins at
+        // `1.0.0-M5`, and its oldest GA is `1.0.0`: 0.8.0 and 0.8.1 went to Spring's
+        // milestone repository only, so no consumer can pin a dependency to the
+        // versions those docs describe.
+        //
+        // One era covers everything above it: v2.0.1 keeps the component path, the
+        // `mvnw process-resources` collector and the two-line generated template
+        // v1.0.0 has, so 2.x is not a second era.
+        since: '1.0.0',
+        componentPath: 'spring-ai-docs/src/main/antora',
+        assembly: {
+          descriptor: 'overlay',
+          // `resources/antora-resources/antora.yml` is the entire generated half,
+          // unchanged across the range:
+          //
+          //   version: ${antora-component.version}
+          //   prerelease: ${antora-component.prerelease}
+          //
+          // Neither line is an asciidoc attribute. `version` is the descriptor
+          // field `overlayDescriptor` already writes from the catalog version, and
+          // `prerelease` is false for everything this pipeline builds. So the
+          // build contributes no attribute at all — and the committed descriptor
+          // declares no `asciidoc.attributes` block to top up, which is why this
+          // is the one overlay era whose descriptor is pure passthrough.
+          //
+          // The corpus agrees: the only `{…}` references in it are prompt-template
+          // placeholders inside code samples (`{format}`, `{question}`, …), and the
+          // `spring-ai-version` the Hana page mentions is a Maven property written
+          // `${spring-ai-version}` inside an XML listing, not an attribute
+          // reference.
+          generatedAttributesFor: () => ({}),
+          // None to declare: no mode 120000 blob exists anywhere under
+          // `spring-ai-docs` at v1.0.0 or v2.0.1. Unlike Framework and Security
+          // there is no examples tree to reach through one — the corpus contains
+          // no `include-code::`.
+          internalSymlinks: [],
+        },
+      },
+    ],
+    // Retargets `javadoc:` macros. The corpus exercises none — its one `javadoc:`
+    // occurrence is a `./mvnw … javadoc:javadoc` command line inside a listing —
+    // but the playbook sets `javadoc-location` unconditionally, so a later version
+    // adding the macro should resolve rather than dangle. Verified against
+    // `…/2.0.1/api/org/springframework/ai/chat/client/ChatClient.html`.
+    javadocLocationFor: version => `https://docs.spring.io/spring-ai/docs/${version}/api`,
+    // The release tag, not the reference site, for the same reason as Framework and
+    // Security: `…/spring-ai/reference/2.0.1/_images/` answers a 301 to
+    // `…/reference/2.0/_images/` (verified 2026-09-17), so a URL built from a
+    // catalog version would be pinned in appearance only. Note `modules/ROOT/images`
+    // — Spring AI uses Antora's short image directory, not the `assets/images` the
+    // other two components ship.
+    imageBaseFor: version =>
+      `${SPRING_AI_RAW}/v${version}/spring-ai-docs/src/main/antora/modules/ROOT/images`,
+  },
+
   boot: {
     repo: 'spring-projects/spring-boot',
     mavenGroupPath: 'org/springframework/boot',

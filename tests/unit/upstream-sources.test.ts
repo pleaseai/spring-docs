@@ -74,7 +74,7 @@ describe('resolveUpstream', () => {
 
 describe('supportedProjects', () => {
   test('lists the known projects', () => {
-    expect(supportedProjects()).toEqual(['boot', 'framework', 'security'])
+    expect(supportedProjects()).toEqual(['ai', 'boot', 'framework', 'security'])
   })
 })
 
@@ -460,5 +460,101 @@ describe('resolveUpstream for Spring Security', () => {
     // `…/6.5.6/api/org/springframework/security/core/Authentication.html`.
     expect(resolveUpstream('security', '6.5.6').javadocLocation)
       .toBe('https://docs.spring.io/spring-security/site/docs/6.5.6/api')
+  })
+})
+
+describe('ai', () => {
+  test('resolves to its component root under an overlay era', () => {
+    const upstream = resolveUpstream('ai', '1.0.0')
+
+    expect(upstream.repo).toBe('spring-projects/spring-ai')
+    expect(upstream.tag).toBe('v1.0.0')
+    expect(upstream.componentPath).toBe('spring-ai-docs/src/main/antora')
+    expect(upstream.assembly.descriptor).toBe('overlay')
+  })
+
+  test('waits on no published artifact, because the tag carries everything', () => {
+    // Being tagged upstream is the whole of being buildable: Spring AI publishes
+    // no content archive, and the era reads no metadata jar.
+    const upstream = resolveUpstream('ai', '1.0.0')
+
+    expect(upstream.archives).toEqual([])
+    expect(upstream.metadataJars).toEqual([])
+    expect(requiredArtifactUrls('ai', '1.0.0')).toEqual([])
+  })
+
+  test('generates no attribute, because the build contributes none', () => {
+    const { assembly } = resolveUpstream('ai', '1.0.0')
+    if (assembly.descriptor !== 'overlay')
+      throw new Error('expected an overlay assembly')
+
+    // `resources/antora-resources/antora.yml` is two lines — `version` and
+    // `prerelease` — and neither is an asciidoc attribute: `version` is the
+    // descriptor field the overlay writes from the catalog version, and only GA
+    // versions are built, so `prerelease` is never true.
+    expect(assembly.generatedAttributes).toEqual({})
+    expect(assembly.derivedAttributes).toBeUndefined()
+  })
+
+  test('declares no symlink, because the component ships none', () => {
+    const { assembly } = resolveUpstream('ai', '1.0.0')
+    if (assembly.descriptor !== 'overlay')
+      throw new Error('expected an overlay assembly')
+
+    // No mode 120000 blob exists under `spring-ai-docs` at v1.0.0 or v2.0.1, and
+    // there is no examples tree to reach through one — the corpus contains no
+    // `include-code::`.
+    expect(assembly.internalSymlinks).toEqual([])
+  })
+
+  test('checks out the component root alone', () => {
+    expect(resolveUpstream('ai', '1.0.0').checkoutPaths).toEqual([
+      'spring-ai-docs/src/main/antora',
+    ])
+  })
+
+  test('pins images and javadoc to the exact version', () => {
+    const upstream = resolveUpstream('ai', '2.0.1')
+
+    // The reference site collapses a patch to its minor — `/reference/2.0.1/_images/`
+    // answers a 301 to `/reference/2.0/_images/` — so images come from the tag.
+    // Spring AI uses Antora's short `modules/ROOT/images`, not `assets/images`.
+    expect(upstream.imageBase).toBe(
+      'https://raw.githubusercontent.com/spring-projects/spring-ai/v2.0.1'
+      + '/spring-ai-docs/src/main/antora/modules/ROOT/images',
+    )
+    expect(upstream.javadocLocation).toBe('https://docs.spring.io/spring-ai/docs/2.0.1/api')
+  })
+
+  test('maps no external components, because every xref stays in-component', () => {
+    // The only qualified references in the corpus are four `xref:ROOT:` into this
+    // component's own module.
+    expect(resolveUpstream('ai', '1.0.0').externalComponents).toEqual({})
+  })
+
+  test('refuses 0.8.x, which Spring never synced to Maven Central', () => {
+    // The layout is byte-identical at v0.8.0, so the floor is a publication fact,
+    // as Boot's archive floor is: `org/springframework/ai/spring-ai-bom` begins at
+    // `1.0.0-M5`, and no consumer can pin a dependency to a 0.8.x that is not
+    // there.
+    expect(() => resolveUpstream('ai', '0.8.1')).toThrow(/not buildable/)
+    expect(() => resolveUpstream('ai', '1.0.0')).not.toThrow()
+  })
+
+  test('runs one era with no ceiling, across the 1.x-to-2.x line', () => {
+    // v2.0.1 keeps v1.0.0's component path, `mvnw process-resources` collector,
+    // single `ROOT` module and two-line generated template, so 2.x is not a
+    // second era.
+    for (const version of ['1.0.0', '1.1.8', '2.0.0', '2.0.1']) {
+      const upstream = resolveUpstream('ai', version)
+      expect(upstream.componentPath).toBe('spring-ai-docs/src/main/antora')
+      expect(upstream.assembly.descriptor).toBe('overlay')
+    }
+  })
+
+  test('orders versions from tags the same way the build does', () => {
+    expect(
+      supportedVersionsFromTags('ai', ['v0.8.1', 'v1.0.0', 'v1.1.8', 'v2.0.1', 'v2.1.0-M1']),
+    ).toEqual(['1.0.0', '1.1.8', '2.0.1'])
   })
 })

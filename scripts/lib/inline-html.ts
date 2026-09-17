@@ -70,6 +70,43 @@ const BACKTICK_RUN = /`+/g
 /** Markdown characters that change how a text run parses. */
 const MARKDOWN_SPECIALS = /[\\*_[\]]/g
 
+/**
+ * One inline `stem:[…]` expression, as Asciidoctor has already rendered it.
+ *
+ * The stem macro is substituted away before a converter ever sees the node: it
+ * arrives here as ordinary text wrapped in the MathJax delimiters Asciidoctor
+ * emits — `\$…\$` for asciimath, which is the default and what Spring AI's
+ * playbook selects, and `\(…\)` for latexmath.
+ *
+ * That makes it invisible to the unknown-construct warning `--strict` gates on,
+ * so it has to be recognized here or not at all: escaped as prose,
+ * `\$\vec{a}\$` reaches the reader as `\\$\\vec{a}\\$`, and every backslash the
+ * expression carries doubles with it.
+ *
+ * A delimiter Asciidoctor emits carries exactly one backslash. Source that
+ * escapes one in order to write about it — `\\$x\\$`, or `\\(x\\)` — arrives
+ * with two, and is prose. The lookbehinds tell the two apart: without them the
+ * scan starts at the second backslash and publishes `$x\$`, live math where
+ * the page meant to show a delimiter.
+ *
+ * A singly escaped `\$x\$` written as prose stays indistinguishable, because
+ * Asciidoctor emits the same text for it as for `stem:[x]`. Nothing here can
+ * separate those: the substitution runs before the walker does and leaves the
+ * text node no provenance — not even the `stem` attribute, which is unset on
+ * the very pages that carry the macro.
+ */
+const STEM_SPAN = /(?<!\\)\\\$([\s\S]*?)(?<!\\)\\\$|(?<!\\)\\\(([\s\S]*?)(?<!\\)\\\)/g
+
+/**
+ * Any single unescaped stem delimiter.
+ *
+ * Used on what {@link STEM_SPAN} did not consume: a run whose delimiters all
+ * pair up leaves none of these behind. An escaped delimiter is skipped for the
+ * reason {@link STEM_SPAN} skips it — prose, not a stray half of a pair, so it
+ * must not make the run look unpaired.
+ */
+const STEM_DELIMITER = /(?<!\\)\\[$()]/
+
 /** A leading `#`, which would otherwise start a heading. */
 const LEADING_HASH = /^(\s*)#/
 
@@ -294,9 +331,75 @@ function codeSpan(text: string): string {
  * Deliberately conservative: over-escaping ordinary prose costs more readability
  * than the rare under-escape costs correctness. `#` only matters at line start.
  */
-function escapeText(text: string, atLineStart: boolean): string {
+function escapeProse(text: string, atLineStart: boolean): string {
   const escaped = text.replace(MARKDOWN_SPECIALS, '\\$&')
   return atLineStart ? escaped.replace(LEADING_HASH, '$1\\#') : escaped
+}
+
+/**
+ * Escape a text run, carrying any `stem:[…]` expression in it through unescaped.
+ *
+ * A stem expression is notation, not prose: `\vec{A}`, `a_1` and `^2` all mean
+ * something to a formula renderer and nothing to Markdown, so the escaping that
+ * protects prose is exactly what destroys them. They are re-emitted between `$`
+ * delimiters — the one inline-math spelling Markdown renderers and LLM consumers
+ * both read — with the expression itself byte-for-byte as upstream wrote it.
+ *
+ * Only the text between the delimiters is exempt; everything around it is
+ * escaped as before, including the `#` rule, which still applies to whichever
+ * segment actually begins the line.
+ *
+ * **A run whose delimiters do not all pair up is withheld, not guessed at.**
+ * Pairing is positional, so given `\$ a \$ b \$` there is no way to tell which
+ * delimiter is the stray one, and pairing the first two would splice ` a ` into
+ * a formula and strip its escaping — turning any `*`, `_` or `[` it holds into
+ * live Markdown on the published page. That is the silent half-rendering
+ * ADR-0004 forbids, so the whole run is escaped as ordinary prose instead and
+ * reported through {@link InlineOptions.onUnpairedStem}: `--strict` then fails
+ * the build and names the page, which is how a new construct earns a rule. An
+ * empty expression is withheld on the same grounds — `$$` is display-math
+ * delimiters to most renderers, so emitting it would change the construct.
+ */
+function escapeText(
+  text: string,
+  atLineStart: boolean,
+  onUnpairedStem?: (run: string) => void,
+): string {
+  // Every stem delimiter starts with one, and ordinary prose rarely contains
+  // any — so this skips the scan below for almost every run in a corpus.
+  if (!text.includes('\\'))
+    return escapeProse(text, atLineStart)
+
+  const spans = [...text.matchAll(STEM_SPAN)]
+  if (spans.length === 0)
+    return escapeProse(text, atLineStart)
+
+  let out = ''
+  let remainder = ''
+  let cursor = 0
+  let lineStart = atLineStart
+
+  for (const span of spans) {
+    const before = text.slice(cursor, span.index)
+    remainder += before
+    out += escapeProse(before, lineStart)
+    // One alternative matched, so exactly one group is defined: asciimath's
+    // `\$…\$` or latexmath's `\(…\)`.
+    out += `$${span[1] ?? span[2] ?? ''}$`
+    lineStart = false
+    cursor = span.index + span[0].length
+  }
+
+  const tail = text.slice(cursor)
+  remainder += tail
+
+  const empty = spans.some(span => (span[1] ?? span[2] ?? '') === '')
+  if (empty || STEM_DELIMITER.test(remainder)) {
+    onUnpairedStem?.(text)
+    return escapeProse(text, atLineStart)
+  }
+
+  return out + escapeProse(tail, lineStart)
 }
 
 /**
@@ -342,6 +445,15 @@ export interface InlineOptions {
   readonly imageBase?: string
   /** Called with the `src` of an image that could not be given a base URL. */
   readonly onImageWithoutBase?: (src: string) => void
+  /**
+   * Called with a text run whose `stem:[…]` delimiters do not pair up, or that
+   * holds an empty expression.
+   *
+   * The run is escaped as ordinary prose rather than converted, so the caller
+   * has to surface it: left unreported it would ship a visibly wrong page, and
+   * guessing a pairing instead would ship a silently wrong one.
+   */
+  readonly onUnpairedStem?: (run: string) => void
 }
 
 /**
@@ -371,7 +483,13 @@ const ABSOLUTE_URL = /^[a-z][\w+.-]*:\/\//i
  * @returns Markdown equivalent of `html`.
  */
 export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}): string {
-  const { onUnknownTag, externalComponents = {}, imageBase, onImageWithoutBase } = options
+  const {
+    onUnknownTag,
+    externalComponents = {},
+    imageBase,
+    onImageWithoutBase,
+    onUnpairedStem,
+  } = options
   let out = ''
   const emit = (text: string): void => {
     out += text
@@ -380,7 +498,11 @@ export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}):
   const walk = (nodes: readonly HtmlNode[]): void => {
     for (const node of nodes) {
       if (node.kind === 'text') {
-        emit(escapeText(decodeEntities(node.value), out === '' || out.endsWith('\n')))
+        emit(escapeText(
+          decodeEntities(node.value),
+          out === '' || out.endsWith('\n'),
+          onUnpairedStem,
+        ))
         continue
       }
 
@@ -448,7 +570,11 @@ export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}):
           // It carries no children — the alt text is an attribute — so nothing
           // is walked.
           const src = node.attrs.get('src') ?? ''
-          const alt = escapeText(decodeEntities(node.attrs.get('alt') ?? ''), false)
+          const alt = escapeText(
+            decodeEntities(node.attrs.get('alt') ?? ''),
+            false,
+            onUnpairedStem,
+          )
           if (src === '' || (imageBase === undefined && !ABSOLUTE_URL.test(src))) {
             // Same rule as a block image with no base: an empty destination
             // reads as a broken image, while the alt text alone still says what
