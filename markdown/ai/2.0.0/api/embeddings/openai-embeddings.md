@@ -1,0 +1,294 @@
+---
+title: "OpenAI Embeddings"
+source: "ROOT:api/embeddings/openai-embeddings.adoc"
+---
+
+# OpenAI Embeddings
+
+Spring AI supports the OpenAI’s text embeddings models.
+OpenAI’s text embeddings measure the relatedness of text strings.
+An embedding is a vector (list) of floating point numbers. The distance between two vectors measures their relatedness. Small distances suggest high relatedness and large distances suggest low relatedness.
+
+> [!NOTE]
+> Starting from version `2.0.0-M5`, Spring AI uses the official `openai-java` SDK under the hood for all OpenAI models. The transition is expected to be seamless and there are no breaking changes for existing users of the OpenAI API properties and builders. If you find any issues, please report them to us at [Spring AI GitHub Issues](https://github.com/spring-projects/spring-ai/issues).
+
+<a id="_prerequisites"></a>
+
+## Prerequisites
+
+You will need to create an API with OpenAI to access OpenAI embeddings models.
+
+Create an account at [OpenAI signup page](https://platform.openai.com/signup) and generate the token on the [API Keys page](https://platform.openai.com/account/api-keys).
+
+The Spring AI project defines a configuration property named `spring.ai.openai.api-key` that you should set to the value of the `API Key` obtained from openai.com.
+
+You can set this configuration property in your `application.properties` file:
+
+```properties
+spring.ai.openai.api-key=<your-openai-api-key>
+```
+
+For enhanced security when handling sensitive information like API keys, you can use Spring Expression Language (SpEL) to reference an environment variable:
+
+```yaml
+# In application.yml
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+```
+
+```bash
+# In your environment or .env file
+export OPENAI_API_KEY=<your-openai-api-key>
+```
+
+You can also set this configuration programmatically in your application code:
+
+```java
+// Retrieve API key from a secure source or environment variable
+String apiKey = System.getenv("OPENAI_API_KEY");
+```
+
+<a id="_add_repositories_and_bom"></a>
+
+### Add Repositories and BOM
+
+Spring AI artifacts are published in Maven Central and Spring Snapshot repositories.
+Refer to the [Artifact Repositories](../../getting-started.md#artifact-repositories) section to add these repositories to your build system.
+
+To help with dependency management, Spring AI provides a BOM (bill of materials) to ensure that a consistent version of Spring AI is used throughout the entire project. Refer to the [Dependency Management](../../getting-started.md#dependency-management) section to add the Spring AI BOM to your build system.
+
+<a id="_auto_configuration"></a>
+
+## Auto-configuration
+
+> [!NOTE]
+> There has been a significant change in the Spring AI auto-configuration, starter modules' artifact names.
+> Please refer to the [upgrade notes](https://docs.spring.io/spring-ai/reference/upgrade-notes.html) for more information.
+
+Spring AI provides Spring Boot auto-configuration for the OpenAI Embedding Model.
+To enable it add the following dependency to your project’s Maven `pom.xml` file:
+
+```xml
+<dependency>
+    <groupId>org.springframework.ai</groupId>
+    <artifactId>spring-ai-starter-model-openai</artifactId>
+</dependency>
+```
+
+or to your Gradle `build.gradle` build file.
+
+```groovy
+dependencies {
+    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+}
+```
+
+> [!TIP]
+> Refer to the [Dependency Management](../../getting-started.md#dependency-management) section to add the Spring AI BOM to your build file.
+
+<a id="_embedding_properties"></a>
+
+### Embedding Properties
+
+<a id="_retry_properties"></a>
+
+#### Retry Properties
+
+The prefix `spring.ai.retry` is used as the property prefix that lets you configure the retry mechanism for the OpenAI Embedding model.
+
+| Property | Description | Default |
+| --- | --- | --- |
+| spring.ai.retry.max-attempts | Maximum number of retry attempts. | 10 |
+| spring.ai.retry.backoff.initial-interval | Initial sleep duration for the exponential backoff policy. | 2 sec. |
+| spring.ai.retry.backoff.multiplier | Backoff interval multiplier. | 5 |
+| spring.ai.retry.backoff.max-interval | Maximum backoff duration. | 3 min. |
+| spring.ai.retry.on-client-errors | If false, throw a NonTransientAiException, and do not attempt retry for `4xx` client error codes | false |
+| spring.ai.retry.exclude-on-http-codes | List of HTTP status codes that should not trigger a retry (e.g. to throw NonTransientAiException). | empty |
+| spring.ai.retry.on-http-codes | List of HTTP status codes that should trigger a retry (e.g. to throw TransientAiException). | empty |
+
+<a id="_connection_properties"></a>
+
+#### Connection Properties
+
+The prefix `spring.ai.openai` is used as the property prefix that lets you connect to OpenAI.
+
+| Property | Description | Default |
+| --- | --- | --- |
+| spring.ai.openai.base-url | The URL to connect to | https://api.openai.com |
+| spring.ai.openai.api-key | The API Key | - |
+| spring.ai.openai.organization-id | Optionally you can specify which organization  used for an API request. | - |
+| spring.ai.openai.project-id | Optionally, you can specify which project is used for an API request. | - |
+
+> [!TIP]
+> For users that belong to multiple organizations (or are accessing their projects through their legacy user API key), optionally, you can specify which organization and project is used for an API request.
+> Usage from these API requests will count as usage for the specified organization and project.
+
+<a id="_configuration_properties"></a>
+
+#### Configuration Properties
+
+> [!NOTE]
+> Enabling and disabling of the embedding auto-configurations are now configured via top level properties with the prefix `spring.ai.model.embedding`.
+>
+> To enable, spring.ai.model.embedding=openai (It is enabled by default)
+>
+> To disable, spring.ai.model.embedding=none (or any value which doesn’t match openai)
+>
+> This change is done to allow configuration of multiple models.
+
+The prefix `spring.ai.openai.embedding` is property prefix that configures the `EmbeddingModel` implementation for OpenAI.
+
+| Property | Description | Default |
+| --- | --- | --- |
+| spring.ai.model.embedding | Enable OpenAI embedding model. | openai |
+| spring.ai.openai.embedding.base-url | Optional overrides the spring.ai.openai.base-url to provide embedding specific url | - |
+| spring.ai.openai.embedding.api-key | Optional overrides the spring.ai.openai.api-key to provide embedding specific api-key | - |
+| spring.ai.openai.embedding.organization-id | Optionally you can specify which organization  used for an API request. | - |
+| spring.ai.openai.embedding.project-id | Optionally, you can specify which project is used for an API request. | - |
+| spring.ai.openai.embedding.metadata-mode | Document content extraction mode. | EMBED |
+| spring.ai.openai.embedding.model | The model to use | text-embedding-ada-002 (other options: text-embedding-3-large, text-embedding-3-small) |
+| spring.ai.openai.embedding.encoding-format | The format to return the embeddings in. Can be either float or base64. | - |
+| spring.ai.openai.embedding.user | A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. | - |
+| spring.ai.openai.embedding.dimensions | The number of dimensions the resulting output embeddings should have. Only supported in `text-embedding-3` and later models. | - |
+
+> [!NOTE]
+> You can override the common `spring.ai.openai.base-url` and `spring.ai.openai.api-key` for the `ChatModel` and `EmbeddingModel` implementations.
+> The `spring.ai.openai.embedding.base-url` and `spring.ai.openai.embedding.api-key` properties if set take precedence over the common properties.
+> Similarly, the `spring.ai.openai.chat.base-url` and `spring.ai.openai.chat.api-key` properties if set take precedence over the common properties.
+> This is useful if you want to use different OpenAI accounts for different models and different model endpoints.
+
+> [!TIP]
+> All properties prefixed with `spring.ai.openai.embedding` can be overridden at runtime by adding a request specific [Runtime Options](#embedding-options) to the `EmbeddingRequest` call.
+
+<a id="embedding-options"></a>
+
+## Runtime Options
+
+The [OpenAiEmbeddingOptions.java](https://github.com/spring-projects/spring-ai/blob/main/models/spring-ai-openai/src/main/java/org/springframework/ai/openai/OpenAiEmbeddingOptions.java) provides the OpenAI configurations, such as the model to use and etc.
+
+The default options can be configured using the `spring.ai.openai.embedding.options` properties as well.
+
+At start-time use the `OpenAiEmbeddingModel` constructor to set the  default options used for all embedding requests.
+At run-time you can override the default options, using a `OpenAiEmbeddingOptions` instance as part of your `EmbeddingRequest`.
+
+For example to override the default model name for a specific request:
+
+```java
+EmbeddingResponse embeddingResponse = embeddingModel.call(
+    new EmbeddingRequest(List.of("Hello World", "World is big and salvation is near"),
+        OpenAiEmbeddingOptions.builder()
+            .model("Different-Embedding-Model-Deployment-Name")
+        .build()));
+```
+
+<a id="_sample_controller"></a>
+
+## Sample Controller
+
+This will create a `EmbeddingModel` implementation that you can inject into your class.
+Here is an example of a simple `@Controller` class that uses the `EmbeddingModel` implementation.
+
+```application.properties
+spring.ai.openai.api-key=YOUR_API_KEY
+spring.ai.openai.embedding.model=text-embedding-ada-002
+```
+
+```java
+@RestController
+public class EmbeddingController {
+
+    private final EmbeddingModel embeddingModel;
+
+    @Autowired
+    public EmbeddingController(EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
+
+    @GetMapping("/ai/embedding")
+    public Map embed(@RequestParam(value = "message", defaultValue = "Tell me a joke") String message) {
+        EmbeddingResponse embeddingResponse = this.embeddingModel.embedForResponse(List.of(message));
+        return Map.of("embedding", embeddingResponse);
+    }
+}
+```
+
+<a id="_manual_configuration"></a>
+
+## Manual Configuration
+
+If you are not using Spring Boot, you can manually configure the OpenAI Embedding Model.
+For this add the `spring-ai-openai` dependency to your project’s Maven `pom.xml` file:
+
+```xml
+<dependency>
+    <groupId>org.springframework.ai</groupId>
+    <artifactId>spring-ai-openai</artifactId>
+</dependency>
+```
+
+or to your Gradle `build.gradle` build file.
+
+```groovy
+dependencies {
+    implementation 'org.springframework.ai:spring-ai-openai'
+}
+```
+
+> [!TIP]
+> Refer to the [Dependency Management](../../getting-started.md#dependency-management) section to add the Spring AI BOM to your build file.
+
+> [!NOTE]
+> The `spring-ai-openai` dependency provides access also to the `OpenAiChatModel`.
+> For more information about the `OpenAiChatModel` refer to the [OpenAI Chat Client](../chat/openai-chat.html) section.
+
+Next, create an `OpenAiEmbeddingModel` instance and use it to compute the similarity between two input texts:
+
+```java
+var embeddingModel = new OpenAiEmbeddingModel(
+        MetadataMode.EMBED,
+        OpenAiEmbeddingOptions.builder()
+                .apiKey(System.getenv("OPENAI_API_KEY"))
+                .model("text-embedding-ada-002")
+                .user("user-6")
+                .build());
+
+EmbeddingResponse embeddingResponse = this.embeddingModel
+        .embedForResponse(List.of("Hello World", "World is big and salvation is near"));
+```
+
+The `OpenAiEmbeddingOptions` provides the configuration information for the embedding requests.
+The api and options class offers a `builder()` for easy options creation.
+
+<a id="_customizing_the_http_client"></a>
+
+## Customizing the HTTP Client
+
+Spring AI uses the official `openai-java` SDK under the hood and configures its HTTP transport with a custom OkHttp client built by `SpringAiOpenAiHttpClient.Builder`.
+You can intercept that builder before the underlying `OkHttpClient` is created by exposing one or more `OpenAiHttpClientBuilderCustomizer` beans.
+Each customizer receives the same builder used by every OpenAI model (chat, embedding, image, audio, moderation), so the customization applies uniformly.
+
+```java
+@FunctionalInterface
+public interface OpenAiHttpClientBuilderCustomizer {
+    void customize(SpringAiOpenAiHttpClient.Builder builder);
+}
+```
+
+Typical use cases include:
+
+- registering OkHttp `Interceptor` instances (authentication, propagation headers, custom logging);
+- swapping the dispatcher `ExecutorService` (for example, to route async I/O through virtual threads);
+- configuring proxy, SSL, hostname verification, or the connection-pool sizing exposed by the builder.
+
+When several customizers are present, they are applied in `@Order` / `Ordered` order, after Spring AI’s own defaults, so user code wins.
+
+The same hook is available when wiring a model manually via the `OpenAi*Model.Builder`:
+
+```java
+var chatModel = OpenAiChatModel.builder()
+    .options(OpenAiChatOptions.builder().model("gpt-4o").build())
+    .httpClientBuilderCustomizer(myCustomizer)
+    .build();
+```
