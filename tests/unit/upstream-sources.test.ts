@@ -406,17 +406,22 @@ describe('resolveUpstream for Spring Security', () => {
 })
 
 describe('ai', () => {
-  test('resolves to its component root with nothing to download', () => {
+  test('resolves to its component root under an overlay era', () => {
     const upstream = resolveUpstream('ai', '1.0.0')
 
     expect(upstream.repo).toBe('spring-projects/spring-ai')
     expect(upstream.tag).toBe('v1.0.0')
     expect(upstream.componentPath).toBe('spring-ai-docs/src/main/antora')
     expect(upstream.assembly.descriptor).toBe('overlay')
+  })
+
+  test('waits on no published artifact, because the tag carries everything', () => {
+    // Being tagged upstream is the whole of being buildable: Spring AI publishes
+    // no content archive, and the era reads no metadata jar.
+    const upstream = resolveUpstream('ai', '1.0.0')
+
     expect(upstream.archives).toEqual([])
     expect(upstream.metadataJars).toEqual([])
-    // Being tagged upstream is the whole of being buildable: Spring AI publishes
-    // no content archive and the era reads no metadata jar.
     expect(requiredArtifactUrls('ai', '1.0.0')).toEqual([])
   })
 
