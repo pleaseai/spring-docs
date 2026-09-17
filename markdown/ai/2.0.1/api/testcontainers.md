@@ -1,0 +1,50 @@
+---
+title: "Testcontainers"
+source: "ROOT:api/testcontainers.adoc"
+---
+
+<a id="testcontainers"></a>
+
+# Testcontainers
+
+Spring AI provides Spring Boot auto-configuration for establishing a connection to a model service
+or vector store running via Testcontainers. To enable it, add the following dependency
+to your project’s Maven `pom.xml` file:
+
+```xml
+<dependency>
+   <groupId>org.springframework.ai</groupId>
+   <artifactId>spring-ai-spring-boot-testcontainers</artifactId>
+</dependency>
+```
+
+or to your Gradle `build.gradle` build file.
+
+```groovy
+dependencies {
+    implementation 'org.springframework.ai:spring-ai-spring-boot-testcontainers'
+}
+```
+
+> [!TIP]
+> Refer to the [Dependency Management](../getting-started.md#dependency-management) section to add the Spring AI BOM to your build file.
+
+<a id="_service_connections"></a>
+
+## Service Connections
+
+The following service connection factories are provided in the `spring-ai-spring-boot-testcontainers` module:
+
+| Connection Details | Matched on |
+| --- | --- |
+| `AwsOpenSearchConnectionDetails` | Containers of type `LocalStackContainer` |
+| `ChromaConnectionDetails` | Containers of type `ChromaDBContainer` |
+| `McpSseClientConnectionDetails` | Containers of type `DockerMcpGatewayContainer` |
+| `MilvusServiceClientConnectionDetails` | Containers of type `MilvusContainer` |
+| `OllamaConnectionDetails` | Containers of type `OllamaContainer` |
+| `OpenSearchConnectionDetails` | Containers of type `OpenSearchContainer` |
+| `QdrantConnectionDetails` | Containers of type `QdrantContainer` |
+| `TypesenseConnectionDetails` | Containers of type `TypesenseContainer` |
+| `WeaviateConnectionDetails` | Containers of type `WeaviateContainer` |
+
+More service connections are provided by the spring boot module `spring-boot-testcontainers`. Refer to the [Testcontainers Service Connections](https://docs.spring.io/spring-boot/reference/testing/testcontainers.html#testing.testcontainers.service-connections) documentation page for the full list.
