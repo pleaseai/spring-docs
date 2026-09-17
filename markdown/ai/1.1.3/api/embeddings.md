@@ -1,0 +1,196 @@
+---
+title: "Embeddings Model API"
+source: "ROOT:api/embeddings.adoc"
+---
+
+<a id="EmbeddingModel"></a>
+
+# Embeddings Model API
+
+Embeddings are numerical representations of text, images, or videos that capture relationships between inputs.
+
+Embeddings work by converting text, image, and video into arrays of floating point numbers, called vectors.
+These vectors are designed to capture the meaning of the text, images, and videos.
+The length of the embedding array is called the vector’s dimensionality.
+
+By calculating the numerical distance between the vector representations of two pieces of text, an application can determine the similarity between the objects used to generate the embedding vectors.
+
+The `EmbeddingModel` interface is designed for straightforward integration with embedding models in AI and machine learning.
+Its primary function is to convert text into numerical vectors, commonly referred to as embeddings.
+These embeddings are crucial for various tasks such as semantic analysis and text classification.
+
+The design of the EmbeddingModel interface centers around two primary goals:
+
+- **Portability**: This interface ensures easy adaptability across various embedding models.
+It allows developers to switch between different embedding techniques or models with minimal code changes.
+This design aligns with Spring’s philosophy of modularity and interchangeability.
+- **Simplicity**: EmbeddingModel simplifies the process of converting text to embeddings.
+By providing straightforward methods like `embed(String text)` and `embed(Document document)`, it takes the complexity out of dealing with raw text data and embedding algorithms. This design choice makes it easier for developers, especially those new to AI, to utilize embeddings in their applications without delving deep into the underlying mechanics.
+
+<a id="_api_overview"></a>
+
+## API Overview
+
+The Embedding Model API is built on top of the generic [Spring AI Model API](https://github.com/spring-projects/spring-ai/tree/main/spring-ai-model/src/main/java/org/springframework/ai/model), which is a part of the Spring AI library.
+As such, the EmbeddingModel interface extends the `Model` interface, which provides a standard set of methods for interacting with AI models. The `EmbeddingRequest` and `EmbeddingResponse` classes extend from the `ModelRequest` and `ModelResponse` are used to encapsulate the input and output of the embedding models, respectively.
+
+The Embedding API in turn is used by higher-level components to implement Embedding Models for specific embedding models, such as OpenAI, Titan, Azure OpenAI, Ollie, and others.
+
+Following diagram illustrates the Embedding API and its relationship with the Spring AI Model API and the Embedding Models:
+
+![embeddings api](https://raw.githubusercontent.com/spring-projects/spring-ai/v1.1.3/spring-ai-docs/src/main/antora/modules/ROOT/images/embeddings-api.jpg)
+
+<a id="_embeddingmodel"></a>
+
+### EmbeddingModel
+
+This section provides a guide to the `EmbeddingModel` interface and associated classes.
+
+```java
+public interface EmbeddingModel extends Model<EmbeddingRequest, EmbeddingResponse> {
+
+	@Override
+	EmbeddingResponse call(EmbeddingRequest request);
+	/**
+	 * Embeds the given document's content into a vector.
+	 * @param document the document to embed.
+	 * @return the embedded vector.
+	 */
+	float[] embed(Document document);
+
+	/**
+	 * Extracts the text content from a Document to be used for embedding.
+	 * By default, returns Document.getText(). Implementations that support
+	 * MetadataMode should override this to return
+	 * Document.getFormattedContent(MetadataMode) so that metadata is
+	 * included in the text sent to the embedding API.
+	 */
+	default String getEmbeddingContent(Document document) {
+		return document.getText();
+	}
+
+	/**
+	 * Embeds the given text into a vector.
+	 * @param text the text to embed.
+	 * @return the embedded vector.
+	 */
+	default float[] embed(String text) {
+		Assert.notNull(text, "Text must not be null");
+		return this.embed(List.of(text)).iterator().next();
+	}
+
+	/**
+	 * Embeds a batch of texts into vectors.
+	 * @param texts list of texts to embed.
+	 * @return list of list of embedded vectors.
+	 */
+	default List<float[]> embed(List<String> texts) {
+		Assert.notNull(texts, "Texts must not be null");
+		return this.call(new EmbeddingRequest(texts, EmbeddingOptions.EMPTY))
+			.getResults()
+			.stream()
+			.map(Embedding::getOutput)
+			.toList();
+	}
+
+	/**
+	 * Embeds a batch of texts into vectors and returns the {@link EmbeddingResponse}.
+	 * @param texts list of texts to embed.
+	 * @return the embedding response.
+	 */
+	default EmbeddingResponse embedForResponse(List<String> texts) {
+		Assert.notNull(texts, "Texts must not be null");
+		return this.call(new EmbeddingRequest(texts, EmbeddingOptions.EMPTY));
+	}
+
+	/**
+	 * @return the number of dimensions of the embedded vectors. It is generative
+	 * specific.
+	 */
+	default int dimensions() {
+		return embed("Test String").size();
+	}
+
+}
+```
+
+The embed methods offer various options for converting text into embeddings, accommodating single strings, structured `Document` objects, or batches of text.
+
+Multiple shortcut methods are provided for embedding text, including the `embed(String text)` method, which takes a single string and returns the corresponding embedding vector.
+All shortcuts are implemented around the `call` method, which is the primary method for invoking the embedding model.
+
+The `getEmbeddingContent(Document)` method controls how text is extracted from a `Document` before embedding.
+By default it returns `Document.getText()`, but embedding model implementations that support `MetadataMode` (such as OpenAI, Azure OpenAI, and Mistral AI) override this method to return `Document.getFormattedContent(MetadataMode)`, ensuring that document metadata is included in the text sent to the embedding API when configured.
+This method is used by the batched embedding path that vector stores rely on.
+
+Typically the embedding returns a lists of floats, representing the embeddings in a numerical vector format.
+
+The `embedForResponse` method provides a more comprehensive output, potentially including additional information about the embeddings.
+
+The dimensions method is a handy tool for developers to quickly ascertain the size of the embedding vectors, which is important for understanding the embedding space and for subsequent processing steps.
+
+<a id="_embeddingrequest"></a>
+
+#### EmbeddingRequest
+
+The `EmbeddingRequest` is a `ModelRequest` that takes a list of text objects and optional embedding request options.
+The following listing shows a truncated version of the EmbeddingRequest class, excluding constructors and other utility methods:
+
+```java
+public class EmbeddingRequest implements ModelRequest<List<String>> {
+	private final List<String> inputs;
+	private final EmbeddingOptions options;
+	// other methods omitted
+}
+```
+
+<a id="_embeddingresponse"></a>
+
+#### EmbeddingResponse
+
+The structure of the `EmbeddingResponse` class is as follows:
+
+```java
+public class EmbeddingResponse implements ModelResponse<Embedding> {
+
+	private List<Embedding> embeddings;
+	private EmbeddingResponseMetadata metadata = new EmbeddingResponseMetadata();
+	// other methods omitted
+}
+```
+
+The `EmbeddingResponse` class holds the AI Model’s output, with each `Embedding` instance containing the result vector data from a single text input.
+
+The `EmbeddingResponse` class also carries a `EmbeddingResponseMetadata` metadata about the AI Model’s response.
+
+<a id="_embedding"></a>
+
+#### Embedding
+
+The `Embedding` represents a single embedding vector.
+
+```java
+public class Embedding implements ModelResult<float[]> {
+	private float[] embedding;
+	private Integer index;
+	private EmbeddingResultMetadata metadata;
+	// other methods omitted
+}
+```
+
+<a id="available-implementations"></a>
+
+## Available Implementations
+
+Internally the various `EmbeddingModel` implementations use different low-level libraries and APIs to perform the embedding tasks. The following are some of the available implementations of the `EmbeddingModel` implementations:
+
+- [Spring AI OpenAI Embeddings](embeddings/openai-embeddings.md)
+- [Spring AI Azure OpenAI Embeddings](embeddings/azure-openai-embeddings.md)
+- [Spring AI Ollama Embeddings](embeddings/ollama-embeddings.md)
+- [Spring AI Transformers (ONNX) Embeddings](embeddings/onnx.md)
+- [Spring AI PostgresML Embeddings](embeddings/postgresml-embeddings.md)
+- [Spring AI Bedrock Cohere Embeddings](embeddings/bedrock-cohere-embedding.md)
+- [Spring AI Bedrock Titan Embeddings](embeddings/bedrock-titan-embedding.md)
+- [Spring AI VertexAI Embeddings](embeddings/vertexai-embeddings-text.md)
+- [Spring AI Mistral AI Embeddings](embeddings/mistralai-embeddings.md)
+- [Spring AI Oracle Cloud Infrastructure GenAI Embeddings](embeddings/oci-genai-embeddings.md)
