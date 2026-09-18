@@ -1,0 +1,25 @@
+.claude/agent-memory/review-review-documentation-analyzer/MEMORY.md
+  s_8a45ac404285b2::t_18a4ba74fbec84 3-4
+.claude/agent-memory/review-review-documentation-analyzer/project_spring_ai_page_counts.md
+  s_8a45ac404285b2::t_707b87c4b5ecb7 15-23
+.claude/agent-memory/review-review-pr-test-analyzer/MEMORY.md
+  s_8a45ac404285b2::t_f57ed5285998f8 3
+.claude/agent-memory/review-review-pr-test-analyzer/project_testing_standard.md
+  s_8a45ac404285b2::t_99e6e00bc4793f 15-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "babc828a4ac58a3091aab9ae7ad4f8ed44534b7d",
+  "prompts": {},
+  "sessions": {
+    "s_8a45ac404285b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "23b53575-687d-4e9a-8933-d188c51e7730",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
