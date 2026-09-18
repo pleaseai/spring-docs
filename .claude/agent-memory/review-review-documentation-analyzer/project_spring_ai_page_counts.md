@@ -12,10 +12,15 @@ Verified directly against `spring-projects/spring-ai`:
   picks up `nav.adoc` and 2 partials, = 124.
 - **v0.8.0** — pages = 50. Every `.adoc`, which adds `nav.adoc`, = 51.
 
-A draft of #249 cited the wider numbers (124 and 51) as page counts in
-`scripts/lib/upstream-sources.ts` and `.claude/skills/release-pipeline/SKILL.md`. Both were
-corrected to 121 and 50 before that PR merged, so the committed comments are right today — the
-trap is the counting method, not a defect still in the tree.
+A draft of [#249](https://github.com/pleaseai/spring-docs/pull/249) cited the wider numbers
+(124 and 51) as page counts in `scripts/lib/upstream-sources.ts` and
+`.claude/skills/release-pipeline/SKILL.md`. Both were corrected to 121 and 50 during review,
+so the committed comments are right today — the trap is the counting method, not a defect
+still in the tree.
+
+That correction leaves no trace in `git log`: #249 squash-merged as `4929a345` and its branch
+commits are unreachable, so `git log -S124` finds nothing either way. The pull request
+conversation is the record, not the history.
 
 **Why:** this repo treats specific numbers in doc comments as load-bearing evidence rather than
 decoration (see [[convention-dense-doc-comments-verifiable-claims]]). A count that is off by a
