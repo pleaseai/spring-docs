@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-23T15:59:06.558Z",
+  "generated_at": "2026-09-23T16:10:19.237Z",
   "projects": {
     "ai": {
       "1.0.0": {
@@ -315,6 +315,10 @@
       "4.0.5": {
         "tag": "data-jpa-4.0.5",
         "released_at": "2026-09-23T15:59:05Z"
+      },
+      "4.0.6": {
+        "tag": "data-jpa-4.0.6",
+        "released_at": "2026-09-23T16:10:18Z"
       },
       "4.1.1": {
         "tag": "data-jpa-4.1.1",
