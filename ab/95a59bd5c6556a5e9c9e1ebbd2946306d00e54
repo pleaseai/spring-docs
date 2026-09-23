@@ -1,0 +1,24 @@
+tests/unit/markdown-converter.test.ts
+  s_ec20819930c862::t_ca8bf5e11e87ca 504-524
+scripts/lib/markdown-converter.ts
+  s_ec20819930c862::t_c153c8eaf66017 219-222,235-236,240,415
+tests/integration/pipeline.test.ts
+  s_ec20819930c862::t_2fe20025ae0050 62,70,203-244
+  s_ec20819930c862::t_227a4b9c1e819c 245-246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "ab95a59bd5c6556a5e9c9e1ebbd2946306d00e54",
+  "prompts": {},
+  "sessions": {
+    "s_ec20819930c862": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a99d6074-b2e4-47da-81a8-eae7fdd3f53c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
