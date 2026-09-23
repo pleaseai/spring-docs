@@ -26,6 +26,16 @@ export interface AsciidoctorNode {
   hasSubstitution?: (name: string) => boolean
   /** Apply named substitutions to text, the way Asciidoctor itself would. */
   applySubstitutions?: (text: string, subs: readonly string[]) => string
+  /** The node's own attributes, including any body attribute entries it carries. */
+  getAttributes?: () => unknown
+  /** The document the node belongs to. */
+  getDocument?: () => AsciidoctorDocument
+}
+
+/** The document-level API the walker needs beyond {@link AsciidoctorNode}. */
+export interface AsciidoctorDocument {
+  /** Apply the body attribute entries a block carries to the document's attributes. */
+  playbackAttributes: (blockAttributes: unknown) => void
 }
 
 /** A table cell. */

@@ -216,9 +216,22 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
         ),
     })
 
-  /** Render a node list into joinable chunks, dropping the ones that render empty. */
+  /**
+   * Render a node list into joinable chunks, dropping the ones that render empty.
+   *
+   * A body attribute entry — `:projection-collection: Collection` between two
+   * blocks — is not in the document's attributes once parsing ends; the parser
+   * attaches it to the block that follows, and `AbstractBlock#convert` replays
+   * it onto the document just before converting that block. This walker never
+   * calls `convert`, so it replays each block's entries itself, in the same
+   * document order. Without that, every substitution after the entry sees the
+   * header attributes alone: Spring Data JPA's projections page set one right
+   * before three `subs="+attributes"` listings, which published
+   * `{projection-collection}<Person>` instead of `Collection<Person>`.
+   */
   const renderBlocks = (nodes: readonly AsciidoctorNode[]): string[] =>
     nodes.flatMap((node) => {
+      node.getDocument?.().playbackAttributes(node.getAttributes?.())
       const chunk = trimChunk(renderBlock(node))
       return chunk === '' ? [] : [chunk]
     })
