@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { fillTemplate, parsePom, resolveTemplateProperties } from '../../scripts/lib/maven-template.ts'
+import {
+  commitYearOf,
+  fillTemplate,
+  parentVersionOf,
+  parsePom,
+  pinnedVersionOf,
+  resolveTemplateProperties,
+} from '../../scripts/lib/maven-template.ts'
 
 /** `spring-data-jpa`'s root `pom.xml` at 3.5.6, reduced to what the filter reads. */
 const PROJECT_POM = `<?xml version="1.0" encoding="UTF-8"?>
@@ -168,5 +175,45 @@ describe('fillTemplate', () => {
 
     expect(() => fillTemplate(template, properties()))
       .toThrow(/documentation\.spring-reference-url/)
+  })
+})
+
+describe('parentVersionOf', () => {
+  const coordinates = 'org.springframework.data.build:spring-data-parent'
+
+  test('is the version the parent POM is checked out at', () => {
+    expect(parentVersionOf(PROJECT_POM, coordinates)).toBe('3.5.6')
+  })
+
+  test('refuses a POM inheriting from anything else', () => {
+    // Reading another parent's properties would fill the template from a POM
+    // upstream never filtered it against.
+    const other = PROJECT_POM.replace('spring-data-parent', 'spring-boot-starter-parent')
+
+    expect(() => parentVersionOf(other, coordinates)).toThrow(/spring-boot-starter-parent/)
+    expect(() => parentVersionOf('<project/>', coordinates)).toThrow(/inherits from none/)
+  })
+})
+
+describe('pinnedVersionOf', () => {
+  test('is the GA version a property pins', () => {
+    expect(pinnedVersionOf(properties(), 'springdata.commons')).toBe('3.5.6')
+  })
+
+  test('refuses an undeclared or pre-release version, which has no GA tag', () => {
+    expect(() => pinnedVersionOf(properties(), 'springdata.keyvalue')).toThrow(/undeclared/)
+    expect(() => pinnedVersionOf(new Map([['springdata.commons', '4.0.0-M1']]), 'springdata.commons'))
+      .toThrow(/4\.0\.0-M1/)
+  })
+})
+
+describe('commitYearOf', () => {
+  test('takes the year in UTC, whatever offset the commit was made at', () => {
+    expect(commitYearOf('2025-12-31T23:30:00-02:00')).toBe('2026')
+    expect(commitYearOf('2025-11-20T09:00:00+09:00')).toBe('2025')
+  })
+
+  test('refuses a date it cannot read rather than stamping NaN', () => {
+    expect(() => commitYearOf('')).toThrow(/ISO-8601/)
   })
 })

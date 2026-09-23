@@ -120,6 +120,12 @@ async function writePlaybook(
   hasCompanion: boolean,
 ): Promise<string> {
   const playbookPath = join(source, '.antora-playbook.yml')
+  await writeFile(playbookPath, playbookFor(source, javadocLocation, hasCompanion))
+  return playbookPath
+}
+
+/** The playbook {@link writePlaybook} writes, as text. */
+export function playbookFor(source: string, javadocLocation: string, hasCompanion: boolean): string {
   const lines = [
     'site: {}',
     'content:',
@@ -150,8 +156,7 @@ async function writePlaybook(
     '  bundle:',
     '    url: \'./unused-ui-bundle.zip\'',
   ]
-  await writeFile(playbookPath, `${lines.join('\n')}\n`)
-  return playbookPath
+  return `${lines.join('\n')}\n`
 }
 
 async function main(): Promise<void> {

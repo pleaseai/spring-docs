@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { parseArgs } from '../../scripts/convert.ts'
+import { parseArgs, playbookFor } from '../../scripts/convert.ts'
 
 describe('parseArgs', () => {
   test('parses the required options with a separate-value form and defaults strict to false', () => {
@@ -34,5 +34,27 @@ describe('parseArgs', () => {
   test('throws when the source positional is missing', () => {
     expect(() => parseArgs(['--project', 'boot', '--version', '4.1.1', '--out', 'dist']))
       .toThrow(/Usage: convert\.ts/)
+  })
+})
+
+describe('playbookFor', () => {
+  test('reads a template era\'s companion as a second start path of the same source', () => {
+    // `include::{commons}@data-commons::page$…[]` resolves only when the
+    // included component is in the catalog, and it sits under `_companion/`.
+    const yaml = Bun.YAML.parse(playbookFor('/src', 'https://javadoc.test', true)) as {
+      content: { sources: Record<string, unknown>[] }
+    }
+
+    expect(yaml.content.sources).toEqual([
+      { url: '/src', branches: 'HEAD', start_paths: ['.', '_companion'] },
+    ])
+  })
+
+  test('reads the source root alone when there is no companion', () => {
+    const yaml = Bun.YAML.parse(playbookFor('/src', 'https://javadoc.test', false)) as {
+      content: { sources: Record<string, unknown>[] }
+    }
+
+    expect(yaml.content.sources).toEqual([{ url: '/src', branches: 'HEAD' }])
   })
 })

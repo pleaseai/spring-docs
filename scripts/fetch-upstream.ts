@@ -48,14 +48,15 @@ import process from 'node:process'
 import { parseManagedVersions, synthesizeAttributes, versionSourceBoms } from './lib/antora-attributes.ts'
 import { unpublishedArtifacts } from './lib/artifact-availability.ts'
 import { componentNameOf, overlayDescriptor, renderDescriptor } from './lib/component-descriptor.ts'
-import { fillTemplate, parsePom, resolveTemplateProperties } from './lib/maven-template.ts'
-import { assertNoSymlinks, materializeDeclaredSymlinks } from './lib/reject-symlinks.ts'
 import {
-  COMPANION_START_PATH,
-  isGaVersion,
-  requiredArtifactUrls,
-  resolveUpstream,
-} from './lib/upstream-sources.ts'
+  commitYearOf,
+  fillTemplate,
+  parentVersionOf,
+  pinnedVersionOf,
+  resolveTemplateProperties,
+} from './lib/maven-template.ts'
+import { assertNoSymlinks, materializeDeclaredSymlinks } from './lib/reject-symlinks.ts'
+import { COMPANION_START_PATH, requiredArtifactUrls, resolveUpstream } from './lib/upstream-sources.ts'
 
 export interface Args {
   readonly project: string
@@ -362,31 +363,19 @@ async function assembleFromTemplate(
   componentRoot: string,
 ): Promise<{ readonly parent: PinnedCheckout, readonly companion: PinnedCheckout }> {
   const projectPom = await readFile(join(checkout, template.pomPath), 'utf8')
-  const parentCoordinates = parsePom(projectPom).parent
-  const declared = parentCoordinates === undefined
-    ? 'none'
-    : `${parentCoordinates.groupId}:${parentCoordinates.artifactId}`
-  if (parentCoordinates === undefined || declared !== template.parent.coordinates) {
-    throw new Error(
-      `${template.pomPath} inherits from ${declared}, not ${template.parent.coordinates} — `
-      + `the template's properties would be read from the wrong parent POM`,
-    )
-  }
-
   const parentDir = join(checkout, '.spring-docs-parent')
   const parent = await checkoutPinned(
     template.parent,
-    parentCoordinates.version,
+    parentVersionOf(projectPom, template.parent.coordinates),
     [template.parent.pomPath],
     parentDir,
   )
 
-  const commitDate = await run(['git', 'show', '-s', '--format=%cI', 'HEAD'], checkout)
   const properties = resolveTemplateProperties({
     version: upstream.version,
     projectPom,
     parentPom: await readFile(join(parentDir, template.parent.pomPath), 'utf8'),
-    commitYear: String(new Date(commitDate).getUTCFullYear()),
+    commitYear: commitYearOf(await run(['git', 'show', '-s', '--format=%cI', 'HEAD'], checkout)),
   })
   const attributes = fillTemplate(
     await readFile(join(checkout, template.templatePath), 'utf8'),
@@ -394,13 +383,7 @@ async function assembleFromTemplate(
   )
   await writeOverlaidDescriptor(upstream, attributes, componentRoot)
 
-  const companionVersion = properties.get(template.companion.versionProperty)
-  if (companionVersion === undefined || !isGaVersion(companionVersion)) {
-    throw new Error(
-      `${template.companion.versionProperty} is ${companionVersion ?? 'undeclared'}, `
-      + `not a GA version of ${template.companion.repo} to check out`,
-    )
-  }
+  const companionVersion = pinnedVersionOf(properties, template.companion.versionProperty)
   const companionDir = join(checkout, '.spring-docs-companion')
   const companion = await checkoutPinned(
     template.companion,

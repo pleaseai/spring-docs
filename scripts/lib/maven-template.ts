@@ -68,6 +68,12 @@ const NESTED_SECTIONS = /<(profiles|build|reporting)>[\s\S]*?<\/\1>/g
 
 const PROPERTIES_BLOCK = /<properties>([\s\S]*?)<\/properties>/
 const PARENT_BLOCK = /<parent>([\s\S]*?)<\/parent>/
+const GROUP_ID = /<groupId>([^<]+)<\/groupId>/
+const ARTIFACT_ID = /<artifactId>([^<]+)<\/artifactId>/
+const VERSION = /<version>([^<]+)<\/version>/
+
+/** A plain `major.minor.patch` release, the only kind a pinned tag is taken from. */
+const GA_VERSION = /^\d+\.\d+\.\d+$/
 
 /** The leading `major.minor` the antrun step keeps, qualifier and patch dropped. */
 const MAJOR_MINOR = /^\d+\.\d+/
@@ -98,12 +104,55 @@ export function parsePom(xml: string): PomModel {
 }
 
 function parentOf(block: string): PomParent | undefined {
-  const field = (name: string): string | undefined =>
-    new RegExp(`<${name}>([^<]+)</${name}>`).exec(block)?.[1]?.trim()
-  const groupId = field('groupId')
-  const artifactId = field('artifactId')
-  const version = field('version')
+  const field = (pattern: RegExp): string | undefined => pattern.exec(block)?.[1]?.trim()
+  const groupId = field(GROUP_ID)
+  const artifactId = field(ARTIFACT_ID)
+  const version = field(VERSION)
   return groupId && artifactId && version ? { groupId, artifactId, version } : undefined
+}
+
+/**
+ * The version of the parent POM a project inherits its properties from.
+ *
+ * `expected` is the `groupId:artifactId` the project must inherit from.
+ * @throws if the POM names no parent or another one: its properties would then
+ * be read from a POM the template was never filtered against.
+ */
+export function parentVersionOf(projectPom: string, expected: string): string {
+  const parent = parsePom(projectPom).parent
+  const declared = parent === undefined ? 'none' : `${parent.groupId}:${parent.artifactId}`
+  if (parent === undefined || declared !== expected) {
+    throw new Error(
+      `The POM inherits from ${declared}, not ${expected} — `
+      + `the template's properties would be read from the wrong parent POM`,
+    )
+  }
+  return parent.version
+}
+
+/**
+ * The GA version a property pins, for checking out another repository at.
+ *
+ * @throws if the property is undeclared or not a plain `major.minor.patch`:
+ * only GA versions are built, so no GA store pins anything else.
+ */
+export function pinnedVersionOf(properties: ReadonlyMap<string, string>, name: string): string {
+  const version = properties.get(name)
+  if (version === undefined || !GA_VERSION.test(version))
+    throw new Error(`${name} is ${version ?? 'undeclared'}, not a GA version to check out`)
+  return version
+}
+
+/**
+ * The year `${current.year}` stands for, from the tag commit's ISO-8601 date.
+ *
+ * UTC, so the result does not depend on the machine the fetch runs on.
+ */
+export function commitYearOf(isoDate: string): string {
+  const date = new Date(isoDate)
+  if (Number.isNaN(date.getTime()))
+    throw new Error(`Not an ISO-8601 commit date: "${isoDate}"`)
+  return String(date.getUTCFullYear())
 }
 
 /**
