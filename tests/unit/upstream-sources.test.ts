@@ -74,7 +74,7 @@ describe('resolveUpstream', () => {
 
 describe('supportedProjects', () => {
   test('lists the known projects', () => {
-    expect(supportedProjects()).toEqual(['ai', 'boot', 'framework', 'security'])
+    expect(supportedProjects()).toEqual(['ai', 'boot', 'data-jpa', 'framework', 'security'])
   })
 })
 
@@ -556,5 +556,83 @@ describe('ai', () => {
     expect(
       supportedVersionsFromTags('ai', ['v0.8.1', 'v1.0.0', 'v1.1.8', 'v2.0.1', 'v2.1.0-M1']),
     ).toEqual(['1.0.0', '1.1.8', '2.0.1'])
+  })
+})
+
+describe('data-jpa', () => {
+  test('resolves to its component root under a template era', () => {
+    const upstream = resolveUpstream('data-jpa', '3.5.6')
+
+    expect(upstream.repo).toBe('spring-projects/spring-data-jpa')
+    // Bare version tags, like Spring Security's.
+    expect(upstream.tag).toBe('3.5.6')
+    expect(upstream.componentPath).toBe('src/main/antora')
+    expect(upstream.assembly.descriptor).toBe('template')
+  })
+
+  test('waits on no published artifact, because git tags carry everything', () => {
+    // The parent POM and the included component are read from their own tags,
+    // not from Maven Central, so being tagged upstream is the whole of being
+    // buildable here too.
+    const upstream = resolveUpstream('data-jpa', '3.5.6')
+
+    expect(upstream.archives).toEqual([])
+    expect(upstream.metadataJars).toEqual([])
+    expect(requiredArtifactUrls('data-jpa', '3.5.6')).toEqual([])
+  })
+
+  test('checks out the template and the POM it is filtered through', () => {
+    expect(resolveUpstream('data-jpa', '3.5.6').checkoutPaths).toEqual([
+      'src/main/antora',
+      'src/main/antora/resources/antora-resources/antora.yml',
+      'pom.xml',
+    ])
+  })
+
+  test('reads the parent POM and the included component from their own repositories', () => {
+    const { assembly } = resolveUpstream('data-jpa', '3.5.6')
+    if (assembly.descriptor !== 'template')
+      throw new Error('expected a template assembly')
+
+    expect(assembly.template.parent).toEqual({
+      repo: 'spring-projects/spring-data-build',
+      tagPrefix: '',
+      coordinates: 'org.springframework.data.build:spring-data-parent',
+      pomPath: 'parent/pom.xml',
+    })
+    // `include::{commons}@data-commons::page$…[]` asks for the version this
+    // property pins, so the same property names the tag it is checked out at.
+    expect(assembly.template.companion).toEqual({
+      repo: 'spring-projects/spring-data-commons',
+      tagPrefix: '',
+      componentPath: 'src/main/antora',
+      versionProperty: 'springdata.commons',
+    })
+  })
+
+  test('pins javadoc to the exact version and maps no external component', () => {
+    const upstream = resolveUpstream('data-jpa', '3.5.6')
+
+    expect(upstream.javadocLocation).toBe('https://docs.spring.io/spring-data/jpa/docs/3.5.6/api')
+    expect(upstream.externalComponents).toEqual({})
+  })
+
+  test('refuses 3.1.x, which ships no Antora component', () => {
+    expect(() => resolveUpstream('data-jpa', '3.1.12')).toThrow(/not buildable/)
+    expect(() => resolveUpstream('data-jpa', '3.2.0')).not.toThrow()
+  })
+
+  test('runs one era with no ceiling, across the 3.x-to-4.x line', () => {
+    for (const version of ['3.2.0', '3.5.6', '4.0.0', '4.1.1']) {
+      const upstream = resolveUpstream('data-jpa', version)
+      expect(upstream.componentPath).toBe('src/main/antora')
+      expect(upstream.assembly.descriptor).toBe('template')
+    }
+  })
+
+  test('orders versions from tags, dropping the .RELEASE-era ones', () => {
+    expect(
+      supportedVersionsFromTags('data-jpa', ['2.3.0.RELEASE', '3.1.12', '3.2.0', '4.1.1', '3.5.6', '4.2.0-M1']),
+    ).toEqual(['3.2.0', '3.5.6', '4.1.1'])
   })
 })

@@ -73,6 +73,7 @@ Conversion pipeline. Each top-level file is an executable Bun/TypeScript script 
 | `lib/artifact-availability.ts` | Ask Maven Central whether the artifacts a version needs are published yet. Shared by the detect sweep and the fetch it gates, so the two cannot disagree. |
 | `lib/component-descriptor.ts` | The Antora component descriptor — the `name:` declared by a checked-out stub, and the `antora.yml` a synthesized era serializes in its place.  |
 | `lib/antora-attributes.ts` | Rebuild the descriptor's asciidoc attributes for an era that publishes no archive — a pure port of Spring's `AntoraAsciidocAttributes` (ADR-0004). |
+| `lib/maven-template.ts`    | Fill a Spring Data store's Maven resources template from its POM and the `spring-data-build` parent POM — the template era's attributes (ADR-0007). |
 | `lib/bom-libraries.ts`     | Parse the `library(...)`/`links` DSL in Spring's dependency BOM build script. Pure text — evaluating it would mean running Gradle.              |
 | `lib/reject-symlinks.ts`   | Refuse a symlink or a non-regular file in any tree copied into the content source, including the tree's own root.                                |
 | `lib/release-name.ts`      | The `<project>-<version>` split, shared by packaging and promotion.                                                                               |
