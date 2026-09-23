@@ -1,0 +1,90 @@
+---
+title: "Configuration"
+source: "ROOT:envers/configuration.adoc"
+---
+
+<a id="envers.configuration"></a>
+
+# Configuration
+
+As a starting point for using Spring Data Envers, you need a project with Spring Data JPA on the classpath and an additional `spring-data-envers` dependency:
+
+```xml
+<dependencies>
+
+  <!-- other dependency elements omitted -->
+
+  <dependency>
+    <groupId>org.springframework.data</groupId>
+    <artifactId>spring-data-envers</artifactId>
+    <version>3.4.4</version>
+  </dependency>
+
+</dependencies>
+```
+
+This also brings `hibernate-envers` into the project as a transient dependency.
+
+To enable Spring Data Envers and Spring Data JPA, we need to configure two beans and a special `repositoryFactoryBeanClass`:
+
+```java
+@Configuration
+@EnableEnversRepositories
+@EnableTransactionManagement
+public class EnversDemoConfiguration {
+
+	@Bean
+	public DataSource dataSource() {
+
+		EmbeddedDatabaseBuilder builder = new EmbeddedDatabaseBuilder();
+		return builder.setType(EmbeddedDatabaseType.HSQL).build();
+	}
+
+	@Bean
+	public LocalContainerEntityManagerFactoryBean entityManagerFactory() {
+
+		HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
+		vendorAdapter.setGenerateDdl(true);
+
+		LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
+		factory.setJpaVendorAdapter(vendorAdapter);
+		factory.setPackagesToScan("example.springdata.jpa.envers");
+		factory.setDataSource(dataSource());
+		return factory;
+	}
+
+	@Bean
+	public PlatformTransactionManager transactionManager(EntityManagerFactory entityManagerFactory) {
+
+		JpaTransactionManager txManager = new JpaTransactionManager();
+		txManager.setEntityManagerFactory(entityManagerFactory);
+		return txManager;
+	}
+}
+```
+
+To actually use Spring Data Envers, make one or more repositories into a [`RevisionRepository`](https://docs.spring.io/spring-data/commons/docs/3.4.4/api//org/springframework/data/repository/history/RevisionRepository.html) by adding it as an extended interface:
+
+```java
+interface PersonRepository
+    extends CrudRepository<Person, Long>,
+    RevisionRepository<Person, Long, Long> // <1>
+{}
+```
+
+1. The first type parameter (`Person`) denotes the entity type, the second (`Long`) denotes the type of the id property, and the last one (`Long`) is the type of the revision number.
+For Envers in default configuration, the revision number parameter should be `Integer` or `Long`.
+
+The entity for that repository must be an entity with Envers auditing enabled (that is, it must have an `@Audited` annotation):
+
+```java
+@Entity
+@Audited
+class Person {
+
+	@Id @GeneratedValue
+	Long id;
+	String name;
+	@Version Long version;
+}
+```
