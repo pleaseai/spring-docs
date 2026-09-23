@@ -13,9 +13,9 @@ before answering "is X supported" — they answer different questions.
 
 | | |
 |---|---|
-| Projects | `ai`, `boot`, `framework`, `security` |
+| Projects | `ai`, `boot`, `data-jpa`, `framework`, `security` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras) |
+| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras); `data-jpa` → `>= 3.2.0` (template) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
 A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
@@ -31,6 +31,7 @@ without the other yields a tree that classifies but converts wrongly:
 | `security` `6.2.0` – `<6.5.1` | `docs` | `overlay` | the committed `antora.yml`, topped up with attributes derived from `gradle/libs.versions.toml` and `gradle.properties` | no |
 | `security` `>= 6.5.1` | `docs` | `overlay` | the same, plus the `modules/ROOT/examples/docs-src` symlink that era added | no |
 | `ai` `>= 1.0.0` | `spring-ai-docs/src/main/antora` | `overlay` | the committed `antora.yml` unchanged — its build contributes no attribute at all | no |
+| `data-jpa` `>= 3.2.0` | `src/main/antora` | `template` | the Maven resources template, filtered through the store's `pom.xml` and the `spring-data-build` parent POM at the tag `<parent>` names; plus `spring-data-commons` at the tag `springdata.commons` names, written under `_companion/` as a second component (ADR-0007) | no — three git tags |
 
 `overlay` is the cheapest to add and the one to reach for first on a new project: check what
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
@@ -38,6 +39,16 @@ attribute (`spring-version`), so nothing is downloaded at all. Spring AI's is th
 case — its whole generated template is `version` plus `prerelease`, neither of which is an
 asciidoc attribute, so the overlay is pure passthrough and `generatedAttributesFor` returns
 `{}`.
+
+`template` is for a project whose committed descriptor is a stub and whose attributes live in a
+Maven-filtered `resources/antora-resources/antora.yml` — every Spring Data store. The properties
+resolve from two POMs (`maven-template.ts`); a placeholder neither declares fails the fetch
+rather than publishing `${…}`. `${current.year}` is the tag commit's UTC year, never the clock's,
+so a rebuild reproduces the archive. The corpus also reads a second component through
+`include::{commons}@data-commons::page$…[]`: the fetch checks it out at the version the POM pins,
+and `convert.ts` adds `_companion` as a second start path but emits only the root component's
+pages. Adding another store should be one `PROJECTS` entry reusing the same `TemplateSources`
+shape — confirm its template path, `<parent>` and `springdata.commons` first.
 
 Eras need not be contiguous, and `eraFor` returns `undefined` below the oldest floor:
 
@@ -123,7 +134,9 @@ one of the three descriptors above. Declare eras oldest first and keep their ran
 `ext.collector` names. If the committed descriptor already carries its attributes and the task
 contributes only a version — as Spring Framework's does — it is an `overlay`, and nothing has
 to be downloaded. Only reach for `synthesized` when the build genuinely generates content, and
-for `archive` when Spring publishes a content zip to Maven Central (so far, Boot alone).
+for `archive` when Spring publishes a content zip to Maven Central (so far, Boot alone). A stub
+descriptor beside a `${…}` resources template filled by a Maven profile is a `template` era
+(Spring Data).
 
 Then add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
 
@@ -132,12 +145,14 @@ Then add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
   Each era carries `since`, an optional exclusive `until`, and `componentPath` (the directory
   holding `antora.yml`) — the component path and the archive classifiers live inside an era,
   not on the project
-- `assembly` — one of the three descriptors above, per era. `archive` takes
+- `assembly` — one of the four descriptors above, per era. `archive` takes
   `archiveClassifiers`; `synthesized` takes a `SynthesisSources`; `overlay` takes
   `generatedAttributesFor(version)`, `internalSymlinks`, and — where the build resolves values
   the version alone does not give — `derivedAttributes`, which names the committed files to read
   and a pure function over their contents (Spring Security reads its version catalog and
-  `gradle.properties` that way; the named files are added to the sparse checkout automatically)
+  `gradle.properties` that way; the named files are added to the sparse checkout automatically);
+  `template` takes a `TemplateSources` — the template and POM paths, the parent POM's repository
+  and expected coordinates, and the companion component's repository and version property
 - `mavenGroupPath` / `mavenArtifact` — where its published artifacts live; only for a project
   with an archive or synthesized era, omit them for an overlay-only project
 - `javadocLocationFor(version)` — retargets `javadoc:` macros, which otherwise dangle as
@@ -165,8 +180,13 @@ Anything Asciidoctor substitutes *before* the walker runs is invisible to it: Sp
 inline `stem:[…]` expressions arrive as plain text in MathJax delimiters (`\$…\$` for asciimath,
 `\(…\)` for latexmath), and were escaped as prose into `\\$\\vec{a}\\$` across a page of vector
 maths while `--strict` reported zero warnings. `escapeText` in `inline-html.ts` now carries them
-through as `$…$`. Diff a page or two of a new corpus against the upstream site before believing
-a clean run.
+through as `$…$`. Likewise a body attribute entry (`:name: value` between blocks) is only
+replayed onto the document when Asciidoctor converts the block after it, so the walker replays
+them itself — before that, Spring Data's `{projection-collection}` and Spring Security's
+`{class-name}` reached published pages literally. A dropped include is invisible too: Spring
+Data without its Commons component exits 0 with 58% of the text gone. Diff a page or two of a
+new corpus against the upstream site before believing a clean run, and grep the output for
+`{`.
 
 Then:
 
@@ -246,6 +266,7 @@ stays abandoned; re-running it is a safe no-op.
 | `scripts/lib/upstream-sources.ts` | project definitions, layout eras, version comparison |
 | `scripts/lib/artifact-availability.ts` | bounded HEAD probing of required Maven artifacts |
 | `scripts/lib/antora-attributes.ts`, `bom-libraries.ts`, `component-descriptor.ts` | the synthesized era's reconstruction of the generated component |
+| `scripts/lib/maven-template.ts` | the template era's POM-property resolution and template filter |
 | `scripts/detect-upstream-versions.ts` | what upstream has that the catalog lacks |
 | `scripts/release-mode.ts` | which phase a re-run still owes |
 | `.github/actions/build-release/action.yml` | fetch → convert → package, shared by both builds |
@@ -253,3 +274,4 @@ stays abandoned; re-running it is a safe no-op.
 | `.github/workflows/release.yml` | tag-triggered publish + catalog pull request |
 | `.github/workflows/nightly-detect.yml` | files an issue per missing GA version |
 | `.please/docs/decisions/0004-synthesize-3x-component.md` | why eras exist, and what the synthesized era reconstructs |
+| `.please/docs/decisions/0007-spring-data-template-era.md` | the template era and the companion component |

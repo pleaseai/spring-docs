@@ -26,9 +26,10 @@ import loadAsciiDoc from '@antora/asciidoc-loader'
 import aggregateContent from '@antora/content-aggregator'
 import classifyContent from '@antora/content-classifier'
 import buildPlaybook from '@antora/playbook-builder'
+import { componentNameOf } from './lib/component-descriptor.ts'
 import { convertDocument } from './lib/markdown-converter.ts'
 import { assertUniquePaths, buildIndex, INDEX_FILENAME, outputPathFor } from './lib/output-layout.ts'
-import { resolveUpstream } from './lib/upstream-sources.ts'
+import { COMPANION_START_PATH, resolveUpstream } from './lib/upstream-sources.ts'
 
 /**
  * Asciidoctor extensions to register.
@@ -113,14 +114,27 @@ export function parseArgs(argv: readonly string[]): Args {
  * source tree rather than constructed as a plain object — that also keeps the
  * exact configuration inspectable after a failed run.
  */
-async function writePlaybook(source: string, javadocLocation: string): Promise<string> {
+async function writePlaybook(
+  source: string,
+  javadocLocation: string,
+  hasCompanion: boolean,
+): Promise<string> {
   const playbookPath = join(source, '.antora-playbook.yml')
+  await writeFile(playbookPath, playbookFor(source, javadocLocation, hasCompanion))
+  return playbookPath
+}
+
+/** The playbook {@link writePlaybook} writes, as text. */
+export function playbookFor(source: string, javadocLocation: string, hasCompanion: boolean): string {
   const lines = [
     'site: {}',
     'content:',
     '  sources:',
     `  - url: ${JSON.stringify(source)}`,
     '    branches: HEAD',
+    // A template era's included component sits beside the primary one in the
+    // same tree, so it is a second start path of the same source.
+    ...(hasCompanion ? [`    start_paths: ${JSON.stringify(['.', COMPANION_START_PATH])}`] : []),
     'asciidoc:',
     '  sourcemap: true',
     '  attributes:',
@@ -142,8 +156,7 @@ async function writePlaybook(source: string, javadocLocation: string): Promise<s
     '  bundle:',
     '    url: \'./unused-ui-bundle.zip\'',
   ]
-  await writeFile(playbookPath, `${lines.join('\n')}\n`)
-  return playbookPath
+  return `${lines.join('\n')}\n`
 }
 
 async function main(): Promise<void> {
@@ -161,12 +174,20 @@ async function main(): Promise<void> {
 
   try {
     const upstream = resolveUpstream(args.project, args.version)
-    const playbookPath = await writePlaybook(source, upstream.javadocLocation)
+    const playbookPath = await writePlaybook(
+      source,
+      upstream.javadocLocation,
+      upstream.assembly.descriptor === 'template',
+    )
 
     const playbook = buildPlaybook(['--playbook', playbookPath], {})
     const asciidocConfig = loadAsciiDoc.resolveConfig(playbook)
     const catalog = classifyContent(playbook, await aggregateContent(playbook), asciidocConfig)
-    const pages = catalog.getPages(page => Boolean(page.out))
+    // Only the component at the source root is published. A companion's pages
+    // reach the release through the pages that include them, and emitting them
+    // on their own would publish another project's documentation under this one.
+    const component = await componentNameOf(source)
+    const pages = catalog.getPages(page => Boolean(page.out) && page.src.component === component)
 
     if (pages.length === 0) {
       throw new Error(`No pages classified from ${source} — is antora.yml present?`)

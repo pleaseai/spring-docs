@@ -16,6 +16,10 @@
  *     descriptor and its own examples, so nothing is fetched — the committed
  *     `antora.yml` is topped up with the version and the attributes the build
  *     would have contributed
+ *   - template era (Spring Data 3.2+): the committed stub is filled from a
+ *     Maven resources template, whose properties come from the store's POM and
+ *     the `spring-data-build` parent POM at the tag it names; the component its
+ *     pages include is checked out beside it, at the version the POM pins
  *
  * Usage:
  *   bun run scripts/fetch-upstream.ts boot 4.1.1 --out dist/upstream
@@ -29,7 +33,13 @@
 import type { ManagedVersionAttribute } from './lib/antora-attributes.ts'
 import type { Fetcher } from './lib/artifact-availability.ts'
 import type { Attributes } from './lib/component-descriptor.ts'
-import type { DerivedAttributes, SynthesisSources, UpstreamCoordinates } from './lib/upstream-sources.ts'
+import type {
+  DerivedAttributes,
+  PinnedRepository,
+  SynthesisSources,
+  TemplateSources,
+  UpstreamCoordinates,
+} from './lib/upstream-sources.ts'
 import { Buffer } from 'node:buffer'
 import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -38,8 +48,15 @@ import process from 'node:process'
 import { parseManagedVersions, synthesizeAttributes, versionSourceBoms } from './lib/antora-attributes.ts'
 import { unpublishedArtifacts } from './lib/artifact-availability.ts'
 import { componentNameOf, overlayDescriptor, renderDescriptor } from './lib/component-descriptor.ts'
+import {
+  commitYearOf,
+  fillTemplate,
+  parentVersionOf,
+  pinnedVersionOf,
+  resolveTemplateProperties,
+} from './lib/maven-template.ts'
 import { assertNoSymlinks, materializeDeclaredSymlinks } from './lib/reject-symlinks.ts'
-import { requiredArtifactUrls, resolveUpstream } from './lib/upstream-sources.ts'
+import { COMPANION_START_PATH, requiredArtifactUrls, resolveUpstream } from './lib/upstream-sources.ts'
 
 export interface Args {
   readonly project: string
@@ -89,6 +106,28 @@ async function run(cmd: readonly string[], cwd: string): Promise<string> {
 }
 
 /**
+ * Sparse-checkout `paths` of one repository at one tag into `dir`.
+ *
+ * @returns the resolved commit SHA
+ */
+async function sparseCheckout(
+  cloneUrl: string,
+  tag: string,
+  paths: readonly string[],
+  dir: string,
+): Promise<string> {
+  await mkdir(dir, { recursive: true })
+  await run(['git', 'init', '-q', '.'], dir)
+  await run(['git', 'remote', 'add', 'origin', cloneUrl], dir)
+  await run(['git', 'fetch', '--depth', '1', '--filter=blob:none', '-q', 'origin', tag], dir)
+  await run(['git', 'sparse-checkout', 'set', '--no-cone', ...paths], dir)
+  await run(['git', 'checkout', '-q', 'FETCH_HEAD'], dir)
+  // `v4.1.1` is an annotated tag; FETCH_HEAD names the tag object, so peel it
+  // to the commit it points at — manifest provenance must be a commit SHA.
+  return run(['git', 'rev-parse', 'FETCH_HEAD^{commit}'], dir)
+}
+
+/**
  * Sparse-checkout the component root at the release tag.
  *
  * @returns the resolved upstream commit SHA
@@ -97,20 +136,26 @@ async function checkoutComponent(
   upstream: UpstreamCoordinates,
   workDir: string,
 ): Promise<string> {
-  await run(['git', 'init', '-q', '.'], workDir)
-  await run(['git', 'remote', 'add', 'origin', upstream.cloneUrl], workDir)
-  await run(
-    ['git', 'fetch', '--depth', '1', '--filter=blob:none', '-q', 'origin', upstream.tag],
-    workDir,
-  )
-  await run(
-    ['git', 'sparse-checkout', 'set', '--no-cone', ...upstream.checkoutPaths],
-    workDir,
-  )
-  await run(['git', 'checkout', '-q', 'FETCH_HEAD'], workDir)
-  // `v4.1.1` is an annotated tag; FETCH_HEAD names the tag object, so peel it
-  // to the commit it points at — manifest provenance must be a commit SHA.
-  return run(['git', 'rev-parse', 'FETCH_HEAD^{commit}'], workDir)
+  return sparseCheckout(upstream.cloneUrl, upstream.tag, upstream.checkoutPaths, workDir)
+}
+
+/** A second repository a template era read, recorded for provenance. */
+interface PinnedCheckout {
+  readonly repo: string
+  readonly ref: string
+  readonly commit: string
+}
+
+/** Sparse-checkout `paths` of a {@link PinnedRepository} at `version`. */
+async function checkoutPinned(
+  pinned: PinnedRepository,
+  version: string,
+  paths: readonly string[],
+  dir: string,
+): Promise<PinnedCheckout> {
+  const ref = `${pinned.tagPrefix}${version}`
+  const commit = await sparseCheckout(`https://github.com/${pinned.repo}.git`, ref, paths, dir)
+  return { repo: pinned.repo, ref, commit }
 }
 
 /**
@@ -295,6 +340,72 @@ async function deriveAttributes(
   return attributes
 }
 /**
+ * Fill the checked-in stub descriptor from the store's Maven resources template,
+ * and check out the component its pages include beside it.
+ *
+ * The template's properties resolve from two POMs: the store's own, in this
+ * checkout, and the `spring-data-parent` it inherits, committed in
+ * `spring-data-build` at the tag its `<parent>` names. `${current.year}` is the
+ * tag commit's year rather than the clock's, so a rebuild reproduces the same
+ * bytes.
+ *
+ * The companion is checked out at the version a property names, which is also
+ * the version the pages' `include::{commons}@data-commons::…` asks for, and is
+ * written under {@link COMPANION_START_PATH} with that version resolved into
+ * its own stub.
+ *
+ * @returns where the two extra repositories were read, for provenance
+ */
+async function assembleFromTemplate(
+  upstream: UpstreamCoordinates,
+  template: TemplateSources,
+  checkout: string,
+  componentRoot: string,
+): Promise<{ readonly parent: PinnedCheckout, readonly companion: PinnedCheckout }> {
+  const projectPom = await readFile(join(checkout, template.pomPath), 'utf8')
+  const parentDir = join(checkout, '.spring-docs-parent')
+  const parent = await checkoutPinned(
+    template.parent,
+    parentVersionOf(projectPom, template.parent.coordinates),
+    [template.parent.pomPath],
+    parentDir,
+  )
+
+  const properties = resolveTemplateProperties({
+    version: upstream.version,
+    projectPom,
+    parentPom: await readFile(join(parentDir, template.parent.pomPath), 'utf8'),
+    commitYear: commitYearOf(await run(['git', 'show', '-s', '--format=%cI', 'HEAD'], checkout)),
+  })
+  const attributes = fillTemplate(
+    await readFile(join(checkout, template.templatePath), 'utf8'),
+    properties,
+  )
+  await writeOverlaidDescriptor(upstream, attributes, componentRoot)
+
+  const companionVersion = pinnedVersionOf(properties, template.companion.versionProperty)
+  const companionDir = join(checkout, '.spring-docs-companion')
+  const companion = await checkoutPinned(
+    template.companion,
+    companionVersion,
+    [template.companion.componentPath],
+    companionDir,
+  )
+  const companionRoot = join(componentRoot, COMPANION_START_PATH)
+  if (await Bun.file(join(companionRoot, 'antora.yml')).exists())
+    throw new Error(`${upstream.componentPath} already has a ${COMPANION_START_PATH}/ of its own`)
+  await copyIntoContentSource(join(companionDir, template.companion.componentPath), companionRoot)
+  const companionDescriptor = join(companionRoot, 'antora.yml')
+  await writeFile(
+    companionDescriptor,
+    overlayDescriptor(await readFile(companionDescriptor, 'utf8'), companionVersion, {}),
+  )
+  console.log(`  Included ${companion.repo}@${companion.ref} as ${COMPANION_START_PATH}/`)
+
+  return { parent, companion }
+}
+
+/**
  * Resolve every managed dependency version the attribute set needs.
  *
  * The build script imports a BOM for these instead of naming them, so each such
@@ -447,6 +558,7 @@ async function main(): Promise<void> {
     await rm(outDir, { recursive: true, force: true })
     await mkdir(outDir, { recursive: true })
 
+    let templateCheckouts: Awaited<ReturnType<typeof assembleFromTemplate>> | undefined
     const checkedOutComponent = join(workDir, upstream.componentPath)
     if (upstream.assembly.descriptor === 'overlay') {
       // Before the copy, not after: `copyIntoContentSource` refuses every
@@ -485,6 +597,16 @@ async function main(): Promise<void> {
         await writeOverlaidDescriptor(upstream, attributes, outDir)
         break
       }
+      case 'template': {
+        console.log('Filling the checked-in component descriptor from its Maven template')
+        templateCheckouts = await assembleFromTemplate(
+          upstream,
+          upstream.assembly.template,
+          workDir,
+          outDir,
+        )
+        break
+      }
     }
     await initContentSource(outDir)
 
@@ -500,6 +622,7 @@ async function main(): Promise<void> {
           commit,
           assembly: upstream.assembly.descriptor,
           archives: upstream.archives.map(a => a.classifier),
+          ...(templateCheckouts === undefined ? {} : { template_sources: templateCheckouts }),
           external_components: upstream.externalComponents,
         },
         null,

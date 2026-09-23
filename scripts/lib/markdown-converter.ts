@@ -216,9 +216,28 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
         ),
     })
 
-  /** Render a node list into joinable chunks, dropping the ones that render empty. */
+  /** Replay the body attribute entries attached to `node`, as `AbstractBlock#convert` does. */
+  const playback = (node: AsciidoctorNode): void =>
+    node.getDocument?.().playbackAttributes(node.getAttributes?.())
+
+  /**
+   * Render a node list into joinable chunks, dropping the ones that render empty.
+   *
+   * A body attribute entry — `:projection-collection: Collection` between two
+   * blocks — is not in the document's attributes once parsing ends; the parser
+   * attaches it to the block that follows, and `AbstractBlock#convert` replays
+   * it onto the document just before converting that block. This walker never
+   * calls `convert`, so it replays each block's entries itself, in the same
+   * document order. Without that, every substitution after the entry sees the
+   * header attributes alone: Spring Data JPA's projections page set one right
+   * before three `subs="+attributes"` listings, which published
+   * `{projection-collection}<Person>` instead of `Collection<Person>`.
+   * A block walked outside this function, like a tab group's list, calls
+   * {@link playback} itself.
+   */
   const renderBlocks = (nodes: readonly AsciidoctorNode[]): string[] =>
     nodes.flatMap((node) => {
+      playback(node)
       const chunk = trimChunk(renderBlock(node))
       return chunk === '' ? [] : [chunk]
     })
@@ -393,6 +412,7 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
     node.getBlocks().flatMap((child) => {
       if (child.getContext() !== 'dlist')
         return renderBlocks([child])
+      playback(child)
       return (child.getItems() as DefinitionItem[]).map(([terms, description]) => [
         `#### ${terms.map(term => inline(term.getText())).join(' / ')}`,
         ...renderDescription(description),

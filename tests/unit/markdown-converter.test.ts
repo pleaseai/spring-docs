@@ -471,6 +471,57 @@ String greeting = "Hello, {name}";
 
     expect(markdown).toContain('"Hello, {name}"')
   })
+
+  test('sees an attribute set in the body, not only in the header', () => {
+    // Spring Data JPA's projections page sets this after its title, right before
+    // the listings that read it. The parser leaves a body entry for conversion
+    // to replay, so a walker that never replays it published the literal.
+    const { markdown } = convert(`= T
+
+:projection-collection: Collection
+
+[source,java,subs="+attributes"]
+----
+{projection-collection}<Person> findByLastname(String lastname);
+----`)
+
+    expect(markdown).toContain('Collection<Person> findByLastname')
+  })
+
+  test('applies a body entry from where it appears onwards, as upstream does', () => {
+    const { markdown } = convert(`= T
+:store: Header
+
+Before: {store}.
+
+:store: Jpa
+
+After: {store}.`)
+
+    expect(markdown).toContain('Before: Header.')
+    expect(markdown).toContain('After: Jpa.')
+  })
+
+  test('replays an entry inside a tab group, whose list is rendered apart', () => {
+    // `renderTabs` walks the group's `dlist` itself rather than through
+    // `renderBlocks`, so an entry attached to that list needs its own playback.
+    const { markdown } = convert(`= T
+:store: Header
+
+[tabs]
+======
+:store: Jpa
+
+Maven::
++
+[source,xml,subs="+attributes"]
+----
+<artifactId>spring-data-{store}</artifactId>
+----
+======`)
+
+    expect(markdown).toContain('<artifactId>spring-data-Jpa</artifactId>')
+  })
 })
 
 describe('inline images', () => {

@@ -7,8 +7,10 @@
  * out from the release tag, plus the generated half of the component. Where that
  * generated half comes from depends on the version's layout era (ADR-0004):
  * published content zips for Boot 4.0.8+, reconstruction from the tag for Boot
- * 3.3-4.0.7, and — where a project commits a descriptor its build only tops up —
- * an overlay of the checked-in one.
+ * 3.3-4.0.7, and — where a project commits a descriptor its build only tops
+ * up — an overlay of the checked-in one. Spring Data fills that descriptor
+ * from a Maven-filtered template instead, and adds the second component its
+ * pages include.
  */
 
 import type { ManagedVersionAttribute } from './antora-attributes.ts'
@@ -36,6 +38,20 @@ const SPRING_SECURITY_RAW = 'https://raw.githubusercontent.com/spring-projects/s
 
 /** Spring AI sources served straight from a release tag. */
 const SPRING_AI_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-ai'
+
+/** Spring Data JPA sources served straight from a release tag. */
+const SPRING_DATA_JPA_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-data-jpa'
+
+/**
+ * Directory, relative to the content source root, holding a template era's
+ * companion component.
+ *
+ * Shared by the fetch that writes it and the conversion that reads it. Antora
+ * classifies only files under a component's own `modules/`, so the primary
+ * component ignores this directory, and the conversion names it as a second
+ * start path. Not dot-prefixed: Antora skips dot-prefixed entries.
+ */
+export const COMPANION_START_PATH = '_companion'
 
 /** Maven Central base for released Spring artifacts. */
 const MAVEN_CENTRAL = 'https://repo1.maven.org/maven2'
@@ -75,7 +91,8 @@ export interface UpstreamCoordinates {
   /**
    * Published archives to merge over the checked-out component root.
    *
-   * Empty for a synthesized or overlay era, neither of which has one to merge.
+   * Empty for a synthesized, overlay or template era, none of which has one to
+   * merge.
    */
   readonly archives: readonly ContentArchive[]
   /**
@@ -83,7 +100,7 @@ export interface UpstreamCoordinates {
    * era drops in as partials.
    *
    * Empty for an archive era, which gets that metadata inside the zip, and for
-   * an overlay era, whose project publishes none.
+   * an overlay or template era, whose project publishes none.
    *
    * Resolved here rather than at the download site so the availability gate and
    * the download cannot disagree about where an artifact lives — the same
@@ -93,8 +110,8 @@ export interface UpstreamCoordinates {
   /**
    * Repo-relative paths the sparse checkout must materialize.
    *
-   * Always includes {@link componentPath}; a synthesized era adds the build
-   * inputs its reconstruction reads.
+   * Always includes {@link componentPath}; a synthesized or template era adds
+   * the build inputs its reconstruction reads.
    */
   readonly checkoutPaths: readonly string[]
   /**
@@ -127,7 +144,7 @@ export interface UpstreamCoordinates {
 }
 
 /** Where an era's component descriptor and generated content come from. */
-export type DescriptorSource = 'archive' | 'synthesized' | 'overlay'
+export type DescriptorSource = 'archive' | 'synthesized' | 'overlay' | 'template'
 
 /**
  * Repo-relative inputs used to rebuild what Spring's Gradle build would have
@@ -207,6 +224,55 @@ export interface DerivedAttributeResult {
   readonly absent: readonly string[]
 }
 
+/** One git repository read at a tag the checkout names rather than the catalog. */
+export interface PinnedRepository {
+  /** `owner/name` on GitHub. */
+  readonly repo: string
+  /** Prefix the repository puts in front of a version to form a tag. */
+  readonly tagPrefix: string
+}
+
+/**
+ * The inputs a Spring Data store's Maven build filters its descriptor from, and
+ * the second component its pages include.
+ *
+ * Every value is committed somewhere, but not all in the store's tag: the parent
+ * POM lives in `spring-data-build` at the version the store's `<parent>` names,
+ * and the included component in `spring-data-commons` at the version a property
+ * names. Both are checked out at those tags, so nothing is read from a
+ * repository that does not carry it and nothing tracks a branch.
+ */
+export interface TemplateSources {
+  /** Repo-relative Maven resources template `antora-process-resources` filters. */
+  readonly templatePath: string
+  /** Repo-relative POM declaring the store's own properties and its parent. */
+  readonly pomPath: string
+  /** Where the parent POM the store inherits from is committed. */
+  readonly parent: PinnedRepository & {
+    /** Expected `groupId:artifactId` of the store's `<parent>`, refused otherwise. */
+    readonly coordinates: string
+    /** Path of that POM inside {@link PinnedRepository.repo}. */
+    readonly pomPath: string
+  }
+  /**
+   * The component the corpus includes pages from, as
+   * `include::{commons}@data-commons::page$…[]`.
+   *
+   * Upstream's playbook adds it as a second content source; it is written under
+   * {@link COMPANION_START_PATH} and its pages are never emitted on their own —
+   * they reach the release only through the store pages that include them.
+   */
+  readonly companion: PinnedRepository & {
+    /** Path of the component root inside {@link PinnedRepository.repo}. */
+    readonly componentPath: string
+    /**
+     * The Maven property naming its version — both the tag it is checked out
+     * at and the component version the includes ask for.
+     */
+    readonly versionProperty: string
+  }
+}
+
 /**
  * How one era's component content is assembled, as resolved for one version.
  *
@@ -225,6 +291,7 @@ export type ComponentAssembly
       readonly derivedAttributes?: DerivedAttributes
       readonly internalSymlinks: readonly DeclaredSymlink[]
     }
+    | { readonly descriptor: 'template', readonly template: TemplateSources }
 
 /**
  * How an era declares its assembly, before a version is known.
@@ -254,6 +321,7 @@ type EraAssembly
        */
       readonly internalSymlinks: readonly DeclaredSymlink[]
     }
+    | { readonly descriptor: 'template', readonly template: TemplateSources }
 
 /**
  * One documentation layout era of an upstream project.
@@ -483,7 +551,7 @@ function requiredSource(sources: Readonly<Record<string, string>>, path: string)
 }
 
 const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
-  ai: {
+  'ai': {
     repo: 'spring-projects/spring-ai',
     // No Maven coordinates: the single era is an overlay. Spring AI publishes no
     // Antora content archive — `org/springframework/ai/spring-ai-docs` is absent
@@ -556,7 +624,7 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
       `${SPRING_AI_RAW}/v${version}/spring-ai-docs/src/main/antora/modules/ROOT/images`,
   },
 
-  boot: {
+  'boot': {
     repo: 'spring-projects/spring-boot',
     mavenGroupPath: 'org/springframework/boot',
     mavenArtifact: 'spring-boot-docs',
@@ -646,7 +714,65 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
     imageBaseFor: version => `${SPRING_BOOT_DOCS}/${version}/_images`,
   },
 
-  framework: {
+  'data-jpa': {
+    repo: 'spring-projects/spring-data-jpa',
+    // No Maven coordinates: the one era reads git tags only. Spring Data publishes
+    // no Antora content archive, and the `spring-data-commons` documentation the
+    // pages include is a component in a second repository, not an artifact.
+    //
+    // No `xref:` names another component: the one cross-component reference form
+    // in the corpus is `include::{commons}@data-commons::page$…[]`, and that
+    // component is built alongside (`companion` below) rather than linked to.
+    externalComponentsFor: () => ({}),
+    // Tags are the bare version from 2.4.0 on; older ones carry `.RELEASE`.
+    tagPrefix: '',
+    eras: [
+      {
+        // 3.2.0 is where `src/main/antora` first appears; 3.1.x ships none.
+        // Measured at every GA tag from 3.2.0 to 4.1.1: the component path, the
+        // template path and the `spring-data-parent` parent are identical, the
+        // POM pins `springdata.commons` to the same version as the store, and
+        // no mode 120000 blob exists under the component. The collector command
+        // changed twice across that range (`-Pdistribute` from 3.5, a single
+        // `dependency:unpack` run in 4.1), but only its javadoc and packaging
+        // steps moved — the template filter this era reproduces did not.
+        since: '3.2.0',
+        componentPath: 'src/main/antora',
+        assembly: {
+          descriptor: 'template',
+          template: {
+            templatePath: 'src/main/antora/resources/antora-resources/antora.yml',
+            pomPath: 'pom.xml',
+            parent: {
+              repo: 'spring-projects/spring-data-build',
+              tagPrefix: '',
+              coordinates: 'org.springframework.data.build:spring-data-parent',
+              pomPath: 'parent/pom.xml',
+            },
+            companion: {
+              repo: 'spring-projects/spring-data-commons',
+              tagPrefix: '',
+              componentPath: 'src/main/antora',
+              versionProperty: 'springdata.commons',
+            },
+          },
+        },
+      },
+    ],
+    // Retargets `javadoc:` macros — three at 3.5.6. `docs/<version>/api` is the
+    // one exact-version javadoc root, but not every patch reaches it: it answers
+    // 200 for 3.2.0, 3.5.13, 4.0.6 and 4.1.0 and 404 for 4.0.7 and 4.1.1
+    // (probed 2026-09-23). The alternative, `reference/<minor>/api/java`, is
+    // pinned to a minor only and 404s for 3.2-3.4 outright.
+    javadocLocationFor: version => `https://docs.spring.io/spring-data/jpa/docs/${version}/api`,
+    // Neither this component nor `data-commons` ships an image at 3.2.0, 3.5.6 or
+    // 4.1.1, so this is never read today. The release tag rather than the
+    // reference site, for the same patch-to-minor collapse as the other projects.
+    imageBaseFor: version =>
+      `${SPRING_DATA_JPA_RAW}/${version}/src/main/antora/modules/ROOT/assets/images`,
+  },
+
+  'framework': {
     repo: 'spring-projects/spring-framework',
     // No Maven coordinates: every era here is an overlay, assembled entirely
     // from the git checkout. Spring Framework publishes no Antora content
@@ -710,7 +836,7 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
       `${SPRING_FRAMEWORK_RAW}/v${version}/framework-docs/modules/ROOT/assets/images`,
   },
 
-  security: {
+  'security': {
     repo: 'spring-projects/spring-security',
     // No Maven coordinates: both eras are overlays. `spring-security-docs` is not
     // on Maven Central at all (probed 2026-09-14, #73), and nothing here needs
@@ -900,7 +1026,7 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
 /**
  * Evaluate an era's assembly against one version.
  *
- * Only the overlay era has anything to evaluate; the other two are already the
+ * Only the overlay era has anything to evaluate; the other three are already the
  * data they declare.
  */
 function resolveAssembly(assembly: EraAssembly, version: string): ComponentAssembly {
@@ -953,6 +1079,13 @@ function checkoutPathsFor(era: LayoutEra): readonly string[] {
   if (era.assembly.descriptor === 'overlay') {
     return [era.componentPath, ...(era.assembly.derivedAttributes?.sources ?? [])]
   }
+  // A template era reads the store's POM beside the component. Its template
+  // sits inside the component root already, but is named so that moving it
+  // out would still check it out rather than fail as a missing file.
+  if (era.assembly.descriptor === 'template') {
+    const { template } = era.assembly
+    return [era.componentPath, template.templatePath, template.pomPath]
+  }
   if (era.assembly.descriptor !== 'synthesized')
     return [era.componentPath]
   const { synthesis } = era.assembly
@@ -971,8 +1104,8 @@ function checkoutPathsFor(era: LayoutEra): readonly string[] {
  * Upstream tags a release long before — and sometimes without ever — publishing
  * the artifacts this pipeline reads. Which artifacts those are depends on the
  * era: an archive era needs the content zips, a synthesized era needs the jars
- * carrying configuration-property metadata, and an overlay era needs none at
- * all, because the git tag carries everything it assembles.
+ * carrying configuration-property metadata, and an overlay or template era
+ * needs none at all, because git tags carry everything it assembles.
  * `detect-upstream-versions.ts` checks these so a version that cannot be built
  * is never offered as one that can.
  *
@@ -993,6 +1126,7 @@ export function requiredArtifactUrls(project: string, version: string): readonly
     case 'synthesized':
       return upstream.metadataJars.map(jar => jar.url)
     case 'overlay':
+    case 'template':
       return []
   }
 }
