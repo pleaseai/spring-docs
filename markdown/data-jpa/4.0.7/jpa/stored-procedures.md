@@ -1,0 +1,98 @@
+---
+title: "Stored Procedures"
+source: "ROOT:jpa/stored-procedures.adoc"
+---
+
+<a id="jpa.stored-procedures"></a>
+
+# Stored Procedures
+
+The JPA 2.1 specification introduced support for calling stored procedures via the `StoredProcedureQuery` API.
+We Introduced the `@Procedure` annotation for declaring stored procedure metadata on a repository method.
+
+The examples to follow use the following stored procedure:
+
+```sql
+/;
+DROP procedure IF EXISTS plus1inout
+/;
+CREATE procedure plus1inout (IN arg int, OUT res int)
+BEGIN ATOMIC
+ set res = arg + 1;
+END
+/;
+```
+
+Metadata for stored procedures can be configured by using the `NamedStoredProcedureQuery` annotation on an entity type.
+
+<a id="jpa.stored-procedure-entity-metadata"></a>
+
+```java
+@Entity
+@NamedStoredProcedureQuery(name = "User.plus1", procedureName = "plus1inout", parameters = {
+  @StoredProcedureParameter(mode = ParameterMode.IN, name = "arg", type = Integer.class),
+  @StoredProcedureParameter(mode = ParameterMode.OUT, name = "res", type = Integer.class) })
+public class User {}
+```
+
+Note that `@NamedStoredProcedureQuery` has two different names for the stored procedure.
+`name` is the name JPA uses. `procedureName` is the name the stored procedure has in the database.
+
+You can reference stored procedures from a repository method in multiple ways.
+The stored procedure to be called can either be defined directly by using the `value` or `procedureName` attribute of the `@Procedure` annotation.
+This refers directly to the stored procedure in the database and ignores any configuration via `@NamedStoredProcedureQuery`.
+
+Alternatively you may specify the `@NamedStoredProcedureQuery.name` attribute as the `@Procedure.name` attribute.
+If neither `value`, `procedureName` nor `name` is configured, the name of the repository method is used as the `name` attribute.
+
+The following example shows how to reference an explicitly mapped procedure:
+
+<a id="jpa.stored-procedure-reference"></a>
+
+```java
+@Procedure("plus1inout")
+Integer explicitlyNamedPlus1inout(Integer arg);
+```
+
+The following example is equivalent to the previous one but uses the `procedureName` alias:
+
+```java
+@Procedure(procedureName = "plus1inout")
+Integer callPlus1InOut(Integer arg);
+```
+
+The following is again equivalent to the previous two but using the method name instead of an explicit annotation attribute.
+
+```java
+@Procedure
+Integer plus1inout(@Param("arg") Integer arg);
+```
+
+The following example shows how to reference a stored procedure by referencing the `@NamedStoredProcedureQuery.name` attribute.
+
+```java
+@Procedure(name = "User.plus1")
+Integer entityAnnotatedCustomNamedProcedurePlus1(@Param("arg") Integer arg);
+```
+
+If the stored procedure getting called has a single out parameter that parameter may be returned as the return value of the method.
+If there are multiple out parameters specified in a `@NamedStoredProcedureQuery` annotation those can be returned as a `Map` with the key being the parameter name given in the `@NamedStoredProcedureQuery` annotation.
+
+> [!NOTE]
+> Note that if the stored procedure returns a `ResultSet` then any `OUT` parameters are omitted as Java can only return a single method return value unless the method declares a `Map` return type.
+
+The following example shows how to obtain multiple `OUT` parameters if the stored procedure has multiple `OUT` parameters and is registered as `@NamedStoredProcedureQuery`. `@NamedStoredProcedureQuery` registration is required to provide parameter metadata.
+
+```java
+@Entity
+@NamedStoredProcedureQuery(name = "User.multiple_out_parameters", procedureName = "multiple_out_parameters", parameters = {
+  @StoredProcedureParameter(mode = ParameterMode.IN, name = "arg", type = Integer.class),
+  @StoredProcedureParameter(mode = ParameterMode.REF_CURSOR, name = "some_cursor", type = void.class),
+  @StoredProcedureParameter(mode = ParameterMode.OUT, name = "res", type = Integer.class) })
+public class User {}
+```
+
+```java
+@Procedure(name = "User.multiple_out_parameters")
+Map<String, Object> returnsMultipleOutParameters(@Param("arg") Integer arg);
+```
