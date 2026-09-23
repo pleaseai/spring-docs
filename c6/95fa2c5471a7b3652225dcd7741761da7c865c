@@ -1,0 +1,32 @@
+tests/unit/convert.test.ts
+  s_ec20819930c862::t_cf212641e9c63b 2,39-59
+  s_ec20819930c862::t_0ce4592f8f4f22 60
+scripts/fetch-upstream.ts
+  s_ec20819930c862::t_cc7704a2c807d3 52-59,369,378,386
+scripts/lib/maven-template.ts
+  s_ec20819930c862::t_cc7704a2c807d3 71-76,107-110,114-116,118-156
+  s_ec20819930c862::t_84ef3a4af4bf30 117
+  s_ec20819930c862::t_de5902f5b5cdec 157
+tests/unit/maven-template.test.ts
+  s_ec20819930c862::t_cf212641e9c63b 2-9,180-219
+scripts/convert.ts
+  s_ec20819930c862::t_cc7704a2c807d3 123-128,159
+tests/unit/upstream-sources.test.ts
+  s_ec20819930c862::t_cf212641e9c63b 563-564,566-576,609-612,614-616
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "c695fa2c5471a7b3652225dcd7741761da7c865c",
+  "prompts": {},
+  "sessions": {
+    "s_ec20819930c862": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a99d6074-b2e4-47da-81a8-eae7fdd3f53c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
