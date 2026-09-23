@@ -216,6 +216,10 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
         ),
     })
 
+  /** Replay the body attribute entries attached to `node`, as `AbstractBlock#convert` does. */
+  const playback = (node: AsciidoctorNode): void =>
+    node.getDocument?.().playbackAttributes(node.getAttributes?.())
+
   /**
    * Render a node list into joinable chunks, dropping the ones that render empty.
    *
@@ -228,10 +232,12 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
    * header attributes alone: Spring Data JPA's projections page set one right
    * before three `subs="+attributes"` listings, which published
    * `{projection-collection}<Person>` instead of `Collection<Person>`.
+   * A block walked outside this function, like a tab group's list, calls
+   * {@link playback} itself.
    */
   const renderBlocks = (nodes: readonly AsciidoctorNode[]): string[] =>
     nodes.flatMap((node) => {
-      node.getDocument?.().playbackAttributes(node.getAttributes?.())
+      playback(node)
       const chunk = trimChunk(renderBlock(node))
       return chunk === '' ? [] : [chunk]
     })
@@ -406,6 +412,7 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
     node.getBlocks().flatMap((child) => {
       if (child.getContext() !== 'dlist')
         return renderBlocks([child])
+      playback(child)
       return (child.getItems() as DefinitionItem[]).map(([terms, description]) => [
         `#### ${terms.map(term => inline(term.getText())).join(' / ')}`,
         ...renderDescription(description),

@@ -59,8 +59,7 @@ async function initRepo(dir: string) {
   )
 }
 
-async function convert(outDir: string) {
-  const source = join(work, 'src')
+async function convert(outDir: string, source = join(work, 'src'), project = PROJECT) {
   return run(
     [
       'bun',
@@ -68,7 +67,7 @@ async function convert(outDir: string) {
       join(REPO_ROOT, 'scripts', 'convert.ts'),
       source,
       '--project',
-      PROJECT,
+      project,
       '--version',
       VERSION,
       '--out',
@@ -199,6 +198,50 @@ describe('convert.ts over a fixture component', () => {
         .toBe(await readFile(join(converted, file), 'utf8'))
     }
   }, TIMEOUT)
+})
+
+describe('convert.ts over a store with a companion component', () => {
+  // A template era (ADR-0007) puts the included component under `_companion/`
+  // and emits only the root component's pages. Asserting on the conversion,
+  // not the playbook text, is what catches an include silently dropped.
+  const STORE = 'data-jpa'
+  let storeOut: string
+
+  beforeAll(async () => {
+    const source = join(work, 'store-src')
+    const companion = join(source, '_companion')
+    await mkdir(join(source, 'modules', 'ROOT', 'pages'), { recursive: true })
+    await mkdir(join(companion, 'modules', 'ROOT', 'pages'), { recursive: true })
+    await writeFile(
+      join(source, 'antora.yml'),
+      `name: ${STORE}\nversion: ${VERSION}\ntitle: Store\nasciidoc:\n  attributes:\n    commons: 9.8.7\n`,
+    )
+    await writeFile(
+      join(source, 'modules', 'ROOT', 'pages', 'index.adoc'),
+      '= Store Page\n\ninclude::{commons}@data-commons::page$shared.adoc[leveloffset=+1]\n',
+    )
+    await writeFile(join(companion, 'antora.yml'), 'name: data-commons\nversion: 9.8.7\ntitle: Commons\n')
+    await writeFile(
+      join(companion, 'modules', 'ROOT', 'pages', 'shared.adoc'),
+      '= Shared\n\nThis sentence comes from the companion.\n',
+    )
+    await initRepo(source)
+
+    const result = await convert(join(work, 'store-out'), source, STORE)
+    if (result.exitCode !== 0)
+      throw new Error(`companion conversion failed:\n${result.stderr}`)
+    storeOut = join(work, 'store-out', `${STORE}-${VERSION}`)
+  }, TIMEOUT)
+
+  test('text a store page includes from the companion reaches its Markdown', async () => {
+    expect(await readFile(join(storeOut, 'index.md'), 'utf8'))
+      .toContain('This sentence comes from the companion.')
+  })
+
+  test('the companion\'s own pages are neither emitted nor listed', async () => {
+    expect((await readdir(storeOut)).sort()).toEqual([INDEX_FILENAME, 'index.md'].sort())
+    expect(await readFile(join(storeOut, INDEX_FILENAME), 'utf8')).not.toContain('shared')
+  })
 })
 
 describe('package-release.ts over a converted tree', () => {

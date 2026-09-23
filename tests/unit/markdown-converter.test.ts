@@ -501,6 +501,27 @@ After: {store}.`)
     expect(markdown).toContain('Before: Header.')
     expect(markdown).toContain('After: Jpa.')
   })
+
+  test('replays an entry inside a tab group, whose list is rendered apart', () => {
+    // `renderTabs` walks the group's `dlist` itself rather than through
+    // `renderBlocks`, so an entry attached to that list needs its own playback.
+    const { markdown } = convert(`= T
+:store: Header
+
+[tabs]
+======
+:store: Jpa
+
+Maven::
++
+[source,xml,subs="+attributes"]
+----
+<artifactId>spring-data-{store}</artifactId>
+----
+======`)
+
+    expect(markdown).toContain('<artifactId>spring-data-Jpa</artifactId>')
+  })
 })
 
 describe('inline images', () => {
