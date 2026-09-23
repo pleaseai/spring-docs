@@ -1,0 +1,44 @@
+---
+title: "Glossary"
+source: "ROOT:jpa/glossary.adoc"
+---
+
+<a id="glossary"></a>
+
+# Glossary
+
+**AOP **
+
+Aspect oriented programming
+
+**Commons DBCP **
+
+Commons DataBase Connection Pools - a library from the Apache foundation that offers pooling implementations of the DataSource interface.
+
+**CRUD **
+
+Create, Read, Update, Delete - Basic persistence operations.
+
+**DAO **
+
+Data Access Object - Pattern to separate persisting logic from the object to be persisted
+
+**Dependency Injection **
+
+Pattern to hand a component’s dependency to the component from outside, freeing the component to lookup the dependent itself. For more information, see [[en.wikipedia.org/wiki/Dependency\_Injection](https://en.wikipedia.org/wiki/Dependency_Injection)](https://en.wikipedia.org/wiki/Dependency_Injection).
+
+**EclipseLink **
+
+Object relational mapper implementing JPA - [[www.eclipse.org/eclipselink/](https://www.eclipse.org/eclipselink/)](https://www.eclipse.org/eclipselink/)
+
+**Hibernate **
+
+Object relational mapper implementing JPA - [[hibernate.org/](https://hibernate.org/)](https://hibernate.org/)
+
+**JPA **
+
+Jakarta Persistence API
+
+**Spring **
+
+Java application framework - [[spring.io/projects/spring-framework](https://spring.io/projects/spring-framework)](https://spring.io/projects/spring-framework/)
