@@ -1,0 +1,48 @@
+---
+title: "Repository query return types"
+source: "ROOT:repositories/query-return-types-reference.adoc"
+---
+
+<a id="repository-query-return-types"></a>
+
+# Repository query return types
+
+<a id="appendix.query.return.types"></a>
+
+## Supported Query Return Types
+
+The following table lists the return types generally supported by Spring Data repositories.
+However, consult the store-specific documentation for the exact list of supported return types, because some types listed here might not be supported in a particular store.
+
+> [!NOTE]
+> Geospatial types (such as `GeoResult`, `GeoResults`, and `GeoPage`) are available only for data stores that support geospatial queries.
+> Some store modules may define their own result wrapper types.
+
+| Return type | Description |
+| --- | --- |
+| `void` | Denotes no return value. |
+| Primitives | Java primitives. |
+| Wrapper types | Java wrapper types. |
+| `T` | A unique entity. Expects the query method to return one result at most. If no result is found, `null` is returned. More than one result triggers an `IncorrectResultSizeDataAccessException`. |
+| `Iterator<T>` | An `Iterator`. |
+| `Collection<T>` | A `Collection`. |
+| `List<T>` | A `List`. |
+| `Optional<T>` | A Java `Optional` or Guava `Optional`. Expects the query method to return one result at most. If no result is found, `Optional.empty()` or `Optional.absent()` is returned. More than one result triggers an `IncorrectResultSizeDataAccessException`. |
+| `Option<T>` | Either a Scala or Vavr `Option` type. Semantically the same behavior as Java’s `Optional`, described earlier. |
+| `Stream<T>` | A Java `Stream`. |
+| `Streamable<T>` | A convenience extension of `Iterable` that directly exposes methods to stream, map and filter results, concatenate them etc. |
+| Types that implement `Streamable` and take a `Streamable` constructor or factory method argument | Types that expose a constructor or `….of(…)`/`….valueOf(…)` factory method taking a `Streamable` as argument. See [Returning Custom Streamable Wrapper Types](query-methods-details.md#repositories.collections-and-iterables.streamable-wrapper) for details. |
+| Vavr `Seq`, `List`, `Map`, `Set` | Vavr collection types. See [Support for Vavr Collections](query-methods-details.md#repositories.collections-and-iterables.vavr) for details. |
+| `Future<T>` | A `Future`. Expects a method to be annotated with `@Async` and requires Spring’s asynchronous method execution capability to be enabled. |
+| `CompletableFuture<T>` | A `CompletableFuture`. Expects a method to be annotated with `@Async` and requires Spring’s asynchronous method execution capability to be enabled. |
+| `Slice<T>` | A sized chunk of data with an indication of whether there is more data available. Requires a `Pageable` method parameter. |
+| `Page<T>` | A `Slice` with additional information, such as the total number of results. Requires a `Pageable` method parameter. |
+| `Window<T>` | A `Window` of results obtained from a scroll query. Provides `ScrollPosition` to issue the next scroll query. Requires a `ScrollPosition` method parameter. |
+| `GeoResult<T>` | A result entry with additional information, such as the distance to a reference location. |
+| `GeoResults<T>` | A list of `GeoResult<T>` with additional information, such as the average distance to a reference location. |
+| `GeoPage<T>` | A `Page` with `GeoResult<T>`, such as the average distance to a reference location. |
+| `Mono<T>` | A Project Reactor `Mono` emitting zero or one element using reactive repositories. Expects the query method to return one result at most. If no result is found, `Mono.empty()` is returned. More than one result triggers an `IncorrectResultSizeDataAccessException`. |
+| `Flux<T>` | A Project Reactor `Flux` emitting zero, one, or many elements using reactive repositories. Queries returning `Flux` can emit also an infinite number of elements. |
+| `Single<T>` | A RxJava `Single` emitting a single element using reactive repositories. Expects the query method to return one result at most. If no result is found, an error signal (e.g. `EmptyResultDataAccessException`) is emitted. More than one result triggers an `IncorrectResultSizeDataAccessException`. |
+| `Maybe<T>` | A RxJava `Maybe` emitting zero or one element using reactive repositories. Expects the query method to return one result at most. If no result is found, `Maybe.empty()` is returned. More than one result triggers an `IncorrectResultSizeDataAccessException`. |
+| `Flowable<T>` | A RxJava `Flowable` emitting zero, one, or many elements using reactive repositories. Queries returning `Flowable` can emit also an infinite number of elements. |
