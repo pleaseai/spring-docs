@@ -1,0 +1,54 @@
+---
+title: "Upgrading from 5.1.x to 5.2.x"
+source: "ROOT:migration-guides/migration-guide-5.1-5.2.adoc"
+---
+
+<a id="elasticsearch-migration-guide-5.1-5.2"></a>
+
+# Upgrading from 5.1.x to 5.2.x
+
+This section describes breaking changes from version 5.1.x to 5.2.x and how removed features can be replaced by new introduced features.
+
+<a id="elasticsearch-migration-guide-5.1-5.2.breaking-changes"></a>
+
+## Breaking Changes
+
+<a id="bulk-failures"></a>
+
+### Bulk failures
+
+In the `org.springframework.data.elasticsearch.BulkFailureException` class, the return type of the `getFailedDocuments` is changed from `Map<String, String>`
+to `Map<String, FailureDetails>`, which allows to get additional details about failure reasons.
+
+The definition of the `FailureDetails` class (inner to `BulkFailureException`):
+
+```java
+public record FailureDetails(Integer status, String errorMessage) {
+}
+```
+
+<a id="scripted-and-runtime-fields"></a>
+
+### scripted and runtime fields
+
+The classes `org.springframework.data.elasticsearch.core.RuntimeField` and `org.springframework.data.elasticsearch.core.query.ScriptType` have been moved to the subpackage `org.springframework.data.elasticsearch.core.query`.
+
+The `type` parameter of the `ScriptData` constructor is not nullable any longer.
+
+<a id="elasticsearch-migration-guide-5.1-5.2.deprecations"></a>
+
+## Deprecations
+
+<a id="removal-of-deprecated-code"></a>
+
+### Removal of deprecated code
+
+- All the code using the old deprecated `RestHighLevelClient` has been removed.
+The default Elasticsearch client used since version 5.0 is the (not so) new Elasticsearch Java client.
+- The `org.springframework.data.elasticsearch.client.ClientLogger` class has been removed.
+This logger was configured with the `org.springframework.data.elasticsearch.client.WIRE` setting, but was not working with all clients.
+From version 5 on, use the trace logger available in the Elasticsearch Java client, see [Client Logging](../elasticsearch/clients.md#elasticsearch.clients.logging).
+- The method `org.springframework.data.elasticsearch.core.ElasticsearchOperations.stringIdRepresentation(Object)` has been removed, use the `convertId(Object)` method defined in the same interface instead.
+- The class `org.springframework.data.elasticsearch.core.Range` has been removed, use `org.springframework.data.domain.Range` instead.
+- The methods ``org.springframework.data.elasticsearch.core.query.IndexQuery.getParentId() and `setParentId(String)`` have been removed, they weren’t used anymore and were no-ops.
+It has been removed from the `org.springframework.data.elasticsearch.core.query.IndexQuery` class as well.

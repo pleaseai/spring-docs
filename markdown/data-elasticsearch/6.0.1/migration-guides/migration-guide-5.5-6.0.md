@@ -1,0 +1,37 @@
+---
+title: "Upgrading from 5.5.x to 6.0.x"
+source: "ROOT:migration-guides/migration-guide-5.5-6.0.adoc"
+---
+
+<a id="elasticsearch-migration-guide-5.5-6.0"></a>
+
+# Upgrading from 5.5.x to 6.0.x
+
+This section describes breaking changes from version 5.5.x to 6.0.x and how removed features can be replaced by new introduced features.
+
+<a id="elasticsearch-migration-guide-5.5-6.0.breaking-changes"></a>
+
+## Breaking Changes
+
+From version 6.0 on, Spring Data Elasticsearch uses the Elasticsearch 9 libraries and as default the new `Rest5Client` provided by these libraries. It is still possible to use the old `RestClient`, check [Elasticsearch clients](../elasticsearch/clients.md) for information. The configuration callbacks for this `RestClient` have been moved from `org.springframework.data.elasticsearch.client.elc.ElasticsearchClients` to the `org.springframework.data.elasticsearch.client.elc.rest_client.RestClients` class.
+
+In the `org.springframework.data.elasticsearch.core.query.UpdateQuery` class the type of the two fields `ifSeqNo` and `ifPrimaryTerm` has changed from `Integer` to `Long` to align with the normal query and the underlying Elasticsearch client.
+
+<a id="elasticsearch-migration-guide-5.5-6.0.deprecations"></a>
+
+## Deprecations
+
+All the code using the old `RestClient` has been moved to the `org.springframework.data.elasticsearch.client.elc.rest_client` package and has been deprecated. Users should switch to the classes from the `org.springframework.data.elasticsearch.client.elc.rest5_client` package.
+
+<a id="_removals"></a>
+
+### Removals
+
+The `org.springframework.data.elasticsearch.core.query.ScriptType` enum has been removed. To distinguish between an inline and a stored script set the appropriate values in the `org.springframework.data.elasticsearch.core.query.ScriptData` record.
+
+These methods have been removed because the Elasticsearch Client 9 does not support them anymore:
+
+```
+org.springframework.data.elasticsearch.client.elc.ReactiveElasticsearchIndicesClient.unfreeze(UnfreezeRequest)
+org.springframework.data.elasticsearch.client.elc.ReactiveElasticsearchIndicesClient.unfreeze(Function<UnfreezeRequest.Builder, ObjectBuilder<UnfreezeRequest>>)
+```

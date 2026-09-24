@@ -1,0 +1,27 @@
+---
+title: "Versions"
+source: "ROOT:elasticsearch/versions.adoc"
+---
+
+<a id="preface.versions"></a>
+
+# Versions
+
+The following table shows the Elasticsearch and Spring versions that are used by Spring Data release trains and the version of Spring Data Elasticsearch included in that.
+
+| Spring Data Release Train | Spring Data Elasticsearch | Elasticsearch | Spring Framework |
+| --- | --- | --- | --- |
+| 2023.1 (Vaughan) | 5.2.x | 8.11.3 | 6.1.x |
+| 2023.0 (Ullmann) | 5.1.x | 8.7.1 | 6.0.x |
+| 2022.0 (Turing) | 5.0.x<sup>\[[1](#_footnotedef_1)\]</sup> | 8.5.3 | 6.0.x |
+| 2021.2 (Raj) | 4.4.x<sup>\[[1](#_footnotedef_1)\]</sup> | 7.17.3 | 5.3.x |
+| 2021.1 (Q) | 4.3.x<sup>\[[1](#_footnotedef_1)\]</sup> | 7.15.2 | 5.3.x |
+| 2021.0 (Pascal) | 4.2.x<sup>\[[1](#_footnotedef_1)\]</sup> | 7.12.0 | 5.3.x |
+| 2020.0 (Ockham) | 4.1.x<sup>\[[1](#_footnotedef_1)\]</sup> | 7.9.3 | 5.3.2 |
+| Neumann | 4.0.x<sup>\[[1](#_footnotedef_1)\]</sup> | 7.6.2 | 5.2.12 |
+| Moore | 3.2.x<sup>\[[1](#_footnotedef_1)\]</sup> | 6.8.12 | 5.2.12 |
+| Lovelace | 3.1.x<sup>\[[1](#_footnotedef_1)\]</sup> | 6.2.2 | 5.1.19 |
+| Kay | 3.0.x<sup>\[[1](#_footnotedef_1)\]</sup> | 5.5.0 | 5.0.13 |
+| Ingalls | 2.1.x<sup>\[[1](#_footnotedef_1)\]</sup> | 2.4.0 | 4.3.25 |
+
+Support for upcoming versions of Elasticsearch is being tracked and general compatibility should be given assuming the usage of the [ElasticsearchOperations interface](template.md).

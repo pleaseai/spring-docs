@@ -1,0 +1,89 @@
+---
+title: "Elasticsearch Auditing"
+source: "ROOT:elasticsearch/auditing.adoc"
+---
+
+<a id="elasticsearch.auditing"></a>
+
+# Elasticsearch Auditing
+
+<a id="elasticsearch.auditing.preparing"></a>
+
+## Preparing entities
+
+In order for the auditing code to be able to decide whether an entity instance is new, the entity must implement the `Persistable<ID>` interface which is defined as follows:
+
+```java
+import org.jspecify.annotations.Nullable;
+
+public interface Persistable<ID> {
+    @Nullable
+    ID getId();
+
+    boolean isNew();
+}
+```
+
+As the existence of an Id is not a sufficient criterion to determine if an enitity is new in Elasticsearch, additional information is necessary. One way is to use the creation-relevant auditing fields for this decision:
+
+A `Person` entity might look as follows - omitting getter and setter methods for brevity:
+
+```java
+@Document(indexName = "person")
+public class Person implements Persistable<Long> {
+    @Id private Long id;
+    private String lastName;
+    private String firstName;
+    @CreatedDate
+    @Field(type = FieldType.Date, format = DateFormat.basic_date_time)
+    private Instant createdDate;
+    @CreatedBy
+    private String createdBy
+    @Field(type = FieldType.Date, format = DateFormat.basic_date_time)
+    @LastModifiedDate
+    private Instant lastModifiedDate;
+    @LastModifiedBy
+    private String lastModifiedBy;
+
+    public Long getId() {                                                 // <.>
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return id == null || (createdDate == null && createdBy == null);  // <.>
+    }
+}
+```
+
+1. the getter is the required implementation from the interface
+1. an object is new if it either has no `id` or none of fields containing creation attributes are set.
+
+<a id="elasticsearch.auditing.activating"></a>
+
+## Activating auditing
+
+After the entities have been set up and providing the `AuditorAware` - or `ReactiveAuditorAware` - the Auditing must be activated by setting the `@EnableElasticsearchAuditing` on a configuration class:
+
+```java
+@Configuration
+@EnableElasticsearchRepositories
+@EnableElasticsearchAuditing
+class MyConfiguration {
+   // configuration code
+}
+```
+
+When using the reactive stack this must be:
+
+```java
+@Configuration
+@EnableReactiveElasticsearchRepositories
+@EnableReactiveElasticsearchAuditing
+class MyConfiguration {
+   // configuration code
+}
+```
+
+If your code contains more than one `AuditorAware` bean for different types, you must provide the name of the bean to use as an argument to the `auditorAwareRef` parameter of the
+ `@EnableElasticsearchAuditing` annotation.
