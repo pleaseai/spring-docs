@@ -1,0 +1,51 @@
+---
+title: "KeyValue"
+source: "ROOT:keyvalue.adoc"
+---
+
+<a id="key-value"></a>
+
+# KeyValue
+
+Spring Data KeyValue provides easy configuration and access to `Map` like structures that associate values with unique keys.
+It offers both low-level and high-level abstractions for interacting with the underlying data structure, freeing the user from infrastructural concerns.
+
+The key-value abstraction within Spring Data Key Value requires an `Adapter` that shields the native store implementation, freeing up `KeyValueTemplate` to work on top of any key-value pair-like structure.
+Keys are distributed across [Keyspaces](#key-value.keyspaces).
+Unless otherwise specified, the class name is used as the default keyspace for an entity.
+The following interface definition shows the `KeyValueOperations` interface, which is the heart of Spring Data Key-Value:
+
+```java
+interface KeyValueOperations {
+
+    <T> T insert(T objectToInsert);                               <1>
+
+    void update(Object objectToUpdate);                           <2>
+
+    void delete(Class<?> type);                                   <3>
+
+    <T> T findById(Object id, Class<T> type);                     <4>
+
+    <T> Iterable<T> findAllOf(Class<T> type);                     <5>
+
+    <T> Iterable<T> find(KeyValueQuery<?> query, Class<T> type);  <6>
+
+    //... more functionality omitted.
+
+}
+```
+
+1. Inserts the given entity and assigns an ID (if required).
+1. Updates the given entity.
+1. Removes all entities of the matching type.
+1. Returns the entity of the given type with its matching ID.
+1. Returns all entities of the matching type.
+1. Returns a `List` of all entities of the given type that match the criteria of the query.
+
+<a id="key-value.keyspaces"></a>
+
+## Keyspaces
+
+Keyspaces define the part of the data structure in which the entity should be kept.
+This concept is similar to collections in MongoDB and Elasticsearch, cores in Solr, and tables in JPA.
+By default, the keyspace of an entity is extracted from its type, but you can also store entities of different types within one keyspace.
