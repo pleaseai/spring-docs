@@ -313,7 +313,7 @@ class OAuth2ClientSecurityConfig {
 
 The default implementation of `ReactiveOAuth2AccessTokenResponseClient` for the Authorization Code grant is `WebClientReactiveAuthorizationCodeTokenResponseClient`, which uses a `WebClient` for exchanging an authorization code for an access token at the Authorization Server’s Token Endpoint.
 
-To customize `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
+To customize `WebClientReactiveAuthorizationCodeTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-authorization-code-access-token-response-client-bean"></a>
 
@@ -321,9 +321,9 @@ To customize `{class-name}`, simply provide a bean as in the following example a
 
 ```java
 @Bean
-public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	{class-name} accessTokenResponseClient =
-		new {class-name}();
+public ReactiveOAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
+	WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+		new WebClientReactiveAuthorizationCodeTokenResponseClient();
 	// ...
 	return accessTokenResponseClient;
 }
@@ -333,26 +333,26 @@ public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenRespo
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<{grant-type}> {
-	val accessTokenResponseClient = {class-name}()
+fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<Authorization Code> {
+	val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 	// ...
 	return accessTokenResponseClient
 }
 ```
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`WebClientReactiveAuthorizationCodeTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Authorization Code grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize the instance of `WebClient` that is used](#oauth2-client-{section-id}-access-token-response-web-client)
+- I want to [customize headers of the Access Token request](#oauth2-client-authorization-code-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-authorization-code-access-token-request-parameters)
+- I want to [customize parameters of the Access Token response](#oauth2-client-authorization-code-access-token-response-parameters)
+- I want to [customize the instance of `WebClient` that is used](#oauth2-client-authorization-code-access-token-response-web-client)
 
 <a id="oauth2-client-authorization-code-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the Token Request.
+`WebClientReactiveAuthorizationCodeTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the Token Request.
 
 <a id="oauth2-client-authorization-code-access-token-request-headers"></a>
 
@@ -369,8 +369,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -384,7 +384,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -405,8 +405,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -416,7 +416,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -440,8 +440,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -455,7 +455,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -472,8 +472,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -487,7 +487,7 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -504,8 +504,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -516,7 +516,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -528,7 +528,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing the OAuth 2.0 Access Token Response.
+`WebClientReactiveAuthorizationCodeTokenResponseClient` provides hooks for customizing the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-authorization-code-access-token-response-parameters"></a>
 
@@ -542,8 +542,8 @@ The following example provides a starting point for customizing the conversion o
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveAuthorizationCodeTokenResponseClient();
 
 BodyExtractor<Mono<Map<String, Object>>, ReactiveHttpInputMessage> bodyExtractor =
 	BodyExtractors.toMono(new ParameterizedTypeReference<>() {});
@@ -559,7 +559,7 @@ accessTokenResponseClient.setBodyExtractor((inputMessage, context) ->
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 
 val bodyExtractor = BodyExtractors.toMono(object : ParameterizedTypeReference<Map<String, Any>>() {})
 accessTokenResponseClient.setBodyExtractor { inputMessage, context ->
@@ -587,8 +587,8 @@ WebClient webClient = WebClient.builder()
 	// ...
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setWebClient(webClient);
 ```
 
@@ -599,7 +599,7 @@ val webClient = WebClient.builder()
 	// ...
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setWebClient(webClient)
 ```
 
@@ -607,7 +607,7 @@ accessTokenResponseClient.setWebClient(webClient)
 
 ### Customize using the DSL
 
-Whether you customize `{class-name}` or provide your own implementation of `ReactiveOAuth2AccessTokenResponseClient`, you can configure it using the DSL (as an alternative to [publishing a bean](#oauth2-client-authorization-code-access-token-response-client-bean)) as shown in the following example:
+Whether you customize `WebClientReactiveAuthorizationCodeTokenResponseClient` or provide your own implementation of `ReactiveOAuth2AccessTokenResponseClient`, you can configure it using the DSL (as an alternative to [publishing a bean](#oauth2-client-authorization-code-access-token-response-client-bean)) as shown in the following example:
 
 #### Java
 
@@ -679,7 +679,7 @@ class OAuth2ClientSecurityConfig {
 
 The default implementation of `ReactiveOAuth2AccessTokenResponseClient` for the Refresh Token grant is `WebClientReactiveRefreshTokenTokenResponseClient`, which uses a `WebClient` when refreshing an access token at the Authorization Server’s Token Endpoint.
 
-To customize `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
+To customize `WebClientReactiveRefreshTokenTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-refresh-token-access-token-response-client-bean"></a>
 
@@ -687,9 +687,9 @@ To customize `{class-name}`, simply provide a bean as in the following example a
 
 ```java
 @Bean
-public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	{class-name} accessTokenResponseClient =
-		new {class-name}();
+public ReactiveOAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> accessTokenResponseClient() {
+	WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+		new WebClientReactiveRefreshTokenTokenResponseClient();
 	// ...
 	return accessTokenResponseClient;
 }
@@ -699,26 +699,26 @@ public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenRespo
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<{grant-type}> {
-	val accessTokenResponseClient = {class-name}()
+fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<Refresh Token> {
+	val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 	// ...
 	return accessTokenResponseClient
 }
 ```
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`WebClientReactiveRefreshTokenTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Refresh Token grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize the instance of `WebClient` that is used](#oauth2-client-{section-id}-access-token-response-web-client)
+- I want to [customize headers of the Access Token request](#oauth2-client-refresh-token-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-refresh-token-access-token-request-parameters)
+- I want to [customize parameters of the Access Token response](#oauth2-client-refresh-token-access-token-response-parameters)
+- I want to [customize the instance of `WebClient` that is used](#oauth2-client-refresh-token-access-token-response-web-client)
 
 <a id="oauth2-client-refresh-token-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the Token Request.
+`WebClientReactiveRefreshTokenTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the Token Request.
 
 <a id="oauth2-client-refresh-token-access-token-request-headers"></a>
 
@@ -735,8 +735,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveRefreshTokenTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -750,7 +750,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -771,8 +771,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -782,7 +782,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -806,8 +806,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveRefreshTokenTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -821,7 +821,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -838,8 +838,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -853,7 +853,7 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -870,8 +870,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -882,7 +882,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -894,7 +894,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing the OAuth 2.0 Access Token Response.
+`WebClientReactiveRefreshTokenTokenResponseClient` provides hooks for customizing the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-refresh-token-access-token-response-parameters"></a>
 
@@ -908,8 +908,8 @@ The following example provides a starting point for customizing the conversion o
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveRefreshTokenTokenResponseClient();
 
 BodyExtractor<Mono<Map<String, Object>>, ReactiveHttpInputMessage> bodyExtractor =
 	BodyExtractors.toMono(new ParameterizedTypeReference<>() {});
@@ -925,7 +925,7 @@ accessTokenResponseClient.setBodyExtractor((inputMessage, context) ->
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 
 val bodyExtractor = BodyExtractors.toMono(object : ParameterizedTypeReference<Map<String, Any>>() {})
 accessTokenResponseClient.setBodyExtractor { inputMessage, context ->
@@ -953,8 +953,8 @@ WebClient webClient = WebClient.builder()
 	// ...
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setWebClient(webClient);
 ```
 
@@ -965,7 +965,7 @@ val webClient = WebClient.builder()
 	// ...
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setWebClient(webClient)
 ```
 
@@ -1031,7 +1031,7 @@ If the `OAuth2AuthorizedClient.getRefreshToken()` is available and the `OAuth2Au
 
 The default implementation of `ReactiveOAuth2AccessTokenResponseClient` for the Client Credentials grant is `WebClientReactiveClientCredentialsTokenResponseClient`, which uses a `WebClient` when requesting an access token at the Authorization Server’s Token Endpoint.
 
-To customize `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
+To customize `WebClientReactiveClientCredentialsTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-client-credentials-access-token-response-client-bean"></a>
 
@@ -1039,9 +1039,9 @@ To customize `{class-name}`, simply provide a bean as in the following example a
 
 ```java
 @Bean
-public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	{class-name} accessTokenResponseClient =
-		new {class-name}();
+public ReactiveOAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> accessTokenResponseClient() {
+	WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+		new WebClientReactiveClientCredentialsTokenResponseClient();
 	// ...
 	return accessTokenResponseClient;
 }
@@ -1051,26 +1051,26 @@ public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenRespo
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<{grant-type}> {
-	val accessTokenResponseClient = {class-name}()
+fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<Client Credentials> {
+	val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 	// ...
 	return accessTokenResponseClient
 }
 ```
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`WebClientReactiveClientCredentialsTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Client Credentials grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize the instance of `WebClient` that is used](#oauth2-client-{section-id}-access-token-response-web-client)
+- I want to [customize headers of the Access Token request](#oauth2-client-client-credentials-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-client-credentials-access-token-request-parameters)
+- I want to [customize parameters of the Access Token response](#oauth2-client-client-credentials-access-token-response-parameters)
+- I want to [customize the instance of `WebClient` that is used](#oauth2-client-client-credentials-access-token-response-web-client)
 
 <a id="oauth2-client-client-credentials-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the Token Request.
+`WebClientReactiveClientCredentialsTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the Token Request.
 
 <a id="oauth2-client-client-credentials-access-token-request-headers"></a>
 
@@ -1087,8 +1087,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveClientCredentialsTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -1102,7 +1102,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -1123,8 +1123,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -1134,7 +1134,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -1158,8 +1158,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveClientCredentialsTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -1173,7 +1173,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -1190,8 +1190,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -1205,7 +1205,7 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -1222,8 +1222,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -1234,7 +1234,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -1246,7 +1246,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing the OAuth 2.0 Access Token Response.
+`WebClientReactiveClientCredentialsTokenResponseClient` provides hooks for customizing the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-client-credentials-access-token-response-parameters"></a>
 
@@ -1260,8 +1260,8 @@ The following example provides a starting point for customizing the conversion o
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveClientCredentialsTokenResponseClient();
 
 BodyExtractor<Mono<Map<String, Object>>, ReactiveHttpInputMessage> bodyExtractor =
 	BodyExtractors.toMono(new ParameterizedTypeReference<>() {});
@@ -1277,7 +1277,7 @@ accessTokenResponseClient.setBodyExtractor((inputMessage, context) ->
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 
 val bodyExtractor = BodyExtractors.toMono(object : ParameterizedTypeReference<Map<String, Any>>() {})
 accessTokenResponseClient.setBodyExtractor { inputMessage, context ->
@@ -1305,8 +1305,8 @@ WebClient webClient = WebClient.builder()
 	// ...
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setWebClient(webClient);
 ```
 
@@ -1317,7 +1317,7 @@ val webClient = WebClient.builder()
 	// ...
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setWebClient(webClient)
 ```
 
@@ -1497,7 +1497,7 @@ The default implementation of `ReactiveOAuth2AccessTokenResponseClient` for the 
 > The `WebClientReactivePasswordTokenResponseClient` class and support for the Resource Owner Password Credentials grant are deprecated.
 > This section will be removed in Spring Security 7.
 
-To customize `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
+To customize `WebClientReactivePasswordTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-password-access-token-response-client-bean"></a>
 
@@ -1505,9 +1505,9 @@ To customize `{class-name}`, simply provide a bean as in the following example a
 
 ```java
 @Bean
-public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	{class-name} accessTokenResponseClient =
-		new {class-name}();
+public ReactiveOAuth2AccessTokenResponseClient<OAuth2PasswordGrantRequest> accessTokenResponseClient() {
+	WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+		new WebClientReactivePasswordTokenResponseClient();
 	// ...
 	return accessTokenResponseClient;
 }
@@ -1517,26 +1517,26 @@ public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenRespo
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<{grant-type}> {
-	val accessTokenResponseClient = {class-name}()
+fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<Password> {
+	val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 	// ...
 	return accessTokenResponseClient
 }
 ```
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`WebClientReactivePasswordTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Password grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize the instance of `WebClient` that is used](#oauth2-client-{section-id}-access-token-response-web-client)
+- I want to [customize headers of the Access Token request](#oauth2-client-password-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-password-access-token-request-parameters)
+- I want to [customize parameters of the Access Token response](#oauth2-client-password-access-token-response-parameters)
+- I want to [customize the instance of `WebClient` that is used](#oauth2-client-password-access-token-response-web-client)
 
 <a id="oauth2-client-password-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the Token Request.
+`WebClientReactivePasswordTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the Token Request.
 
 <a id="oauth2-client-password-access-token-request-headers"></a>
 
@@ -1553,8 +1553,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+	new WebClientReactivePasswordTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -1568,7 +1568,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -1589,8 +1589,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+	new WebClientReactivePasswordTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -1600,7 +1600,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -1624,8 +1624,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+	new WebClientReactivePasswordTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -1639,7 +1639,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -1656,8 +1656,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+	new WebClientReactivePasswordTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -1671,7 +1671,7 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -1688,8 +1688,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+	new WebClientReactivePasswordTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -1700,7 +1700,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -1712,7 +1712,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing the OAuth 2.0 Access Token Response.
+`WebClientReactivePasswordTokenResponseClient` provides hooks for customizing the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-password-access-token-response-parameters"></a>
 
@@ -1726,8 +1726,8 @@ The following example provides a starting point for customizing the conversion o
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+	new WebClientReactivePasswordTokenResponseClient();
 
 BodyExtractor<Mono<Map<String, Object>>, ReactiveHttpInputMessage> bodyExtractor =
 	BodyExtractors.toMono(new ParameterizedTypeReference<>() {});
@@ -1743,7 +1743,7 @@ accessTokenResponseClient.setBodyExtractor((inputMessage, context) ->
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 
 val bodyExtractor = BodyExtractors.toMono(object : ParameterizedTypeReference<Map<String, Any>>() {})
 accessTokenResponseClient.setBodyExtractor { inputMessage, context ->
@@ -1771,8 +1771,8 @@ WebClient webClient = WebClient.builder()
 	// ...
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactivePasswordTokenResponseClient accessTokenResponseClient =
+	new WebClientReactivePasswordTokenResponseClient();
 accessTokenResponseClient.setWebClient(webClient);
 ```
 
@@ -1783,7 +1783,7 @@ val webClient = WebClient.builder()
 	// ...
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactivePasswordTokenResponseClient()
 accessTokenResponseClient.setWebClient(webClient)
 ```
 
@@ -2007,7 +2007,7 @@ class OAuth2ClientController {
 
 The default implementation of `ReactiveOAuth2AccessTokenResponseClient` for the JWT Bearer grant is `WebClientReactiveJwtBearerTokenResponseClient`, which uses a `WebClient` when requesting an access token at the Authorization Server’s Token Endpoint.
 
-To customize `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
+To customize `WebClientReactiveJwtBearerTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-jwt-bearer-access-token-response-client-bean"></a>
 
@@ -2015,9 +2015,9 @@ To customize `{class-name}`, simply provide a bean as in the following example a
 
 ```java
 @Bean
-public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	{class-name} accessTokenResponseClient =
-		new {class-name}();
+public ReactiveOAuth2AccessTokenResponseClient<JwtBearerGrantRequest> accessTokenResponseClient() {
+	WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+		new WebClientReactiveJwtBearerTokenResponseClient();
 	// ...
 	return accessTokenResponseClient;
 }
@@ -2027,26 +2027,26 @@ public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenRespo
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<{grant-type}> {
-	val accessTokenResponseClient = {class-name}()
+fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<JWT Bearer> {
+	val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 	// ...
 	return accessTokenResponseClient
 }
 ```
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`WebClientReactiveJwtBearerTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the JWT Bearer grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize the instance of `WebClient` that is used](#oauth2-client-{section-id}-access-token-response-web-client)
+- I want to [customize headers of the Access Token request](#oauth2-client-jwt-bearer-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-jwt-bearer-access-token-request-parameters)
+- I want to [customize parameters of the Access Token response](#oauth2-client-jwt-bearer-access-token-response-parameters)
+- I want to [customize the instance of `WebClient` that is used](#oauth2-client-jwt-bearer-access-token-response-web-client)
 
 <a id="oauth2-client-jwt-bearer-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the Token Request.
+`WebClientReactiveJwtBearerTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the Token Request.
 
 <a id="oauth2-client-jwt-bearer-access-token-request-headers"></a>
 
@@ -2063,8 +2063,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveJwtBearerTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -2078,7 +2078,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -2099,8 +2099,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveJwtBearerTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -2110,7 +2110,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -2134,8 +2134,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveJwtBearerTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -2149,7 +2149,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2166,8 +2166,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveJwtBearerTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -2181,7 +2181,7 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2198,8 +2198,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveJwtBearerTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -2210,7 +2210,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -2222,7 +2222,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing the OAuth 2.0 Access Token Response.
+`WebClientReactiveJwtBearerTokenResponseClient` provides hooks for customizing the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-jwt-bearer-access-token-response-parameters"></a>
 
@@ -2236,8 +2236,8 @@ The following example provides a starting point for customizing the conversion o
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveJwtBearerTokenResponseClient();
 
 BodyExtractor<Mono<Map<String, Object>>, ReactiveHttpInputMessage> bodyExtractor =
 	BodyExtractors.toMono(new ParameterizedTypeReference<>() {});
@@ -2253,7 +2253,7 @@ accessTokenResponseClient.setBodyExtractor((inputMessage, context) ->
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 
 val bodyExtractor = BodyExtractors.toMono(object : ParameterizedTypeReference<Map<String, Any>>() {})
 accessTokenResponseClient.setBodyExtractor { inputMessage, context ->
@@ -2281,8 +2281,8 @@ WebClient webClient = WebClient.builder()
 	// ...
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveJwtBearerTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveJwtBearerTokenResponseClient();
 accessTokenResponseClient.setWebClient(webClient);
 ```
 
@@ -2293,7 +2293,7 @@ val webClient = WebClient.builder()
 	// ...
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveJwtBearerTokenResponseClient()
 accessTokenResponseClient.setWebClient(webClient)
 ```
 
@@ -2475,7 +2475,7 @@ class OAuth2ResourceServerController {
 
 The default implementation of `ReactiveOAuth2AccessTokenResponseClient` for the Token Exchange grant is `WebClientReactiveTokenExchangeTokenResponseClient`, which uses a `WebClient` when requesting an access token at the Authorization Server’s Token Endpoint.
 
-To customize `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
+To customize `WebClientReactiveTokenExchangeTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `ReactiveOAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-token-exchange-access-token-response-client-bean"></a>
 
@@ -2483,9 +2483,9 @@ To customize `{class-name}`, simply provide a bean as in the following example a
 
 ```java
 @Bean
-public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	{class-name} accessTokenResponseClient =
-		new {class-name}();
+public ReactiveOAuth2AccessTokenResponseClient<TokenExchangeGrantRequest> accessTokenResponseClient() {
+	WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+		new WebClientReactiveTokenExchangeTokenResponseClient();
 	// ...
 	return accessTokenResponseClient;
 }
@@ -2495,26 +2495,26 @@ public ReactiveOAuth2AccessTokenResponseClient<{grant-request}> accessTokenRespo
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<{grant-type}> {
-	val accessTokenResponseClient = {class-name}()
+fun accessTokenResponseClient(): ReactiveOAuth2AccessTokenResponseClient<Token Exchange> {
+	val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 	// ...
 	return accessTokenResponseClient
 }
 ```
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`WebClientReactiveTokenExchangeTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Token Exchange grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize the instance of `WebClient` that is used](#oauth2-client-{section-id}-access-token-response-web-client)
+- I want to [customize headers of the Access Token request](#oauth2-client-token-exchange-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-token-exchange-access-token-request-parameters)
+- I want to [customize parameters of the Access Token response](#oauth2-client-token-exchange-access-token-response-parameters)
+- I want to [customize the instance of `WebClient` that is used](#oauth2-client-token-exchange-access-token-response-web-client)
 
 <a id="oauth2-client-token-exchange-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the Token Request.
+`WebClientReactiveTokenExchangeTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the Token Request.
 
 <a id="oauth2-client-token-exchange-access-token-request-headers"></a>
 
@@ -2531,8 +2531,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveTokenExchangeTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -2546,7 +2546,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -2567,8 +2567,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -2578,7 +2578,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -2602,8 +2602,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveTokenExchangeTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -2617,7 +2617,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2634,8 +2634,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -2649,7 +2649,7 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2666,8 +2666,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -2678,7 +2678,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -2690,7 +2690,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing the OAuth 2.0 Access Token Response.
+`WebClientReactiveTokenExchangeTokenResponseClient` provides hooks for customizing the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-token-exchange-access-token-response-parameters"></a>
 
@@ -2704,8 +2704,8 @@ The following example provides a starting point for customizing the conversion o
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveTokenExchangeTokenResponseClient();
 
 BodyExtractor<Mono<Map<String, Object>>, ReactiveHttpInputMessage> bodyExtractor =
 	BodyExtractors.toMono(new ParameterizedTypeReference<>() {});
@@ -2721,7 +2721,7 @@ accessTokenResponseClient.setBodyExtractor((inputMessage, context) ->
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 
 val bodyExtractor = BodyExtractors.toMono(object : ParameterizedTypeReference<Map<String, Any>>() {})
 accessTokenResponseClient.setBodyExtractor { inputMessage, context ->
@@ -2749,8 +2749,8 @@ WebClient webClient = WebClient.builder()
 	// ...
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+WebClientReactiveTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new WebClientReactiveTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setWebClient(webClient);
 ```
 
@@ -2761,7 +2761,7 @@ val webClient = WebClient.builder()
 	// ...
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = WebClientReactiveTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setWebClient(webClient)
 ```
 

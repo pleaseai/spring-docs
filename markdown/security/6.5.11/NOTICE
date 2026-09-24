@@ -47,6 +47,11 @@ Spring Security
   License:   Apache License, Version 2.0
   Notice:    https://github.com/spring-projects/spring-security/blob/main/NOTICE.txt
 
+Spring AI
+  Copyright (c) 2023-present, the Spring AI authors.
+  Source:    https://github.com/spring-projects/spring-ai
+  License:   Apache License, Version 2.0
+
 Spring Data (and its sub-projects: JPA, JDBC, MongoDB, Redis, etc.)
   Copyright (c) 2008-present, the Spring Data authors.
   Source:    https://github.com/spring-projects/spring-data-*
