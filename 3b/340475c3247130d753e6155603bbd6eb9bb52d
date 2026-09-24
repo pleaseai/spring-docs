@@ -1,0 +1,24 @@
+.please/docs/decisions/0008-checkout-bounded-declared-symlinks.md
+  s_ec20819930c862::t_c38e182375ee63 53-54
+  s_ec20819930c862::t_4abe2b3c73ae62 123-124
+  s_ec20819930c862::t_f057b587a6b6ce 1-49,52,55-122,125-135
+  s_ec20819930c862::t_a427c1472d078d 50-51
+.please/docs/decisions/index.md
+  s_ec20819930c862::t_aaf29de4bdaee6 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "3b340475c3247130d753e6155603bbd6eb9bb52d",
+  "prompts": {},
+  "sessions": {
+    "s_ec20819930c862": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a99d6074-b2e4-47da-81a8-eae7fdd3f53c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
