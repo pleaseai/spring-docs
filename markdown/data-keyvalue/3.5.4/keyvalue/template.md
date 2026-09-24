@@ -1,0 +1,130 @@
+---
+title: "KeyValueTemplate"
+source: "ROOT:keyvalue/template.adoc"
+---
+
+<a id="key-value.template"></a>
+
+# KeyValueTemplate
+
+In its very basic shape, the `KeyValueTemplate` uses a `MapAdapter` that wraps a `ConcurrentHashMap` and that uses [Spring Expression Language](https://docs.spring.io/spring-framework/reference/6.2core.html#expressions) to run queries and sorting.
+
+> [!NOTE]
+> The used `KeyValueAdapter` does the heavy lifting when it comes to storing and retrieving data.
+> The data structure influences performance and multi-threading behavior.
+
+You can use a different type or pre-initialize the adapter with some values, and you can do so by using various constructors on `MapKeyValueAdapter`, as the following example shows:
+
+```java
+@Configuration
+class MyConfiguration {
+
+  @Bean
+  public KeyValueOperations mapKeyValueTemplate() {               <1>
+    return new KeyValueTemplate(keyValueAdapter());
+  }
+
+  @Bean
+  public KeyValueAdapter keyValueAdapter() {
+    return new MapKeyValueAdapter(ConcurrentHashMap.class);       <2>
+  }
+}
+```
+
+1. Defines a custom `KeyValueOperations` bean using the default bean name. See documentation and properties of `@EnableMapRepositories` for further customization.
+1. Defines a custom `KeyValueAdapter` bean using a `ConcurrentHashMap` as storage that is used by `KeyValueTemplate`.
+
+<a id="key-value.keyspaces"></a>
+
+## Keyspaces
+
+The following example shows a keyspace for a repository of `Person` objects:
+
+```java
+@KeySpace("persons")
+class Person {
+
+  @Id String id;
+  String firstname;
+  String lastname;
+}
+
+class User extends Person {
+  String username;
+}
+
+template.findAllOf(Person.class); <1>
+template.findAllOf(User.class);   <2>
+```
+
+1. Returns all entities for the `persons` keyspace.
+1. Returns only elements of type `User` stored in `persons` keyspace.
+
+> [!TIP]
+> `@KeySpace` supports [Value Expressions](value-expressions.md) allowing dynamic keyspace configuration.
+
+<a id="key-value.keyspaces-custom"></a>
+
+### Custom KeySpace Annotation
+
+You can compose your own `KeySpace` annotations for a more domain-centric usage by annotating one of the attributes with `@AliasFor`.
+
+> [!IMPORTANT]
+> The composed annotation must inherit `@Persistent`.
+
+The following example shows a custom `@KeySpace` annotation:
+
+```java
+@KeySpace
+@Persistent
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.TYPE })
+static @interface CacheCentricAnnotation {
+
+  @AliasFor(annotation = KeySpace.class, attribute = "value")
+  String cacheRegion() default "";
+}
+
+@CacheCentricAnnotation(cacheRegion = "customers")
+class Customer {
+  //...
+}
+```
+
+<a id="key-value.template-query"></a>
+
+## Querying
+
+Running queries is managed by a `QueryEngine`.
+As mentioned earlier, you can instruct the `KeyValueAdapter` to use an implementation-specific `QueryEngine` that allows access to native functionality.
+When used without further customization, queries can be run by using `SpELQueryEngine`.
+
+> [!NOTE]
+> For performance reasons, we highly recommend to have at least Spring Framework 4.1.2 or better to make use of [compiled SpEL Expressions](https://docs.spring.io/spring-framework/reference/6.2core.html#expressions-spel-compilation).
+> (“SpEL” is short for “Spring Expression Language”.) You can use the `-Dspring.expression.compiler.mode=IMMEDIATE` switch to enable it.
+
+The following example shows a query that uses the SpEL:
+
+```java
+KeyValueQuery<String> query = new KeyValueQuery<String>("lastname == 'targaryen'");
+List<Person> targaryens = template.find(query, Person.class);
+```
+
+> [!IMPORTANT]
+> You must have getters and setters present to query properties when you use SpEL.
+
+<a id="key-value.template-sort"></a>
+
+## Sorting
+
+Depending on the store implementation provided by the adapter, entities might already be stored in some sorted way but do not necessarily have to be.Again, the underlying `QueryEngine` is capable of performing sort operations.
+When used without further customization, sorting is done by using a `SpelPropertyComparator` extracted from the `Sort` clause.The following example shows a query with a `Sort` clause:
+
+```java
+KeyValueQuery<String> query = new KeyValueQuery<String>("lastname == 'baratheon'");
+query.setSort(Sort.by(DESC, "age"));
+List<Person> targaryens = template.find(query, Person.class);
+```
+
+> [!IMPORTANT]
+> Please note that you need to have getters and setters present to sort using SpEL.
