@@ -572,14 +572,15 @@ describe('ai', () => {
 
 describe('Spring Data stores', () => {
   // [project, repository suffix, first version with `src/main/antora`, a tag of
-  // the minor line before it, which ships no Antora component]
+  // the minor line before it, which ships no Antora component, and the latest
+  // GA, a major line later, which the same era still covers]
   const STORES = [
-    ['data-cassandra', 'cassandra', '4.2.0', '4.1.0'],
-    ['data-couchbase', 'couchbase', '5.2.0', '5.1.0'],
-    ['data-elasticsearch', 'elasticsearch', '5.2.0', '5.1.0'],
-    ['data-jpa', 'jpa', '3.2.0', '3.1.12'],
-    ['data-keyvalue', 'keyvalue', '3.2.0', '3.1.0'],
-    ['data-ldap', 'ldap', '3.2.0', '3.1.0'],
+    ['data-cassandra', 'cassandra', '4.2.0', '4.1.0', '5.1.1'],
+    ['data-couchbase', 'couchbase', '5.2.0', '5.1.0', '6.1.1'],
+    ['data-elasticsearch', 'elasticsearch', '5.2.0', '5.1.0', '6.1.1'],
+    ['data-jpa', 'jpa', '3.2.0', '3.1.12', '4.1.1'],
+    ['data-keyvalue', 'keyvalue', '3.2.0', '3.1.0', '4.1.1'],
+    ['data-ldap', 'ldap', '3.2.0', '3.1.0', '4.1.1'],
   ] as const
 
   test.each(STORES)('%s is a template era read from bare-version tags, with nothing to download', (project, store, since) => {
@@ -599,10 +600,11 @@ describe('Spring Data stores', () => {
     expect(requiredArtifactUrls(project, since)).toEqual([])
   })
 
-  test.each(STORES)('%s builds every GA tag from its first Antora release on, and nothing older', (project, _store, since, before) => {
-    const versions = supportedVersionsFromTags(project, ['2.3.0.RELEASE', before, since, `${since}-M1`])
+  test.each(STORES)('%s builds every GA tag from its first Antora release on, and nothing older', (project, _store, since, before, latest) => {
+    const versions = supportedVersionsFromTags(project, ['2.3.0.RELEASE', before, latest, since, `${since}-M1`])
 
-    expect(versions).toEqual([since])
+    expect(versions).toEqual([since, latest])
+    expect(resolveUpstream(project, latest).assembly.descriptor).toBe('template')
     expect(() => resolveUpstream(project, before)).toThrow(/not buildable/)
   })
 

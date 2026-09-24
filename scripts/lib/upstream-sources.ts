@@ -600,7 +600,10 @@ function springDataStore(store: string, since: string): ProjectDefinition {
     // exact-version javadoc root, but not every patch reaches it: for JPA it
     // answers 200 for 3.2.0, 3.5.13, 4.0.6 and 4.1.0 and 404 for 4.0.7 and
     // 4.1.1 (probed 2026-09-23). The alternative, `reference/<minor>/api/java`,
-    // is pinned to a minor only and 404s for 3.2-3.4 outright.
+    // is pinned to a minor only and 404s for 3.2-3.4 outright. The same root
+    // answers 200 for every other store at the `.0` of its latest major line
+    // (Cassandra 5.0.0, Couchbase 6.0.0, Elasticsearch 6.0.0, KeyValue and
+    // LDAP 4.0.0; probed 2026-09-24).
     javadocLocationFor: version => `https://docs.spring.io/spring-data/${store}/docs/${version}/api`,
     // The release tag rather than the reference site, for the same
     // patch-to-minor collapse as the other projects.
