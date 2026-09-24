@@ -1,2 +1,3 @@
 - [ocr scope in spring-docs](project_spring_docs_ocr_scope.md) — default exclusions (md, tests/unit) and where era/version-resolution logic lives
 - [Review tests outside ocr scope on request](feedback_review_tests_outside_ocr_scope.md) — when asked about test weakening, manually check tests/unit even though ocr excludes them
+- [packArchive tar padding differs by tar flavor](project_package_release_tar_padding.md) — bsdtar skips padding for a named -f file, so packArchive pins -b 20; check byte identity on both tar flavors
