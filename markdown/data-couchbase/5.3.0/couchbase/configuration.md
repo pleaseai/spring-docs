@@ -1,0 +1,222 @@
+---
+title: "Installation & Configuration"
+source: "ROOT:couchbase/configuration.adoc"
+---
+
+<a id="couchbase.configuration"></a>
+
+# Installation & Configuration
+
+This chapter describes the common installation and configuration steps needed when working with the library.
+
+<a id="installation"></a>
+
+## Installation
+
+All versions intended for production use are distributed across Maven Central and the Spring release repository.
+As a result, the library can be included like any other maven dependency:
+
+<a id="configuration"></a>
+
+## Configuration
+
+```xml
+<dependency>
+    <groupId>org.springframework.data</groupId>
+    <artifactId>spring-data-couchbase</artifactId>
+    <version>5.3.0</version>
+</dependency>
+```
+
+This will pull in several dependencies, including the underlying Couchbase Java SDK, common Spring dependencies and also Jackson as the JSON mapping infrastructure.
+
+You can also grab snapshots from the [spring snapshot repository](https://repo.spring.io/ui/repos/tree/General/snapshot/org/springframework/data/spring-data-couchbase) ( https://repo.spring.io/snapshot ) and milestone releases from the [spring milestone repository](https://repo.spring.io/ui/repos/tree/General/milestone/org/springframework/data/spring-data-couchbase) ( https://repo.spring.io/milestone ).
+Here is an example on how to use the current SNAPSHOT dependency:
+
+<a id="snapshot-configuration"></a>
+
+## Snapshot Configuration
+
+```xml
+<dependency>
+  <groupId>org.springframework.data</groupId>
+  <artifactId>spring-data-couchbase</artifactId>
+  <version>${version}-SNAPSHOT</version>
+</dependency>
+
+<repository>
+  <id>spring-snapshot</id>
+  <name>Spring Snapshot Repository</name>
+  <url>https://repo.spring.io/snapshot</url>
+</repository>
+```
+
+<a id="overriding-the-couchbase-sdk-version"></a>
+
+## Overriding the Couchbase SDK Version
+
+Some users may wish to use a Couchbase Java SDK version different from the one referenced in a Spring Data Couchbase release for the purpose of obtaining bug and vulnerability fixes.  Since Couchbase Java SDK minor version releases are backwards compatible, this version of Spring Data Couchbase is compatible and supported with any 3.x version of the Couchbase Java SDK newer than the one specified in the release dependencies.  To change the Couchbase Java SDK version used by Spring Data Couchbase, simply override the dependency in the application pom.xml as follows:
+
+```xml
+<dependency>
+  <groupId>org.springframework.data</groupId>
+  <artifactId>spring-data-couchbase</artifactId>
+  <version>${version}</version>
+  <exclusions> <!-- exclude Couchbase Java SDK -->
+    <exclusion>
+      <groupId>com.couchbase.client</groupId>
+      <artifactId>java-client</artifactId>
+    </exclusion>
+  </exclusions>
+</dependency>
+
+<dependency> <!-- add dependency for specific Couchbase Java SDK version -->
+  <groupId>com.couchbase.client</groupId>
+  <artifactId>java-client</artifactId>
+  <version>3.4.7</version>
+</dependency>
+```
+
+```xml
+<parent>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-parent</artifactId>
+  <version>x.y.z</version>
+  <relativePath/>
+</parent>
+
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-data-couchbase</artifactId>
+  <exclusions> <!-- exclude Couchbase Java SDK -->
+    <exclusion>
+      <groupId>com.couchbase.client</groupId>
+      <artifactId>java-client</artifactId>
+    </exclusion>
+  </exclusions>
+</dependency>
+
+<dependency> <!-- add dependency for specific Couchbase Java SDK version -->
+  <groupId>com.couchbase.client</groupId>
+  <artifactId>java-client</artifactId>
+  <version>3.4.7</version>
+</dependency>
+```
+
+Once you have all needed dependencies on the classpath, you can start configuring it.
+Only Java config is supported (XML config has been removed in 4.0).
+
+<a id="configuration-java"></a>
+
+## Annotation-based Configuration ("JavaConfig")
+
+To get started, all you need to do is subclass the `AbstractCouchbaseConfiguration` and implement the abstract methods.
+
+```java
+@Configuration
+public class Config extends AbstractCouchbaseConfiguration {
+
+    @Override
+    public String getConnectionString() {
+        return "couchbase://127.0.0.1";
+    }
+
+    @Override
+    public String getUserName() {
+        return "Administrator";
+    }
+
+    @Override
+    public String getPassword() {
+        return "password";
+    }
+
+    @Override
+    public String getBucketName() {
+        return "travel-sample";
+    }
+}
+```
+
+The connection string is made up of a list of hosts and an optional scheme (`couchbase://`) as shown in the code above.
+All you need to provide is a list of Couchbase nodes to bootstrap into (separated by a `,`). Please note that while one
+host is sufficient in development, it is recommended to add 3 to 5 bootstrap nodes here. Couchbase will pick up all nodes
+from the cluster automatically, but it could be the case that the only node you’ve provided is experiencing issues while
+you are starting the application.
+
+The `userName` and `password` are configured in your Couchbase Server cluster through RBAC (role-based access control).
+The `bucketName` reflects the bucket you want to use for this configuration.
+
+Additionally, the SDK environment can be tuned by overriding the `configureEnvironment` method which takes a
+`ClusterEnvironment.Builder` to return a configured `ClusterEnvironment`.
+
+Many more things can be customized and overridden as custom beans from this configuration (for example repositories,
+validation and custom converters).
+
+> [!TIP]
+> If you use `SyncGateway` and `CouchbaseMobile`, you may run into problem with fields prefixed by `_`.
+> Since Spring Data Couchbase by default stores the type information as a `_class` attribute this can be problematic.
+> Override `typeKey()` (for example to return `MappingCouchbaseConverter.TYPEKEY_SYNCGATEWAY_COMPATIBLE`) to change the
+> name of said attribute.
+
+If you start your application, you should see Couchbase INFO level logging in the logs, indicating that the underlying
+Couchbase Java SDK is connecting to the database.If any errors are reported, make sure that the given credentials
+and host information are correct.
+
+<a id="configuring-multiple-buckets"></a>
+
+## Configuring Multiple Buckets
+
+To leverage multi-bucket repositories, implement the methods below in your Config class.
+The config\*OperationsMapping methods configure the mapping of entity-objects to buckets.
+Be careful with the method names - using a method name that is a Bean will result in the value of that bean being used instead of the result of the method.
+
+This example maps Person → protected, User → mybucket, and everything else goes to getBucketName().
+Note that this only maps calls through the Repository.
+
+```java
+@Override
+public void configureReactiveRepositoryOperationsMapping(ReactiveRepositoryOperationsMapping baseMapping) {
+ try {
+  ReactiveCouchbaseTemplate personTemplate = myReactiveCouchbaseTemplate(myCouchbaseClientFactory("protected"),new MappingCouchbaseConverter());
+  baseMapping.mapEntity(Person.class,  personTemplate); // Person goes in "protected" bucket
+  ReactiveCouchbaseTemplate userTemplate = myReactiveCouchbaseTemplate(myCouchbaseClientFactory("mybucket"),new MappingCouchbaseConverter());
+  baseMapping.mapEntity(User.class,  userTemplate); // User goes in "mybucket"
+  // everything else goes in getBucketName()
+ } catch (Exception e) {
+  throw e;
+ }
+}
+@Override
+public void configureRepositoryOperationsMapping(RepositoryOperationsMapping baseMapping) {
+ try {
+  CouchbaseTemplate personTemplate = myCouchbaseTemplate(myCouchbaseClientFactory("protected"),new MappingCouchbaseConverter());
+  baseMapping.mapEntity(Person.class,  personTemplate); // Person goes in "protected" bucket
+  CouchbaseTemplate userTemplate = myCouchbaseTemplate(myCouchbaseClientFactory("mybucket"),new MappingCouchbaseConverter());
+  baseMapping.mapEntity(User.class,  userTemplate); // User goes in "mybucket"
+  // everything else goes in getBucketName()
+ } catch (Exception e) {
+  throw e;
+ }
+}
+
+// do not use reactiveCouchbaseTemplate for the name of this method, otherwise the value of that bean
+// will be used instead of the result of this call (the client factory arg is different)
+public ReactiveCouchbaseTemplate myReactiveCouchbaseTemplate(CouchbaseClientFactory couchbaseClientFactory,
+  MappingCouchbaseConverter mappingCouchbaseConverter) {
+ return new ReactiveCouchbaseTemplate(couchbaseClientFactory, mappingCouchbaseConverter);
+}
+
+// do not use couchbaseTemplate for the name of this method, otherwise the value of that been
+// will be used instead of the result from this call (the client factory arg is different)
+public CouchbaseTemplate myCouchbaseTemplate(CouchbaseClientFactory couchbaseClientFactory,
+  MappingCouchbaseConverter mappingCouchbaseConverter) {
+ return new CouchbaseTemplate(couchbaseClientFactory, mappingCouchbaseConverter);
+}
+
+// do not use couchbaseClientFactory for the name of this method, otherwise the value of that bean will
+// will be used instead of this call being made ( bucketname is an arg here, instead of using bucketName() )
+public CouchbaseClientFactory myCouchbaseClientFactory(String bucketName) {
+ return new SimpleCouchbaseClientFactory(getConnectionString(),authenticator(), bucketName );
+}
+```
