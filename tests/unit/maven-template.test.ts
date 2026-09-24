@@ -141,6 +141,52 @@ describe('resolveTemplateProperties', () => {
     // produce the same bytes, so the caller pins it to the tag commit.
     expect(properties().get('current.year')).toBe('2025')
   })
+
+  test('reads project.groupId from the project\'s own top-level element', () => {
+    // Spring Data Neo4j's template reads `${project.groupId}`, a model value
+    // rather than a declared property.
+    const project = PROJECT_POM.replace(
+      '<artifactId>spring-data-jpa-parent</artifactId>',
+      '<groupId>org.springframework.data</groupId>\n  <artifactId>spring-data-jpa-parent</artifactId>',
+    )
+
+    expect(properties({ projectPom: project }).get('project.groupId')).toBe('org.springframework.data')
+  })
+
+  test('inherits project.groupId from the parent when the project omits its own', () => {
+    expect(properties().get('project.groupId')).toBe('org.springframework.data.build')
+  })
+
+  test('reads project.artifactId from the project, never the parent\'s', () => {
+    expect(properties().get('project.artifactId')).toBe('spring-data-jpa-parent')
+    expect(() => properties({
+      projectPom: PROJECT_POM.replace('<artifactId>spring-data-jpa-parent</artifactId>', ''),
+    })).toThrow(/no top-level <artifactId>/)
+  })
+
+  test('resolves the legacy bare version to the version being built', () => {
+    // Spring Data Relational's template read `${version}` in every tag before 3.4.9 and 3.5.3.
+    expect(properties().get('version')).toBe('3.5.6')
+  })
+
+  test('takes no coordinate from a dependency', () => {
+    // Placed before any top-level coordinate, so a reader that took the first
+    // `<groupId>` in the file would pick the dependency's.
+    const project = PROJECT_POM.replace(
+      '<artifactId>spring-data-jpa-parent</artifactId>',
+      `<dependencies>
+    <dependency>
+      <groupId>org.hibernate.orm</groupId>
+      <artifactId>hibernate-core</artifactId>
+    </dependency>
+  </dependencies>
+  <artifactId>spring-data-jpa-parent</artifactId>`,
+    )
+    const resolved = properties({ projectPom: project })
+
+    expect(resolved.get('project.groupId')).toBe('org.springframework.data.build')
+    expect(resolved.get('project.artifactId')).toBe('spring-data-jpa-parent')
+  })
 })
 
 describe('fillTemplate', () => {

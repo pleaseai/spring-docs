@@ -25,6 +25,10 @@ export interface PomParent {
 /** The parts of a POM the template filter reads. */
 export interface PomModel {
   readonly parent?: PomParent
+  /** The project's own top-level `<groupId>`, absent when it inherits its parent's. */
+  readonly groupId?: string
+  /** The project's own top-level `<artifactId>`. */
+  readonly artifactId?: string
   /** The top-level `<properties>`, uninterpolated, in declaration order. */
   readonly properties: ReadonlyMap<string, string>
 }
@@ -66,6 +70,13 @@ const COMMENT = /<!--[\s\S]*?-->/g
  */
 const NESTED_SECTIONS = /<(profiles|build|reporting)>[\s\S]*?<\/\1>/g
 
+/**
+ * Sections of what {@link NESTED_SECTIONS} leaves that carry a `<groupId>` or
+ * `<artifactId>` other than the project's own: the parent's coordinates, and
+ * every dependency's.
+ */
+const COORDINATE_SECTIONS = /<(parent|dependencyManagement|dependencies|properties)>[\s\S]*?<\/\1>/g
+
 const PROPERTIES_BLOCK = /<properties>([\s\S]*?)<\/properties>/
 const PARENT_BLOCK = /<parent>([\s\S]*?)<\/parent>/
 const GROUP_ID = /<groupId>([^<]+)<\/groupId>/
@@ -100,7 +111,16 @@ export function parsePom(xml: string): PomModel {
 
   const parentBlock = PARENT_BLOCK.exec(topLevel)?.[1]
   const parent = parentBlock === undefined ? undefined : parentOf(parentBlock)
-  return parent === undefined ? { properties } : { parent, properties }
+
+  const own = topLevel.replace(COORDINATE_SECTIONS, '')
+  const groupId = GROUP_ID.exec(own)?.[1]?.trim()
+  const artifactId = ARTIFACT_ID.exec(own)?.[1]?.trim()
+  return {
+    ...(parent === undefined ? {} : { parent }),
+    ...(groupId === undefined ? {} : { groupId }),
+    ...(artifactId === undefined ? {} : { artifactId }),
+    properties,
+  }
 }
 
 function parentOf(block: string): PomParent | undefined {
@@ -163,15 +183,23 @@ export function commitYearOf(isoDate: string): string {
  * values the `export-properties` antrun execution adds — each a regex over an
  * interpolated property, reproduced exactly, or the stamped year.
  *
+ * `project.version`, `project.groupId`, `project.artifactId` and the bare
+ * `version` are not `<properties>` at all but values of the project model,
+ * which Maven's filter reads off the project itself — see
+ * {@link projectModelValues}. They sit at `project.version`'s tier, merged
+ * after the declared properties, so a property of the same name cannot
+ * rebind one.
+ *
  * A property whose value still holds a placeholder after expansion is kept as
  * it is: it is only an error if the template actually reads it, which
  * {@link fillTemplate} decides.
  */
 export function resolveTemplateProperties(inputs: TemplateInputs): ReadonlyMap<string, string> {
+  const project = parsePom(inputs.projectPom)
   const merged = new Map<string, string>([
     ...parsePom(inputs.parentPom).properties,
-    ...parsePom(inputs.projectPom).properties,
-    ['project.version', inputs.version],
+    ...project.properties,
+    ...projectModelValues(project, inputs.version),
   ])
 
   const resolved = new Map<string, string>()
@@ -186,6 +214,37 @@ export function resolveTemplateProperties(inputs: TemplateInputs): ReadonlyMap<s
   setDerived(resolved, 'springdata.commons.docs', resolved.get('springdata.commons'), MAJOR_MINOR_PATCH)
   resolved.set('current.year', inputs.commitYear)
   return resolved
+}
+
+/**
+ * The project-model values a template can read as if they were properties.
+ *
+ * Maven's resource filter resolves `${project.…}` against the project model,
+ * and an unprefixed name the same way, so none of these is declared in any
+ * `<properties>` block. Spring Data Neo4j's template reads
+ * `${project.groupId}` and `${project.artifactId}` at every tag from 7.2.0 on,
+ * and Spring Data Relational's reads the legacy bare `${version}` for its two
+ * javadoc links in every tag before 3.4.9 and 3.5.3.
+ *
+ * `groupId` follows Maven's inheritance: a project that omits its own takes
+ * its parent's. `artifactId` is never inherited.
+ *
+ * @throws if the project POM declares no `artifactId`, or no `groupId` either
+ * directly or through its `<parent>`: Maven refuses such a POM, so it is not
+ * the one the template was filtered against.
+ */
+function projectModelValues(project: PomModel, version: string): ReadonlyMap<string, string> {
+  const groupId = project.groupId ?? project.parent?.groupId
+  if (groupId === undefined)
+    throw new Error('The project POM declares no <groupId>, directly or through its <parent>')
+  if (project.artifactId === undefined)
+    throw new Error('The project POM declares no top-level <artifactId>')
+  return new Map([
+    ['project.version', version],
+    ['version', version],
+    ['project.groupId', groupId],
+    ['project.artifactId', project.artifactId],
+  ])
 }
 
 function setDerived(
