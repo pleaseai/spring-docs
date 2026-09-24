@@ -21,7 +21,7 @@
  */
 
 import type { ContentEntry, ManifestUpstream } from './lib/manifest.ts'
-import { chmod, mkdir, readdir, readFile, rm, utimes, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readdir, readFile, rename, rm, utimes, writeFile } from 'node:fs/promises'
 import { basename, join, relative, resolve } from 'node:path'
 import process from 'node:process'
 import { assertGeneratedTargetsWritable } from './lib/generated-file-targets.ts'
@@ -90,8 +90,8 @@ async function run(cmd: readonly string[], cwd: string): Promise<string> {
 }
 
 /**
- * Pipe `tar -cf -` into `gzip -n -9`, writing the result straight to
- * `archivePath` — without a shell.
+ * Write `tar -cf` to an intermediate file, then compress it with `gzip -n -9`
+ * into `archivePath` — without a shell, and without a pipe.
  *
  * `source`, `parentDir` and `fileList` all ultimately derive from CLI
  * arguments. A shell string built with `JSON.stringify()` quoting is not safe
@@ -99,40 +99,37 @@ async function run(cmd: readonly string[], cwd: string): Promise<string> {
  * Spawning argv arrays directly sidesteps that class of injection entirely,
  * since no shell ever parses the values.
  *
- * Both processes' exit codes are checked — a tar failure whose stderr
- * `gzip` swallows must still fail the run, not just a `gzip` failure.
+ * Not a pipe either: handing one `Bun.spawn`'s stdout to another's stdin
+ * relays every byte through the JS event loop, and that relay intermittently
+ * died with `EPIPE` or stalled until the release job's timeout killed it
+ * (#351). With a file between them, each process reads and writes the file
+ * system itself. `gzip -n` stores neither a name nor an mtime whether it reads
+ * a file or stdin, so the archive bytes are the same as the pipe produced.
+ *
+ * `run` checks each exit code, so a tar failure still fails the run; the
+ * intermediate files are removed whichever step fails.
  */
-async function packArchive(
+export async function packArchive(
   tar: TarFlavor,
   cwd: string,
   parentDir: string,
   fileList: string,
   archivePath: string,
 ): Promise<void> {
-  const tarProc = Bun.spawn(
-    [tar.command, ...tar.flags, '-cf', '-', '-C', parentDir, '-T', fileList],
-    { cwd, stdout: 'pipe', stderr: 'pipe' },
-  )
-  const gzipProc = Bun.spawn(
-    ['gzip', '-n', '-9'],
-    { cwd, stdin: tarProc.stdout, stdout: Bun.file(archivePath), stderr: 'pipe' },
-  )
-
-  const [tarStderr, gzipStderr, tarExit, gzipExit] = await Promise.all([
-    new Response(tarProc.stderr).text(),
-    new Response(gzipProc.stderr).text(),
-    tarProc.exited,
-    gzipProc.exited,
-  ])
-
-  if (tarExit !== 0)
-    throw new Error(`${tar.command} failed (exit ${tarExit})\n${tarStderr.trim()}`)
-  if (gzipExit !== 0)
-    throw new Error(`gzip failed (exit ${gzipExit})\n${gzipStderr.trim()}`)
+  const tarPath = `${archivePath}.tar`
+  try {
+    await run([tar.command, ...tar.flags, '-cf', tarPath, '-C', parentDir, '-T', fileList], cwd)
+    await run(['gzip', '-n', '-9', '-f', tarPath], cwd)
+    await rename(`${tarPath}.gz`, archivePath)
+  }
+  finally {
+    await rm(tarPath, { force: true })
+    await rm(`${tarPath}.gz`, { force: true })
+  }
 }
 
 /** A tar implementation and the flags it needs for a reproducible archive. */
-interface TarFlavor {
+export interface TarFlavor {
   readonly command: string
   readonly flags: readonly string[]
 }
