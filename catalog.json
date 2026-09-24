@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-24T02:56:45.293Z",
+  "generated_at": "2026-09-24T15:52:34.137Z",
   "projects": {
     "ai": {
       "1.0.0": {
@@ -571,6 +571,12 @@
       "4.1.1": {
         "tag": "data-jpa-4.1.1",
         "released_at": "2026-09-23T08:03:20Z"
+      }
+    },
+    "data-ldap": {
+      "3.5.10": {
+        "tag": "data-ldap-3.5.10",
+        "released_at": "2026-09-24T15:52:33Z"
       }
     },
     "framework": {
