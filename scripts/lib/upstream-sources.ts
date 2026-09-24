@@ -21,6 +21,7 @@ import {
   BOOT_4_MANAGED_VERSIONS,
   parseProperties,
 } from './antora-attributes.ts'
+import { assertDeclaredSymlink } from './reject-symlinks.ts'
 import { securityAttributes } from './security-attributes.ts'
 import { parseVersionCatalog } from './version-catalog.ts'
 
@@ -108,7 +109,8 @@ export interface UpstreamCoordinates {
    * Repo-relative paths the sparse checkout must materialize.
    *
    * Always includes {@link componentPath}; a synthesized or template era adds
-   * the build inputs its reconstruction reads.
+   * the build inputs its reconstruction reads, and an overlay or template era
+   * adds the target of every symlink it declares.
    */
   readonly checkoutPaths: readonly string[]
   /**
@@ -288,7 +290,11 @@ export type ComponentAssembly
       readonly derivedAttributes?: DerivedAttributes
       readonly internalSymlinks: readonly DeclaredSymlink[]
     }
-    | { readonly descriptor: 'template', readonly template: TemplateSources }
+    | {
+      readonly descriptor: 'template'
+      readonly template: TemplateSources
+      readonly internalSymlinks: readonly DeclaredSymlink[]
+    }
 
 /**
  * How an era declares its assembly, before a version is known.
@@ -307,18 +313,30 @@ type EraAssembly
       readonly derivedAttributes?: DerivedAttributes
       /**
        * Component-root-relative symlinks this layout ships, each paired with
-       * its expected component-root-relative target, to be replaced by real
+       * its expected checkout-root-relative target, to be replaced by real
        * copies of what they point at before the tree is copied in.
        *
        * Declared rather than discovered, and pinned by target as well as path:
        * an undeclared link still fails the copy guard, and a declared one
        * resolving anywhere but its pinned target fails too, so upstream
        * adding, moving or retargeting one surfaces as a build failure instead
-       * of being silently followed.
+       * of being silently followed. Every target is added to the sparse
+       * checkout, so it is always a path fetched from the release tag
+       * (ADR-0008).
        */
       readonly internalSymlinks: readonly DeclaredSymlink[]
     }
-    | { readonly descriptor: 'template', readonly template: TemplateSources }
+    | {
+      readonly descriptor: 'template'
+      readonly template: TemplateSources
+      /**
+       * Declared exactly as an overlay era's are. A Spring Data store's
+       * `examples/` links point out of the component into the store's own Java
+       * sources, which is why a target is relative to the checkout rather than
+       * to the component.
+       */
+      readonly internalSymlinks: readonly DeclaredSymlink[]
+    }
 
 /**
  * One documentation layout era of an upstream project.
@@ -563,8 +581,18 @@ function requiredSource(sources: Readonly<Record<string, string>>, path: string)
  * names another component: the one cross-component form is
  * `include::{commons}@data-commons::page$…[]`, and that component is built
  * alongside (`companion`) rather than linked to.
+ *
+ * `internalSymlinks` names the links a store's `modules/ROOT/examples/` ships
+ * into its own Java sources (ADR-0008), each target relative to the store's
+ * repository root. Most stores ship none; the ones that do carry the same links
+ * with the same targets at every GA tag from `since` on, so one declaration
+ * covers the whole era.
  */
-function springDataStore(store: string, since: string): ProjectDefinition {
+function springDataStore(
+  store: string,
+  since: string,
+  internalSymlinks: readonly DeclaredSymlink[] = [],
+): ProjectDefinition {
   const raw = `https://raw.githubusercontent.com/spring-projects/spring-data-${store}`
   return {
     repo: `spring-projects/spring-data-${store}`,
@@ -593,6 +621,7 @@ function springDataStore(store: string, since: string): ProjectDefinition {
               versionProperty: 'springdata.commons',
             },
           },
+          internalSymlinks,
         },
       },
     ],
@@ -603,7 +632,10 @@ function springDataStore(store: string, since: string): ProjectDefinition {
     // is pinned to a minor only and 404s for 3.2-3.4 outright. The same root
     // answers 200 for every other store at the `.0` of its latest major line
     // (Cassandra 5.0.0, Couchbase 6.0.0, Elasticsearch 6.0.0, KeyValue and
-    // LDAP 4.0.0; probed 2026-09-24).
+    // LDAP 4.0.0; probed 2026-09-24). MongoDB, Neo4j, Redis, Relational and
+    // REST follow JPA: 200 at `since`, at the `.0` of their latest major and at
+    // the latest minor's `.0`, and 404 at the latest patch (5.1.1, 8.1.1, 4.1.1,
+    // 4.1.1, 5.1.1; probed 2026-09-25).
     javadocLocationFor: version => `https://docs.spring.io/spring-data/${store}/docs/${version}/api`,
     // The release tag rather than the reference site, for the same
     // patch-to-minor collapse as the other projects.
@@ -778,15 +810,71 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
   // Spring Data stores (ADR-0007). `since` is each store's version in the
   // 2023.1 release train, where `src/main/antora` first appears: the minor
   // line before it has no `antora.yml`, probed for every store on 2026-09-24.
-  // MongoDB, Neo4j, Redis, Relational and REST are not here yet: their
-  // `examples/` directories are symlinks out of the component into the
-  // store's own test sources, which the copy guard refuses.
+  // MongoDB, Neo4j, Redis, Relational and REST reach their `example$` trees
+  // through symlinks out of the component into the store's own Java sources,
+  // declared here (ADR-0008). Each set was measured identical at all 65 GA tags
+  // of its store from `since` to the latest, every target a tree of `.java`
+  // files carrying no symlink of its own.
   'data-cassandra': springDataStore('cassandra', '4.2.0'),
   'data-couchbase': springDataStore('couchbase', '5.2.0'),
   'data-elasticsearch': springDataStore('elasticsearch', '5.2.0'),
   'data-jpa': springDataStore('jpa', '3.2.0'),
   'data-keyvalue': springDataStore('keyvalue', '3.2.0'),
   'data-ldap': springDataStore('ldap', '3.2.0'),
+  'data-mongodb': springDataStore('mongodb', '4.2.0', [
+    {
+      path: 'modules/ROOT/examples/example',
+      target: 'spring-data-mongodb/src/test/java/org/springframework/data/mongodb/example',
+    },
+  ]),
+  'data-neo4j': springDataStore('neo4j', '7.2.0', [
+    {
+      path: 'modules/ROOT/examples/config',
+      target: 'src/main/java/org/springframework/data/neo4j/config',
+    },
+    {
+      path: 'modules/ROOT/examples/core',
+      target: 'src/main/java/org/springframework/data/neo4j/core',
+    },
+    {
+      path: 'modules/ROOT/examples/documentation',
+      target: 'src/test/java/org/springframework/data/neo4j/documentation',
+    },
+    {
+      path: 'modules/ROOT/examples/integration',
+      target: 'src/test/java/org/springframework/data/neo4j/integration',
+    },
+    {
+      path: 'modules/ROOT/examples/repository',
+      target: 'src/main/java/org/springframework/data/neo4j/repository',
+    },
+  ]),
+  'data-redis': springDataStore('redis', '3.2.0', [
+    {
+      path: 'modules/ROOT/examples/examples',
+      target: 'src/test/java/org/springframework/data/redis/examples',
+    },
+  ]),
+  'data-relational': springDataStore('relational', '3.2.0', [
+    {
+      path: 'modules/ROOT/examples/r2dbc',
+      target: 'spring-data-r2dbc/src/test/java/org/springframework/data/r2dbc/documentation',
+    },
+  ]),
+  'data-rest': springDataStore('rest', '4.2.0', [
+    {
+      path: 'modules/ROOT/examples/mongodb',
+      target: 'spring-data-rest-tests/spring-data-rest-tests-mongodb/src/main/java/org/springframework/data/rest/tests/mongodb',
+    },
+    {
+      path: 'modules/ROOT/examples/security',
+      target: 'spring-data-rest-tests/spring-data-rest-tests-security/src/test/java/org/springframework/data/rest/tests/security',
+    },
+    {
+      path: 'modules/ROOT/examples/support',
+      target: 'spring-data-rest-webmvc/src/test/java/org/springframework/data/rest/webmvc/support',
+    },
+  ]),
 
   'framework': {
     repo: 'spring-projects/spring-framework',
@@ -829,8 +917,11 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
           // `example$docs-src` is a mode 120000 blob holding `../../../src`,
           // present at v6.1.0 and v6.2.14 alike. It resolves to
           // `framework-docs/src`, inside the checked-out component, so it is
-          // replaced by a real copy rather than followed at read time.
-          internalSymlinks: [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
+          // replaced by a real copy rather than followed at read time. The
+          // target is checkout-relative (ADR-0008), hence the component prefix.
+          internalSymlinks: [
+            { path: 'modules/ROOT/examples/docs-src', target: 'framework-docs/src' },
+          ],
         },
       },
     ],
@@ -892,8 +983,9 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
           derivedAttributes: SECURITY_ATTRIBUTES,
           // A mode 120000 blob holding `../../../src`, present at 6.5.1 through
           // 7.1.1. It resolves to `docs/src`, inside the checked-out component,
-          // and is what `include-java` / `include-kotlin` name.
-          internalSymlinks: [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
+          // and is what `include-java` / `include-kotlin` name. The target is
+          // checkout-relative (ADR-0008), hence the component prefix.
+          internalSymlinks: [{ path: 'modules/ROOT/examples/docs-src', target: 'docs/src' }],
         },
       },
     ],
@@ -1022,6 +1114,11 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
       }))
     : []
 
+  // At declaration, not at build: a target under `.git/` or a pipeline
+  // checkout, or one that climbs with `..`, is a definition bug no tag can fix.
+  for (const symlink of declaredSymlinksOf(era.assembly))
+    assertDeclaredSymlink(symlink)
+
   return {
     project,
     version,
@@ -1085,22 +1182,33 @@ function mavenArtifactOf(definition: ProjectDefinition, project: string): string
   return definition.mavenArtifact
 }
 
+/** The symlinks an era declares; only an overlay or template era can. */
+function declaredSymlinksOf(assembly: EraAssembly): readonly DeclaredSymlink[] {
+  return assembly.descriptor === 'overlay' || assembly.descriptor === 'template'
+    ? assembly.internalSymlinks
+    : []
+}
+
 /** Repo-relative paths the sparse checkout must materialize for one era. */
 function checkoutPathsFor(era: LayoutEra): readonly string[] {
+  // Every declared symlink's target, as a synthesized era's `examplesPath` is:
+  // a link may resolve anywhere in the checkout, but only to a tree the era
+  // named and fetched from the tag (ADR-0008). Framework's and Security's
+  // targets sit inside the component and are named again all the same, so
+  // the rule has no exception to reason about.
+  const targets = declaredSymlinksOf(era.assembly).map(symlink => symlink.target)
   // An overlay era assembles from the component root alone — plus, where its
   // build resolves versions rather than inventing them, the committed files
-  // those versions are declared in. That root is also where its `example$` tree
-  // lives: Spring Framework and Spring Security both reach it through a relative
-  // symlink that stays inside the checked-out path.
+  // those versions are declared in.
   if (era.assembly.descriptor === 'overlay') {
-    return [era.componentPath, ...(era.assembly.derivedAttributes?.sources ?? [])]
+    return [era.componentPath, ...(era.assembly.derivedAttributes?.sources ?? []), ...targets]
   }
   // A template era reads the store's POM beside the component. Its template
   // sits inside the component root already, but is named so that moving it
   // out would still check it out rather than fail as a missing file.
   if (era.assembly.descriptor === 'template') {
     const { template } = era.assembly
-    return [era.componentPath, template.templatePath, template.pomPath]
+    return [era.componentPath, template.templatePath, template.pomPath, ...targets]
   }
   if (era.assembly.descriptor !== 'synthesized')
     return [era.componentPath]

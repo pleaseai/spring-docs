@@ -83,6 +83,11 @@ describe('supportedProjects', () => {
       'data-jpa',
       'data-keyvalue',
       'data-ldap',
+      'data-mongodb',
+      'data-neo4j',
+      'data-redis',
+      'data-relational',
+      'data-rest',
       'framework',
       'security',
     ])
@@ -364,16 +369,18 @@ describe('framework', () => {
 
     // A mode 120000 blob holding `../../../src`. Undeclared, it would fail
     // `assertNoSymlinks`; declared, it is replaced by a real copy — pinned to
-    // the target it must resolve to, so retargeting it fails too.
+    // the target it must resolve to, so retargeting it fails too. The target is
+    // relative to the checkout, not the component (ADR-0008).
     expect(assembly.internalSymlinks).toEqual([
-      { path: 'modules/ROOT/examples/docs-src', target: 'src' },
+      { path: 'modules/ROOT/examples/docs-src', target: 'framework-docs/src' },
     ])
   })
 
-  test('checks out the component root alone, symlink target included', () => {
-    // `framework-docs/src` is inside `framework-docs`, so one path covers both
-    // the component and the tree its examples symlink points at.
-    expect(resolveUpstream('framework', '6.2.14').checkoutPaths).toEqual(['framework-docs'])
+  test('checks out the component root and names the symlink target too', () => {
+    // `framework-docs/src` is inside `framework-docs` already, but every declared
+    // target is checked out by the same rule, with no exception for this one.
+    expect(resolveUpstream('framework', '6.2.14').checkoutPaths)
+      .toEqual(['framework-docs', 'framework-docs/src'])
   })
 
   test('pins images and javadoc to the exact version', () => {
@@ -447,7 +454,12 @@ describe('resolveUpstream for Spring Security', () => {
 
     // The sparse checkout and the derivation cannot disagree about these: the
     // era declares them once and both sides read that declaration.
-    expect(checkoutPaths).toEqual(['docs', 'gradle/libs.versions.toml', 'gradle.properties'])
+    expect(checkoutPaths).toEqual([
+      'docs',
+      'gradle/libs.versions.toml',
+      'gradle.properties',
+      'docs/src',
+    ])
   })
 
   test('declares the examples symlink only for the era that ships one', () => {
@@ -458,8 +470,9 @@ describe('resolveUpstream for Spring Security', () => {
 
     expect(before.descriptor === 'overlay' && before.internalSymlinks).toEqual([])
     expect(after.descriptor === 'overlay' && after.internalSymlinks).toEqual([
-      { path: 'modules/ROOT/examples/docs-src', target: 'src' },
+      { path: 'modules/ROOT/examples/docs-src', target: 'docs/src' },
     ])
+    expect(resolveUpstream('security', '6.5.0').checkoutPaths).not.toContain('docs/src')
   })
 
   test('waits on no published artifact, because the tag carries everything', () => {
@@ -581,6 +594,11 @@ describe('Spring Data stores', () => {
     ['data-jpa', 'jpa', '3.2.0', '3.1.12', '4.1.1'],
     ['data-keyvalue', 'keyvalue', '3.2.0', '3.1.0', '4.1.1'],
     ['data-ldap', 'ldap', '3.2.0', '3.1.0', '4.1.1'],
+    ['data-mongodb', 'mongodb', '4.2.0', '4.1.0', '5.1.1'],
+    ['data-neo4j', 'neo4j', '7.2.0', '7.1.0', '8.1.1'],
+    ['data-redis', 'redis', '3.2.0', '3.1.0', '4.1.1'],
+    ['data-relational', 'relational', '3.2.0', '3.1.0', '4.1.1'],
+    ['data-rest', 'rest', '4.2.0', '4.1.0', '5.1.1'],
   ] as const
 
   test.each(STORES)('%s is a template era read from bare-version tags, with nothing to download', (project, store, since) => {
@@ -614,6 +632,51 @@ describe('Spring Data stores', () => {
       'src/main/antora/resources/antora-resources/antora.yml',
       'pom.xml',
     ])
+  })
+
+  // [project, a version of its era, the store's `modules/ROOT/examples/` links,
+  // each with the repository-relative tree it resolves to at every GA tag of
+  // the era]
+  const LINKED_STORES = [
+    ['data-mongodb', '5.1.1', [
+      ['example', 'spring-data-mongodb/src/test/java/org/springframework/data/mongodb/example'],
+    ]],
+    ['data-neo4j', '8.1.1', [
+      ['config', 'src/main/java/org/springframework/data/neo4j/config'],
+      ['core', 'src/main/java/org/springframework/data/neo4j/core'],
+      ['documentation', 'src/test/java/org/springframework/data/neo4j/documentation'],
+      ['integration', 'src/test/java/org/springframework/data/neo4j/integration'],
+      ['repository', 'src/main/java/org/springframework/data/neo4j/repository'],
+    ]],
+    ['data-redis', '4.1.1', [
+      ['examples', 'src/test/java/org/springframework/data/redis/examples'],
+    ]],
+    ['data-relational', '4.1.1', [
+      ['r2dbc', 'spring-data-r2dbc/src/test/java/org/springframework/data/r2dbc/documentation'],
+    ]],
+    ['data-rest', '5.1.1', [
+      ['mongodb', 'spring-data-rest-tests/spring-data-rest-tests-mongodb/src/main/java/org/springframework/data/rest/tests/mongodb'],
+      ['security', 'spring-data-rest-tests/spring-data-rest-tests-security/src/test/java/org/springframework/data/rest/tests/security'],
+      ['support', 'spring-data-rest-webmvc/src/test/java/org/springframework/data/rest/webmvc/support'],
+    ]],
+  ] as const
+
+  test.each(LINKED_STORES)('%s declares its examples links and checks their targets out', (project, version, links) => {
+    const upstream = resolveUpstream(project, version)
+    if (upstream.assembly.descriptor !== 'template')
+      throw new Error(`expected a template assembly for ${project}`)
+
+    // Out of the component into the store's Java sources (ADR-0008): each path
+    // is component-relative, each target relative to the repository root.
+    expect(upstream.assembly.internalSymlinks).toEqual(
+      links.map(([name, target]) => ({ path: `modules/ROOT/examples/${name}`, target })),
+    )
+    expect(upstream.checkoutPaths).toEqual(expect.arrayContaining(links.map(([, target]) => target)))
+  })
+
+  test('a store with no examples links declares none', () => {
+    const { assembly } = resolveUpstream('data-jpa', '3.5.6')
+    expect(assembly.descriptor === 'template' && assembly.internalSymlinks).toEqual([])
   })
 
   test('every store reads the same parent POM and included component', () => {

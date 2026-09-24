@@ -13,9 +13,9 @@ before answering "is X supported" — they answer different questions.
 
 | | |
 |---|---|
-| Projects | `ai`, `boot`, `data-cassandra`, `data-couchbase`, `data-elasticsearch`, `data-jpa`, `data-keyvalue`, `data-ldap`, `framework`, `security` |
+| Projects | `ai`, `boot`, `data-cassandra`, `data-couchbase`, `data-elasticsearch`, `data-jpa`, `data-keyvalue`, `data-ldap`, `data-mongodb`, `data-neo4j`, `data-redis`, `data-relational`, `data-rest`, `framework`, `security` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras); `data-jpa`, `data-keyvalue`, `data-ldap` → `>= 3.2.0`; `data-cassandra` → `>= 4.2.0`; `data-couchbase`, `data-elasticsearch` → `>= 5.2.0` (all template) |
+| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras); `data-jpa`, `data-keyvalue`, `data-ldap`, `data-redis`, `data-relational` → `>= 3.2.0`; `data-cassandra`, `data-mongodb`, `data-rest` → `>= 4.2.0`; `data-couchbase`, `data-elasticsearch` → `>= 5.2.0`; `data-neo4j` → `>= 7.2.0` (all template) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
 A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
@@ -27,11 +27,11 @@ without the other yields a tree that classifies but converts wrongly:
 | `boot` `3.3.0` – `<4.0.0` | `spring-boot-project/spring-boot-docs/src/docs/antora` | `synthesized` | rebuilt from the tag (`SynthesisSources`) plus the eight published `spring-boot-*` jars carrying configuration-property metadata | yes — metadata jars |
 | `boot` `4.0.0` – `<4.0.8` | `documentation/spring-boot-docs/src/docs/antora` | `synthesized` | the same reconstruction, against the paths 4.x moved (`documentation/…/src/main`, `platform/spring-boot-dependencies/build.gradle`) and the 103 `spring-boot-*` jars Boot 4's module split carries the metadata in | yes — metadata jars |
 | `boot` `>= 4.0.8` | `documentation/spring-boot-docs/src/docs/antora` | `archive` | the published `root-aggregate-content` zip, merged over the checkout | yes — content zips |
-| `framework` `>= 6.1.0` | `framework-docs` | `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes | no |
+| `framework` `>= 6.1.0` | `framework-docs` | `overlay` | the committed `antora.yml`, topped up with the version and the attributes the build contributes; plus the `modules/ROOT/examples/docs-src` symlink → `framework-docs/src` | no |
 | `security` `6.2.0` – `<6.5.1` | `docs` | `overlay` | the committed `antora.yml`, topped up with attributes derived from `gradle/libs.versions.toml` and `gradle.properties` | no |
-| `security` `>= 6.5.1` | `docs` | `overlay` | the same, plus the `modules/ROOT/examples/docs-src` symlink that era added | no |
+| `security` `>= 6.5.1` | `docs` | `overlay` | the same, plus the `modules/ROOT/examples/docs-src` symlink → `docs/src` that era added | no |
 | `ai` `>= 1.0.0` | `spring-ai-docs/src/main/antora` | `overlay` | the committed `antora.yml` unchanged — its build contributes no attribute at all | no |
-| `data-*` stores, from each store's 2023.1 version | `src/main/antora` | `template` | the Maven resources template, filtered through the store's `pom.xml` and the `spring-data-build` parent POM at the tag `<parent>` names; plus `spring-data-commons` at the tag `springdata.commons` names, written under `_companion/` as a second component (ADR-0007) | no — three git tags |
+| `data-*` stores, from each store's 2023.1 version | `src/main/antora` | `template` | the Maven resources template, filtered through the store's `pom.xml` and the `spring-data-build` parent POM at the tag `<parent>` names; plus `spring-data-commons` at the tag `springdata.commons` names, written under `_companion/` as a second component (ADR-0007); MongoDB, Neo4j, Redis, Relational and REST also declare `modules/ROOT/examples/*` symlinks into their Java sources (ADR-0008) | no — three git tags |
 
 `overlay` is the cheapest to add and the one to reach for first on a new project: check what
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
@@ -47,11 +47,14 @@ rather than publishing `${…}`. `${current.year}` is the tag commit's UTC year,
 so a rebuild reproduces the archive. The corpus also reads a second component through
 `include::{commons}@data-commons::page$…[]`: the fetch checks it out at the version the POM pins,
 and `convert.ts` adds `_companion` as a second start path but emits only the root component's
-pages. A store is one `springDataStore('<repo suffix>', '<since>')` line in `PROJECTS`. Before
-adding one, confirm its template path, `<parent>` and `springdata.commons`. Also confirm the
-store has no mode 120000 blob under `src/main/antora`. MongoDB, Neo4j, Redis, Relational and REST
-link `examples/` out to their test sources, which the copy guard refuses, so they are not in
-`PROJECTS` yet.
+pages. A store is one `springDataStore('<repo suffix>', '<since>', [<symlinks>])` line in
+`PROJECTS`. Before adding one, confirm its template path, `<parent>` and `springdata.commons`.
+Then list every mode 120000 blob under `src/main/antora` at every GA tag of the era
+(`git ls-tree -r <tag> src/main/antora | grep ^120000`) and resolve each to its
+repository-relative target: those pairs are the store's declarations, and they must be the same
+at every tag, or the era needs splitting. MongoDB, Neo4j, Redis, Relational and REST link
+`modules/ROOT/examples/*` into their own Java sources this way (ADR-0008); the other six ship
+none, so their lines omit the third argument.
 
 Eras need not be contiguous, and `eraFor` returns `undefined` below the oldest floor:
 
@@ -166,9 +169,13 @@ Then add one entry to `PROJECTS` in `scripts/lib/upstream-sources.ts`:
   does not produce, mapped to their published site
 
 **Declare any symlink the component ships.** `assertNoSymlinks` refuses every link reaching the
-content source; an era's `internalSymlinks` names each one's path and expected target, and
-replaces it with a real copy first — a link nobody declared still fails the copy, and a declared
-one resolving to a different target fails too. Spring Framework reaches its examples through
+content source; an overlay or template era's `internalSymlinks` names each one's path and
+expected target, and replaces it with a real copy first — a link nobody declared still fails the
+copy, and a declared one resolving to a different target fails too. `path` is relative to the
+component root, `target` to the repository root, and every target is added to the sparse
+checkout. A link may resolve anywhere in the checkout but must name a normalized path with no
+`..`, outside `.git/` and the pipeline's own `.spring-docs-*` checkouts — `resolveUpstream`
+refuses any other declaration (ADR-0008). Spring Framework reaches its examples through
 `modules/ROOT/examples/docs-src` → `framework-docs/src`.
 
 **Expect the converter to be incomplete for a new corpus.** Spring Boot's corpus does not
