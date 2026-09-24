@@ -1,0 +1,13 @@
+---
+title: "KeyValue Repositories"
+source: "ROOT:repositories.adoc"
+---
+
+<a id="keyvalyue.repositories"></a>
+
+# KeyValue Repositories
+
+This chapter explains the basic foundations of Spring Data repositories and KeyValue specifics.
+Before continuing to the specifics, make sure you have a sound understanding of the basic concepts.
+
+The goal of the Spring Data repository abstraction is to significantly reduce the amount of boilerplate code required to implement data access layers for various persistence stores.

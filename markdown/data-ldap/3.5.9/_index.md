@@ -1,0 +1,26 @@
+# data-ldap 3.5.9
+
+22 pages, converted from upstream Spring AsciiDoc.
+
+- [commons/upgrade](./commons/upgrade.md)
+- [index](./index.md)
+- [ldap](./ldap.md)
+- [ldap/cdi-integration](./ldap/cdi-integration.md)
+- [ldap/configuration](./ldap/configuration.md)
+- [ldap/query-methods](./ldap/query-methods.md)
+- [ldap/querydsl](./ldap/querydsl.md)
+- [ldap/usage](./ldap/usage.md)
+- [ldap/value-expressions](./ldap/value-expressions.md)
+- [repositories/core-concepts](./repositories/core-concepts.md)
+- [repositories/core-domain-events](./repositories/core-domain-events.md)
+- [repositories/core-extensions](./repositories/core-extensions.md)
+- [repositories/create-instances](./repositories/create-instances.md)
+- [repositories/custom-implementations](./repositories/custom-implementations.md)
+- [repositories/definition](./repositories/definition.md)
+- [repositories/introduction](./repositories/introduction.md)
+- [repositories/namespace-reference](./repositories/namespace-reference.md)
+- [repositories/null-handling](./repositories/null-handling.md)
+- [repositories/projections](./repositories/projections.md)
+- [repositories/query-keywords-reference](./repositories/query-keywords-reference.md)
+- [repositories/query-methods-details](./repositories/query-methods-details.md)
+- [repositories/query-return-types-reference](./repositories/query-return-types-reference.md)

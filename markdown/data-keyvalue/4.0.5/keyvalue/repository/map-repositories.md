@@ -1,0 +1,65 @@
+---
+title: "Map Repositories"
+source: "ROOT:keyvalue/repository/map-repositories.adoc"
+---
+
+<a id="key-value.repositories.map"></a>
+
+# Map Repositories
+
+Map repositories reside on top of the `KeyValueTemplate`.
+Using the default `PredicateQueryCreator` allows deriving query and sort expressions from the given method name, as the following example shows:
+
+```java
+@Configuration
+@EnableMapRepositories
+class KeyValueConfig {
+
+}
+
+interface PersonRepository implements CrudRepository<Person, String> {
+    List<Person> findByLastname(String lastname);
+}
+```
+
+<a id="_configuring_the_queryengine"></a>
+
+## Configuring the QueryEngine
+
+It is possible to change the `QueryEngine` and use a custom one instead of the default.
+The `EnableMapRepositories` annotation allows to configure the by supplying a `QueryEngineFactory` as well as the `QueryCreator` via according attributes.
+Please mind that the `QueryEngine` needs to be able to process queries created by the configured `QueryCreator`.
+
+<a id="_storage_backend_configuration"></a>
+
+## Storage Backend Configuration
+
+`KeySpaceStore` provides a simple storage facade that can be used along with the `keySpaceStoreRef` attribute of `EnableMapRepositories` to set the bean reference to the actual storage, overriding `mapType` settings.
+
+```java
+@Configuration
+@EnableMapRepositories(keySpaceStoreRef = "store") <1>
+public class MapDbConfiguration {
+
+	@Bean
+	KeySpaceStore store(DB db) { <1>
+
+		return new KeySpaceStore() {
+
+			@Override
+			public Map<Object, Object> getKeySpace(String keyspace) {
+				return db.hashMap(keyspace, ...
+			}
+
+			@Override
+			public void clear() {
+				//
+			}
+
+		};
+	}
+
+}
+```
+
+1. reference the `KeySpaceStore` by bean name.
