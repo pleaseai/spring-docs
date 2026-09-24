@@ -124,14 +124,20 @@ export async function packArchive(
   archivePath: string,
 ): Promise<void> {
   const tarPath = `${archivePath}.tar`
+  const removeIntermediates = () =>
+    Promise.all([tarPath, `${tarPath}.gz`].map(path => rm(path, { force: true })))
   try {
     await run([tar.command, ...tar.flags, '-b', '20', '-cf', tarPath, '-C', parentDir, '-T', fileList], cwd)
     await run(['gzip', '-n', '-9', '-f', tarPath], cwd)
     await rename(`${tarPath}.gz`, archivePath)
   }
-  finally {
-    await Promise.all([tarPath, `${tarPath}.gz`].map(path => rm(path, { force: true }).catch(() => {})))
+  catch (error) {
+    await removeIntermediates().catch(() => {})
+    throw error
   }
+  // On success both are already gone. A file left behind here would ship in
+  // the output directory, so a failure to remove it fails packaging.
+  await removeIntermediates()
 }
 
 /** A tar implementation and the flags it needs for a reproducible archive. */

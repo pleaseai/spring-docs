@@ -130,4 +130,18 @@ describe('packArchive', () => {
       .toThrow(/missing\.md/)
     expect(await readdir(join(work, 'out'))).toEqual([])
   })
+
+  test('fails on a gzip failure with gzip\'s error, and removes the tar it left', async () => {
+    const list = join(work, 'files')
+    await writeFile(list, 'r-1.0.0/a.md\n')
+    // A directory where gzip writes its output makes gzip fail after tar has
+    // succeeded. Removing it fails too, which must not hide gzip's error.
+    const blocked = join(work, 'out', 'r-1.0.0.tar.gz.tar.gz')
+    await mkdir(blocked)
+
+    await expect(packArchive(tar, work, join(work, 'tree'), list, join(work, 'out', 'r-1.0.0.tar.gz')))
+      .rejects
+      .toThrow(/^gzip .* failed/)
+    expect(await readdir(join(work, 'out'))).toEqual(['r-1.0.0.tar.gz.tar.gz'])
+  })
 })
