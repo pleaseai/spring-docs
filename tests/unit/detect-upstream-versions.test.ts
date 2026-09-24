@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { parseArgs } from '../../scripts/detect-upstream-versions.ts'
+import { supportedProjects } from '../../scripts/lib/upstream-sources.ts'
 
 describe('parseArgs', () => {
   test('defaults to every supported project, no limit, and text output', () => {
     const args = parseArgs([])
 
-    expect(args).toEqual({ projects: ['ai', 'boot', 'data-jpa', 'framework', 'security'], limit: null, json: false })
+    expect(args).toEqual({ projects: supportedProjects(), limit: null, json: false })
   })
 
   test('accepts --project value and --project=value forms', () => {
@@ -16,7 +17,7 @@ describe('parseArgs', () => {
   test('accepts --limit and --json', () => {
     const args = parseArgs(['--limit', '5', '--json'])
 
-    expect(args).toEqual({ projects: ['ai', 'boot', 'data-jpa', 'framework', 'security'], limit: 5, json: true })
+    expect(args).toEqual({ projects: supportedProjects(), limit: 5, json: true })
   })
 
   test('rejects an unknown project', () => {

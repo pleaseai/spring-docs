@@ -200,6 +200,23 @@ describe('pinnedVersionOf', () => {
     expect(pinnedVersionOf(properties(), 'springdata.commons')).toBe('3.5.6')
   })
 
+  test('is the Commons release a store pins, not the store\'s own version', () => {
+    // Cassandra 5.1.1 includes Commons 4.1.1. Checking the companion out at the
+    // store's version would fetch the wrong Commons, or a tag that does not exist.
+    const resolved = resolveTemplateProperties({
+      version: '5.1.1',
+      projectPom: PROJECT_POM.replace(
+        '<springdata.commons>3.5.6</springdata.commons>',
+        '<springdata.commons>4.1.1</springdata.commons>',
+      ),
+      parentPom: PARENT_POM,
+      commitYear: '2026',
+    })
+
+    expect(pinnedVersionOf(resolved, 'springdata.commons')).toBe('4.1.1')
+    expect(fillTemplate(TEMPLATE, resolved)).toMatchObject({ version: '5.1.1', commons: '4.1.1' })
+  })
+
   test('refuses an undeclared or pre-release version, which has no GA tag', () => {
     expect(() => pinnedVersionOf(properties(), 'springdata.keyvalue')).toThrow(/undeclared/)
     expect(() => pinnedVersionOf(new Map([['springdata.commons', '4.0.0-M1']]), 'springdata.commons'))
