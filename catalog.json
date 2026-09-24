@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-23T17:13:22.373Z",
+  "generated_at": "2026-09-24T02:07:17.883Z",
   "projects": {
     "ai": {
       "1.0.0": {
@@ -977,8 +977,8 @@
         "released_at": "2026-09-16T04:00:46Z"
       },
       "7.0.2": {
-        "tag": "security-7.0.2",
-        "released_at": "2026-09-16T04:02:27Z"
+        "tag": "security-7.0.2+rebuild.1",
+        "released_at": "2026-09-24T02:07:17Z"
       },
       "7.0.3": {
         "tag": "security-7.0.3",
