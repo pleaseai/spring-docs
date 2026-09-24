@@ -1,8 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { assertNoSymlinks, materializeDeclaredSymlinks } from '../../scripts/lib/reject-symlinks.ts'
+import { dirname, join, relative } from 'node:path'
+import {
+  assertDeclaredSymlink,
+  assertNoSymlinks,
+  materializeDeclaredSymlinks,
+} from '../../scripts/lib/reject-symlinks.ts'
 
 describe('assertNoSymlinks', () => {
   test('accepts a clean tree of regular files and directories', async () => {
@@ -84,8 +88,9 @@ describe('materializeDeclaredSymlinks', () => {
     const component = await componentWithExamplesLink()
     try {
       await materializeDeclaredSymlinks(
-        component,
-        [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
+        dirname(component),
+        'framework-docs',
+        [{ path: 'modules/ROOT/examples/docs-src', target: 'framework-docs/src' }],
       )
 
       // The whole point: what was a link is now a directory, so the strict copy
@@ -104,7 +109,7 @@ describe('materializeDeclaredSymlinks', () => {
   test('leaves an undeclared symlink to fail the copy guard', async () => {
     const component = await componentWithExamplesLink()
     try {
-      await materializeDeclaredSymlinks(component, [])
+      await materializeDeclaredSymlinks(dirname(component), 'framework-docs', [])
 
       // Nothing declared, nothing materialized — the guard still refuses it.
       await expect(assertNoSymlinks(component)).rejects.toThrow(/docs-src/)
@@ -114,19 +119,20 @@ describe('materializeDeclaredSymlinks', () => {
     }
   })
 
-  test('refuses a link pointing out of the component', async () => {
+  test('refuses a link pointing out of the checkout', async () => {
     const root = await mkdtemp(join(tmpdir(), 'materialize-escape-'))
     try {
       const outside = join(root, 'outside')
       await mkdir(outside, { recursive: true })
       await writeFile(join(outside, 'secret.txt'), 'not ours')
-      const component = join(root, 'component')
+      const checkout = join(root, 'checkout')
+      const component = join(checkout, 'component')
       await mkdir(component, { recursive: true })
       await symlink(outside, join(component, 'escape'))
 
-      await expect(materializeDeclaredSymlinks(component, [{ path: 'escape', target: 'escape' }]))
+      await expect(materializeDeclaredSymlinks(checkout, 'component', [{ path: 'escape', target: 'component/escape' }]))
         .rejects
-        .toThrow(/out of the component/)
+        .toThrow(/out of the checkout/)
     }
     finally {
       await rm(root, { recursive: true, force: true })
@@ -141,7 +147,7 @@ describe('materializeDeclaredSymlinks', () => {
       // `nested/self` -> the component root, which `nested` sits inside.
       await symlink('..', join(component, 'nested', 'self'))
 
-      await expect(materializeDeclaredSymlinks(component, [{ path: 'nested/self', target: '.' }]))
+      await expect(materializeDeclaredSymlinks(root, 'component', [{ path: 'nested/self', target: 'component' }]))
         .rejects
         .toThrow(/contains itself/)
     }
@@ -159,10 +165,10 @@ describe('materializeDeclaredSymlinks', () => {
 
       // Upstream turning the link into a regular file is a layout change a
       // person should see, not one to absorb silently.
-      await expect(materializeDeclaredSymlinks(component, [{ path: 'docs-src', target: 'docs-src' }]))
+      await expect(materializeDeclaredSymlinks(root, 'component', [{ path: 'docs-src', target: 'component/docs-src' }]))
         .rejects
         .toThrow(/not a symlink/)
-      await expect(materializeDeclaredSymlinks(component, [{ path: 'gone', target: 'gone' }]))
+      await expect(materializeDeclaredSymlinks(root, 'component', [{ path: 'gone', target: 'component/gone' }]))
         .rejects
         .toThrow(/absent/)
     }
@@ -190,7 +196,11 @@ describe('materializeDeclaredSymlinks', () => {
       await symlink('../../../src', link)
 
       await expect(
-        materializeDeclaredSymlinks(component, [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }]),
+        materializeDeclaredSymlinks(
+          root,
+          'component',
+          [{ path: 'modules/ROOT/examples/docs-src', target: 'component/src' }],
+        ),
       )
         .rejects
         .toThrow(/escape/)
@@ -208,7 +218,7 @@ describe('materializeDeclaredSymlinks', () => {
       await mkdir(component, { recursive: true })
       await symlink('./nowhere', join(component, 'dangling'))
 
-      await expect(materializeDeclaredSymlinks(component, [{ path: 'dangling', target: 'dangling' }]))
+      await expect(materializeDeclaredSymlinks(root, 'component', [{ path: 'dangling', target: 'component/dangling' }]))
         .rejects
         .toThrow(/broken/)
     }
@@ -217,7 +227,7 @@ describe('materializeDeclaredSymlinks', () => {
     }
   })
 
-  test('refuses a link upstream retargeted at a different in-component tree', async () => {
+  test('refuses a link upstream retargeted at a different in-checkout tree', async () => {
     // Upstream repointing the link without moving or removing it — adding and
     // moving are already covered above — must surface too, or the build would
     // silently absorb whatever the link now happens to point at.
@@ -229,7 +239,7 @@ describe('materializeDeclaredSymlinks', () => {
       await symlink('other', join(component, 'docs-src'))
 
       await expect(
-        materializeDeclaredSymlinks(component, [{ path: 'docs-src', target: 'src' }]),
+        materializeDeclaredSymlinks(root, 'component', [{ path: 'docs-src', target: 'component/src' }]),
       )
         .rejects
         .toThrow(/retargeted/)
@@ -254,8 +264,9 @@ describe('materializeDeclaredSymlinks', () => {
       await symlink(outside, join(component, 'modules', 'ROOT', 'pages', 'undeclared.adoc'))
 
       await materializeDeclaredSymlinks(
-        component,
-        [{ path: 'modules/ROOT/examples/docs-src', target: 'src' }],
+        dirname(component),
+        'framework-docs',
+        [{ path: 'modules/ROOT/examples/docs-src', target: 'framework-docs/src' }],
       )
 
       const link = join(component, 'modules', 'ROOT', 'examples', 'docs-src')
@@ -265,5 +276,88 @@ describe('materializeDeclaredSymlinks', () => {
     finally {
       await rm(join(component, '..'), { recursive: true, force: true })
     }
+  })
+
+  test('materializes a link resolving outside the component but inside the checkout', async () => {
+    // The Spring Data shape (ADR-0008): the component is `src/main/antora`, and
+    // its examples link reaches the store's test sources beside it.
+    const checkout = await mkdtemp(join(tmpdir(), 'materialize-store-'))
+    try {
+      const sources = join(checkout, 'src', 'test', 'java', 'example')
+      await mkdir(sources, { recursive: true })
+      await writeFile(join(sources, 'Example.java'), 'class Example {}')
+      const examples = join(checkout, 'src', 'main', 'antora', 'modules', 'ROOT', 'examples')
+      await mkdir(examples, { recursive: true })
+      const link = join(examples, 'example')
+      await symlink(relative(examples, sources), link)
+
+      await materializeDeclaredSymlinks(
+        checkout,
+        'src/main/antora',
+        [{ path: 'modules/ROOT/examples/example', target: 'src/test/java/example' }],
+      )
+
+      expect((await lstat(link)).isDirectory()).toBe(true)
+      expect(await readFile(join(link, 'Example.java'), 'utf8')).toBe('class Example {}')
+      await expect(assertNoSymlinks(join(checkout, 'src', 'main', 'antora'))).resolves.toBeUndefined()
+    }
+    finally {
+      await rm(checkout, { recursive: true, force: true })
+    }
+  })
+
+  test('refuses a link that reaches the pipeline\'s own checkout state through a directory link', async () => {
+    // The declared target passes as text, but a directory on the way to it is
+    // itself a link into `.git`, so what the copy would read is git metadata.
+    const checkout = await mkdtemp(join(tmpdir(), 'materialize-reserved-'))
+    try {
+      await mkdir(join(checkout, '.git', 'objects'), { recursive: true })
+      await symlink('.git', join(checkout, 'meta'))
+      const component = join(checkout, 'component')
+      await mkdir(component, { recursive: true })
+      await symlink('../.git/objects', join(component, 'examples'))
+
+      await expect(
+        materializeDeclaredSymlinks(checkout, 'component', [{ path: 'examples', target: 'meta/objects' }]),
+      )
+        .rejects
+        .toThrow(/pipeline's own checkout state/)
+    }
+    finally {
+      await rm(checkout, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('assertDeclaredSymlink', () => {
+  test('accepts a plain relative path and target', () => {
+    expect(() => assertDeclaredSymlink({
+      path: 'modules/ROOT/examples/r2dbc',
+      target: 'spring-data-r2dbc/src/test/java/org/springframework/data/r2dbc/documentation',
+    })).not.toThrow()
+  })
+
+  test.each([
+    ['a target under .git', { path: 'examples/x', target: '.git/objects' }, /\.git\//],
+    ['a target in the parent checkout', { path: 'examples/x', target: '.spring-docs-parent/parent' }, /\.spring-docs-parent\//],
+    ['a target in the companion checkout', { path: 'examples/x', target: '.spring-docs-companion/src' }, /\.spring-docs-companion\//],
+    ['a target climbing with ..', { path: 'examples/x', target: 'src/../../outside' }, /not normalized/],
+    ['a path climbing with ..', { path: '../x', target: 'src' }, /not normalized/],
+    ['an absolute target', { path: 'examples/x', target: '/etc' }, /not relative/],
+    ['an empty target', { path: 'examples/x', target: '' }, /not relative/],
+    ['the checkout root itself', { path: 'examples/x', target: '.' }, /not normalized/],
+    ['a trailing slash', { path: 'examples/x', target: 'src/' }, /not normalized/],
+  ] as const)('refuses %s', (_label, declared, message) => {
+    expect(() => assertDeclaredSymlink(declared)).toThrow(message)
+  })
+
+  test('is enforced by materializeDeclaredSymlinks before the checkout is read', async () => {
+    // A path that does not exist: the declaration is refused on its spelling,
+    // not reported as an absent link.
+    await expect(
+      materializeDeclaredSymlinks('/nonexistent-checkout', 'component', [{ path: 'x', target: '.git/config' }]),
+    )
+      .rejects
+      .toThrow(/\.git\//)
   })
 })

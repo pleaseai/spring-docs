@@ -560,11 +560,18 @@ async function main(): Promise<void> {
 
     let templateCheckouts: Awaited<ReturnType<typeof assembleFromTemplate>> | undefined
     const checkedOutComponent = join(workDir, upstream.componentPath)
-    if (upstream.assembly.descriptor === 'overlay') {
+    if (upstream.assembly.descriptor === 'overlay' || upstream.assembly.descriptor === 'template') {
       // Before the copy, not after: `copyIntoContentSource` refuses every
       // symlink, so a declared one has to become a real tree while it can still
-      // be resolved against the checkout it points into.
-      await materializeDeclaredSymlinks(checkedOutComponent, upstream.assembly.internalSymlinks)
+      // be resolved against the checkout it points into. The whole checkout is
+      // the bound, not the component: a Spring Data store's links reach its
+      // Java sources beside the component (ADR-0008). A template era's parent
+      // and companion are not checked out yet, and no target may name them.
+      await materializeDeclaredSymlinks(
+        workDir,
+        upstream.componentPath,
+        upstream.assembly.internalSymlinks,
+      )
     }
     await copyIntoContentSource(checkedOutComponent, outDir)
 

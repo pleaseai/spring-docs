@@ -20,13 +20,15 @@
  * v3.5.0 and v3.5.16, repo-wide), so for it this is a guard against an upstream
  * compromise or layout change rather than a live defect. Spring Framework does
  * carry one — `modules/ROOT/examples/docs-src` links to the component's own
- * `src` — which is what {@link materializeDeclaredSymlinks} is for: an era
- * names the links it expects, they are replaced by real copies before the copy
- * runs, and every link nobody declared still fails here.
+ * `src` — and five Spring Data stores link theirs into the store's Java sources,
+ * outside the component (ADR-0008). That is what
+ * {@link materializeDeclaredSymlinks} is for: an era names the links it expects
+ * and where each must resolve in the checkout, they are replaced by real copies
+ * before the copy runs, and every link nobody declared still fails here.
  */
 
 import { cp, lstat, readdir, realpath, rm } from 'node:fs/promises'
-import { dirname, join, sep } from 'node:path'
+import { dirname, isAbsolute, join, relative, sep } from 'node:path'
 
 /**
  * Assert that `root` and everything under it is a regular file or a directory —
@@ -70,15 +72,74 @@ async function assertEntries(dir: string): Promise<void> {
  * target it is expected to resolve to.
  *
  * Pinning the target alongside the path is what lets upstream retargeting the
- * link — repointing it at some other in-component tree without moving or
- * removing it — surface as a build failure too, rather than being silently
- * followed to wherever it now leads.
+ * link — repointing it at some other tree without moving or removing it —
+ * surface as a build failure too, rather than being silently followed to
+ * wherever it now leads.
+ *
+ * The two halves are relative to different roots, each to where it belongs: a
+ * link lives in the component, but may point anywhere in the store's checkout
+ * (ADR-0008). Spring Data's examples reach into the store's own Java sources,
+ * beside the component rather than under it.
  */
 export interface DeclaredSymlink {
   /** Component-root-relative path of the symlink itself. */
   readonly path: string
-  /** Component-root-relative path the link is expected to resolve to. */
+  /**
+   * Checkout-root-relative path the link is expected to resolve to.
+   *
+   * Also added to the era's sparse checkout, so a target is always a path the
+   * era named and fetched from the release tag.
+   */
   readonly target: string
+}
+
+/**
+ * Leading segment of every directory the pipeline itself writes into a checkout.
+ *
+ * `fetch-upstream.ts` checks a template era's parent POM and companion component
+ * out under `.spring-docs-parent` and `.spring-docs-companion`, inside the
+ * store's checkout. Neither is content from the store's tag, so no declared
+ * link may name one — nor `.git`, which holds the checkout's own metadata.
+ */
+const PIPELINE_DIRECTORY_PREFIX = '.spring-docs-'
+
+/**
+ * Refuse a declaration whose path or target is not a plain relative path, or
+ * whose target names a directory the pipeline rather than the tag put there.
+ *
+ * Pure, so `resolveUpstream` can run it for every declared link and a bad
+ * declaration fails when it is resolved rather than when a build reaches it.
+ * {@link materializeDeclaredSymlinks} runs it again, because it is exported and
+ * a caller could hand it a declaration that never passed through an era.
+ *
+ * Spelled segment by segment rather than normalized and compared: a `..` is what
+ * would let a declaration climb out of its root, and `.` or an empty segment is
+ * a second spelling of a path the reviewer should only ever see one way.
+ *
+ * @throws naming the declaration and what is wrong with it.
+ */
+export function assertDeclaredSymlink({ path, target }: DeclaredSymlink): void {
+  assertPlainRelative('path', path, path, target)
+  assertPlainRelative('target', target, path, target)
+  const [first = ''] = target.split('/')
+  if (first === '.git' || first.startsWith(PIPELINE_DIRECTORY_PREFIX)) {
+    throw new Error(
+      `Declared symlink ${path} → ${target} targets ${first}/, which holds the `
+      + `pipeline's own checkout state rather than content from the release tag`,
+    )
+  }
+}
+
+/** One half of {@link assertDeclaredSymlink}: relative, non-empty, normalized. */
+function assertPlainRelative(half: 'path' | 'target', value: string, path: string, target: string): void {
+  if (value === '' || isAbsolute(value))
+    throw new Error(`Declared symlink ${path} → ${target} has a ${half} that is not relative`)
+  if (value.split('/').some(segment => segment === '' || segment === '.' || segment === '..')) {
+    throw new Error(
+      `Declared symlink ${path} → ${target} has a ${half} that is not normalized: `
+      + `it must carry no empty, '.' or '..' segment`,
+    )
+  }
 }
 
 /**
@@ -88,60 +149,84 @@ export interface DeclaredSymlink {
  * Spring Framework's component reaches its `example$` tree this way:
  * `framework-docs/modules/ROOT/examples/docs-src` is a mode 120000 blob holding
  * `../../../src`, and a sparse checkout materializes it as a real symlink. The
- * tree it names is inside the checkout, so nothing has to be downloaded — but
- * `git add -A` in `initContentSource` would otherwise store the link itself,
- * and Antora would classify a component whose examples resolve outside it.
+ * Spring Data stores of ADR-0008 do the same from `src/main/antora` into their
+ * Java test sources. The tree each names is inside the checkout, so nothing has
+ * to be downloaded — but `git add -A` in `initContentSource` would otherwise
+ * store the link itself, and Antora would classify a component whose examples
+ * resolve outside it.
  *
  * Each link is named by the era rather than discovered, which is the whole
  * point: an undeclared link keeps failing the copy guard. Upstream adding,
  * moving or retargeting one is then a build failure a person reviews, not a
  * tree that silently absorbs whatever the link happened to point at.
  *
- * @param componentRoot the checked-out component root, which also bounds where
- * a link may point.
- * @param declared paths and expected targets, both component-root-relative;
- * each path must be a symlink resolving to its paired target inside
- * `componentRoot`.
- * @throws if a declared path is absent, is not a symlink, is broken, escapes
- * the component, resolves to somewhere other than its declared target,
- * contains the link itself, or names a tree that carries a symlink of its own.
+ * The bound is the checkout, not the component: pinning each link to one
+ * target is what does the work, and the bound only has to keep a link from
+ * reaching the runner beyond the tag that was fetched.
+ *
+ * @param checkoutRoot the store's checkout, which bounds where a link may
+ * point and which every target is relative to.
+ * @param componentPath checkout-relative path of the component root, which
+ * every declared path is relative to.
+ * @param declared component-root-relative paths, each paired with the
+ * checkout-root-relative target it must resolve to.
+ * @throws if a declaration is malformed ({@link assertDeclaredSymlink}), or a
+ * declared path is absent, is not a symlink, is broken, escapes the checkout,
+ * resolves to somewhere other than its declared target, contains the link
+ * itself, or names a tree that carries a symlink of its own.
  */
 export async function materializeDeclaredSymlinks(
-  componentRoot: string,
+  checkoutRoot: string,
+  componentPath: string,
   declared: readonly DeclaredSymlink[],
 ): Promise<void> {
-  const realRoot = await realpath(componentRoot)
+  for (const symlink of declared)
+    assertDeclaredSymlink(symlink)
 
-  for (const { path: relative, target: expectedTarget } of declared) {
-    const link = join(componentRoot, relative)
+  const realRoot = await realpath(checkoutRoot)
+  const componentRoot = join(checkoutRoot, componentPath)
+
+  for (const { path: relativePath, target: expectedTarget } of declared) {
+    const link = join(componentRoot, relativePath)
 
     const stats = await lstat(link).catch(() => undefined)
     if (stats === undefined)
-      throw new Error(`Declared symlink is absent from the component: ${relative}`)
+      throw new Error(`Declared symlink is absent from the component: ${relativePath}`)
     if (!stats.isSymbolicLink()) {
       throw new Error(
-        `Declared symlink is not a symlink: ${relative}. Upstream changed the `
+        `Declared symlink is not a symlink: ${relativePath}. Upstream changed the `
         + `component layout, so the declaration no longer describes it.`,
       )
     }
 
     const target = await realpath(link).catch(() => undefined)
     if (target === undefined)
-      throw new Error(`Declared symlink is broken: ${relative}`)
+      throw new Error(`Declared symlink is broken: ${relativePath}`)
     if (target !== realRoot && !target.startsWith(realRoot + sep)) {
       throw new Error(
-        `Refusing to follow a symlink out of the component: ${relative} → ${target}`,
+        `Refusing to follow a symlink out of the checkout: ${relativePath} → ${target}`,
       )
     }
 
     // Resolved, not compared as text: the declared target is a path inside the
-    // component, and an absent one cannot be what the link resolves to — so it
+    // checkout, and an absent one cannot be what the link resolves to — so it
     // falls into the same mismatch rather than escaping as a raw ENOENT.
     const expected = await realpath(join(realRoot, expectedTarget)).catch(() => undefined)
     if (target !== expected) {
       throw new Error(
-        `Declared symlink was retargeted: ${relative} was expected to resolve to `
+        `Declared symlink was retargeted: ${relativePath} was expected to resolve to `
         + `${expectedTarget} but resolves to ${target}`,
+      )
+    }
+
+    // The declaration was checked as text, but a directory on the way to the
+    // target could itself be a link into `.git` or a pipeline checkout. The
+    // resolved path is what the copy reads, so it has to pass the same rule.
+    const [resolvedFirst = ''] = relative(realRoot, target).split(sep)
+    if (resolvedFirst === '.git' || resolvedFirst.startsWith(PIPELINE_DIRECTORY_PREFIX)) {
+      throw new Error(
+        `Refusing to follow a symlink into the pipeline's own checkout state: `
+        + `${relativePath} → ${target}`,
       )
     }
 
@@ -149,7 +234,7 @@ export async function materializeDeclaredSymlinks(
     // forever. `cp` would either exhaust the disk or throw far from the cause.
     const parent = await realpath(dirname(link))
     if (parent === target || parent.startsWith(target + sep))
-      throw new Error(`Refusing to follow a symlink that contains itself: ${relative}`)
+      throw new Error(`Refusing to follow a symlink that contains itself: ${relativePath}`)
 
     // The copy below dereferences, so it would follow a symlink *nested* in the
     // target and land its content as an ordinary file — which the check on the
