@@ -11,3 +11,4 @@
 | [0005](./0005-supersession-on-the-publish-path.md) | Classify a Superseded Tag as `complete` Whether or Not It Was Published | 2026-09-16 | Accepted |
 | [0006](./0006-synthesize-4-0-x-component.md) | Reconstruct the Generated Component for Spring Boot 4.0.0-4.0.7 | 2026-09-17 | Accepted |
 | [0007](./0007-spring-data-template-era.md) | Fill Spring Data's Descriptor from Its Maven Template, and Build Commons Beside It | 2026-09-23 | Accepted |
+| [0008](./0008-checkout-bounded-declared-symlinks.md) | Bound a Declared Symlink by the Store's Checkout, Not by Its Component | 2026-09-25 | Proposed |
