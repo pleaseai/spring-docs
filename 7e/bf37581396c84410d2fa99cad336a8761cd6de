@@ -1,0 +1,19 @@
+scripts/package-release.ts
+  s_ec20819930c862::t_432f457f9d68f6 106,108-117,128,133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "7ebf37581396c84410d2fa99cad336a8761cd6de",
+  "prompts": {},
+  "sessions": {
+    "s_ec20819930c862": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a99d6074-b2e4-47da-81a8-eae7fdd3f53c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
