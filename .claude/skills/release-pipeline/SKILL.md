@@ -13,9 +13,9 @@ before answering "is X supported" — they answer different questions.
 
 | | |
 |---|---|
-| Projects | `ai`, `boot`, `data-jpa`, `framework`, `security` |
+| Projects | `ai`, `boot`, `data-cassandra`, `data-couchbase`, `data-elasticsearch`, `data-jpa`, `data-keyvalue`, `data-ldap`, `framework`, `security` |
 | Version format | GA `major.minor.patch` only — M/RC/SNAPSHOT are rejected by `isGaVersion` |
-| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras); `data-jpa` → `>= 3.2.0` (template) |
+| Buildable ranges | `ai` → `>= 1.0.0` (overlay); `boot` → `3.3.0`–`<4.0.0` and `4.0.0`–`<4.0.8` (both synthesized, different paths) and `>= 4.0.8` (archive); `framework` → `>= 6.1.0` (overlay); `security` → `>= 6.2.0` (overlay, two eras); `data-jpa`, `data-keyvalue`, `data-ldap` → `>= 3.2.0`; `data-cassandra` → `>= 4.2.0`; `data-couchbase`, `data-elasticsearch` → `>= 5.2.0` (all template) |
 | Published | check `catalog.json`; an empty `projects` object means nothing has shipped yet |
 
 A project is a sequence of **layout eras** (`LayoutEra`, ADR-0004), not a single floor. An era
@@ -31,7 +31,7 @@ without the other yields a tree that classifies but converts wrongly:
 | `security` `6.2.0` – `<6.5.1` | `docs` | `overlay` | the committed `antora.yml`, topped up with attributes derived from `gradle/libs.versions.toml` and `gradle.properties` | no |
 | `security` `>= 6.5.1` | `docs` | `overlay` | the same, plus the `modules/ROOT/examples/docs-src` symlink that era added | no |
 | `ai` `>= 1.0.0` | `spring-ai-docs/src/main/antora` | `overlay` | the committed `antora.yml` unchanged — its build contributes no attribute at all | no |
-| `data-jpa` `>= 3.2.0` | `src/main/antora` | `template` | the Maven resources template, filtered through the store's `pom.xml` and the `spring-data-build` parent POM at the tag `<parent>` names; plus `spring-data-commons` at the tag `springdata.commons` names, written under `_companion/` as a second component (ADR-0007) | no — three git tags |
+| `data-*` stores, from each store's 2023.1 version | `src/main/antora` | `template` | the Maven resources template, filtered through the store's `pom.xml` and the `spring-data-build` parent POM at the tag `<parent>` names; plus `spring-data-commons` at the tag `springdata.commons` names, written under `_companion/` as a second component (ADR-0007) | no — three git tags |
 
 `overlay` is the cheapest to add and the one to reach for first on a new project: check what
 that project's `generateAntoraResources` actually produces. Spring Framework's is one
@@ -47,8 +47,11 @@ rather than publishing `${…}`. `${current.year}` is the tag commit's UTC year,
 so a rebuild reproduces the archive. The corpus also reads a second component through
 `include::{commons}@data-commons::page$…[]`: the fetch checks it out at the version the POM pins,
 and `convert.ts` adds `_companion` as a second start path but emits only the root component's
-pages. Adding another store should be one `PROJECTS` entry reusing the same `TemplateSources`
-shape — confirm its template path, `<parent>` and `springdata.commons` first.
+pages. A store is one `springDataStore('<repo suffix>', '<since>')` line in `PROJECTS`. Before
+adding one, confirm its template path, `<parent>` and `springdata.commons`. Also confirm the
+store has no mode 120000 blob under `src/main/antora`. MongoDB, Neo4j, Redis, Relational and REST
+link `examples/` out to their test sources, which the copy guard refuses, so they are not in
+`PROJECTS` yet.
 
 Eras need not be contiguous, and `eraFor` returns `undefined` below the oldest floor:
 

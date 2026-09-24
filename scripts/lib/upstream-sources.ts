@@ -39,9 +39,6 @@ const SPRING_SECURITY_RAW = 'https://raw.githubusercontent.com/spring-projects/s
 /** Spring AI sources served straight from a release tag. */
 const SPRING_AI_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-ai'
 
-/** Spring Data JPA sources served straight from a release tag. */
-const SPRING_DATA_JPA_RAW = 'https://raw.githubusercontent.com/spring-projects/spring-data-jpa'
-
 /**
  * Directory, relative to the content source root, holding a template era's
  * companion component.
@@ -550,6 +547,67 @@ function requiredSource(sources: Readonly<Record<string, string>>, path: string)
   return contents
 }
 
+/**
+ * A Spring Data store: one template era from `since` on, with no ceiling (ADR-0007).
+ *
+ * Every store shares the shape the era reads — the stub and the Maven-filtered
+ * template under `src/main/antora`, a root `pom.xml` inheriting
+ * `spring-data-parent`, and a `springdata.commons` property naming the Commons
+ * release its pages include. A store's own version need not match that
+ * release (Cassandra 5.1.1 pins Commons 4.1.1), which is why the companion is
+ * checked out at the property rather than at the store's version.
+ *
+ * No Maven coordinates: the era reads git tags only. Spring Data publishes no
+ * Antora content archive, and the `spring-data-commons` documentation the pages
+ * include is a component in a second repository, not an artifact. No `xref:`
+ * names another component: the one cross-component form is
+ * `include::{commons}@data-commons::page$…[]`, and that component is built
+ * alongside (`companion`) rather than linked to.
+ */
+function springDataStore(store: string, since: string): ProjectDefinition {
+  const raw = `https://raw.githubusercontent.com/spring-projects/spring-data-${store}`
+  return {
+    repo: `spring-projects/spring-data-${store}`,
+    externalComponentsFor: () => ({}),
+    // Every tag from `since` on is the bare version.
+    tagPrefix: '',
+    eras: [
+      {
+        since,
+        componentPath: 'src/main/antora',
+        assembly: {
+          descriptor: 'template',
+          template: {
+            templatePath: 'src/main/antora/resources/antora-resources/antora.yml',
+            pomPath: 'pom.xml',
+            parent: {
+              repo: 'spring-projects/spring-data-build',
+              tagPrefix: '',
+              coordinates: 'org.springframework.data.build:spring-data-parent',
+              pomPath: 'parent/pom.xml',
+            },
+            companion: {
+              repo: 'spring-projects/spring-data-commons',
+              tagPrefix: '',
+              componentPath: 'src/main/antora',
+              versionProperty: 'springdata.commons',
+            },
+          },
+        },
+      },
+    ],
+    // Retargets `javadoc:` macros. `docs/<version>/api` is the one
+    // exact-version javadoc root, but not every patch reaches it: for JPA it
+    // answers 200 for 3.2.0, 3.5.13, 4.0.6 and 4.1.0 and 404 for 4.0.7 and
+    // 4.1.1 (probed 2026-09-23). The alternative, `reference/<minor>/api/java`,
+    // is pinned to a minor only and 404s for 3.2-3.4 outright.
+    javadocLocationFor: version => `https://docs.spring.io/spring-data/${store}/docs/${version}/api`,
+    // The release tag rather than the reference site, for the same
+    // patch-to-minor collapse as the other projects.
+    imageBaseFor: version => `${raw}/${version}/src/main/antora/modules/ROOT/assets/images`,
+  }
+}
+
 const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
   'ai': {
     repo: 'spring-projects/spring-ai',
@@ -714,63 +772,18 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
     imageBaseFor: version => `${SPRING_BOOT_DOCS}/${version}/_images`,
   },
 
-  'data-jpa': {
-    repo: 'spring-projects/spring-data-jpa',
-    // No Maven coordinates: the one era reads git tags only. Spring Data publishes
-    // no Antora content archive, and the `spring-data-commons` documentation the
-    // pages include is a component in a second repository, not an artifact.
-    //
-    // No `xref:` names another component: the one cross-component reference form
-    // in the corpus is `include::{commons}@data-commons::page$…[]`, and that
-    // component is built alongside (`companion` below) rather than linked to.
-    externalComponentsFor: () => ({}),
-    // Tags are the bare version from 2.4.0 on; older ones carry `.RELEASE`.
-    tagPrefix: '',
-    eras: [
-      {
-        // 3.2.0 is where `src/main/antora` first appears; 3.1.x ships none.
-        // Measured at every GA tag from 3.2.0 to 4.1.1: the component path, the
-        // template path and the `spring-data-parent` parent are identical, the
-        // POM pins `springdata.commons` to the same version as the store, and
-        // no mode 120000 blob exists under the component. The collector command
-        // changed twice across that range (`-Pdistribute` from 3.5, a single
-        // `dependency:unpack` run in 4.1), but only its javadoc and packaging
-        // steps moved — the template filter this era reproduces did not.
-        since: '3.2.0',
-        componentPath: 'src/main/antora',
-        assembly: {
-          descriptor: 'template',
-          template: {
-            templatePath: 'src/main/antora/resources/antora-resources/antora.yml',
-            pomPath: 'pom.xml',
-            parent: {
-              repo: 'spring-projects/spring-data-build',
-              tagPrefix: '',
-              coordinates: 'org.springframework.data.build:spring-data-parent',
-              pomPath: 'parent/pom.xml',
-            },
-            companion: {
-              repo: 'spring-projects/spring-data-commons',
-              tagPrefix: '',
-              componentPath: 'src/main/antora',
-              versionProperty: 'springdata.commons',
-            },
-          },
-        },
-      },
-    ],
-    // Retargets `javadoc:` macros — three at 3.5.6. `docs/<version>/api` is the
-    // one exact-version javadoc root, but not every patch reaches it: it answers
-    // 200 for 3.2.0, 3.5.13, 4.0.6 and 4.1.0 and 404 for 4.0.7 and 4.1.1
-    // (probed 2026-09-23). The alternative, `reference/<minor>/api/java`, is
-    // pinned to a minor only and 404s for 3.2-3.4 outright.
-    javadocLocationFor: version => `https://docs.spring.io/spring-data/jpa/docs/${version}/api`,
-    // Neither this component nor `data-commons` ships an image at 3.2.0, 3.5.6 or
-    // 4.1.1, so this is never read today. The release tag rather than the
-    // reference site, for the same patch-to-minor collapse as the other projects.
-    imageBaseFor: version =>
-      `${SPRING_DATA_JPA_RAW}/${version}/src/main/antora/modules/ROOT/assets/images`,
-  },
+  // Spring Data stores (ADR-0007). `since` is each store's version in the
+  // 2023.1 release train, where `src/main/antora` first appears: the minor
+  // line before it has no `antora.yml`, probed for every store on 2026-09-24.
+  // MongoDB, Neo4j, Redis, Relational and REST are not here yet: their
+  // `examples/` directories are symlinks out of the component into the
+  // store's own test sources, which the copy guard refuses.
+  'data-cassandra': springDataStore('cassandra', '4.2.0'),
+  'data-couchbase': springDataStore('couchbase', '5.2.0'),
+  'data-elasticsearch': springDataStore('elasticsearch', '5.2.0'),
+  'data-jpa': springDataStore('jpa', '3.2.0'),
+  'data-keyvalue': springDataStore('keyvalue', '3.2.0'),
+  'data-ldap': springDataStore('ldap', '3.2.0'),
 
   'framework': {
     repo: 'spring-projects/spring-framework',
