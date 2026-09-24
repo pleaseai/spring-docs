@@ -1,0 +1,38 @@
+---
+title: "Extensions"
+source: "ROOT:kotlin/extensions.adoc"
+---
+
+<a id="kotlin.extensions"></a>
+
+# Extensions
+
+Kotlin [extensions](https://kotlinlang.org/docs/reference/extensions.html) provide the ability to extend existing classes with additional functionality. Spring Data Kotlin APIs use these extensions to add new Kotlin-specific conveniences to existing Spring APIs.
+
+> [!NOTE]
+> Keep in mind that Kotlin extensions need to be imported to be used.
+> Similar to static imports, an IDE should automatically suggest the import in most cases.
+
+For example, [Kotlin reified type parameters](https://kotlinlang.org/docs/reference/inline-functions.html#reified-type-parameters) provide a workaround for JVM [generics type erasure](https://docs.oracle.com/javase/tutorial/java/generics/erasure.html), and Spring Data provides some extensions to take advantage of this feature.
+This allows for a better Kotlin API.
+
+To retrieve a list of `SWCharacter` objects in Java, you would normally write the following:
+
+```java
+Flux<SWCharacter> characters = template.query(SWCharacter.class).inTable("star-wars").all()
+```
+
+With Kotlin and the Spring Data extensions, you can instead write the following:
+
+```kotlin
+val characters = template.query<SWCharacter>().inTable("star-wars").all()
+// or (both are equivalent)
+val characters : Flux<SWCharacter> = template.query().inTable("star-wars").all()
+```
+
+As in Java, `characters` in Kotlin is strongly typed, but Kotlin’s clever type inference allows for shorter syntax.
+
+Spring Data for Apache Cassandra provides the following extensions:
+
+- Reified generics support for `CassandraOperations` (including async and reactive variants), `CqlOperations` (including async and reactive variants)`FluentCassandraOperations`, `ReactiveFluentCassandraOperations`, `Criteria`, and `Query`.
+- [\[kotlin.coroutines\]](#kotlin.coroutines) extensions for `ReactiveFluentCassandraOperations`.
