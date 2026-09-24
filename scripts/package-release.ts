@@ -103,11 +103,18 @@ async function run(cmd: readonly string[], cwd: string): Promise<string> {
  * relays every byte through the JS event loop, and that relay intermittently
  * died with `EPIPE` or stalled until the release job's timeout killed it
  * (#351). With a file between them, each process reads and writes the file
- * system itself. `gzip -n` stores neither a name nor an mtime whether it reads
- * a file or stdin, so the archive bytes are the same as the pipe produced.
+ * system itself, and the archive bytes stay what the pipe produced:
  *
- * `run` checks each exit code, so a tar failure still fails the run; the
- * intermediate files are removed whichever step fails.
+ * - `-b 20` pins tar's record size. GNU tar pads the last record to it
+ *   whatever the destination, but bsdtar skips that padding when `-f` names a
+ *   regular file, and would otherwise end the archive earlier than it did on a
+ *   pipe. 20 is both implementations' default, so nothing else moves.
+ * - `gzip -n` stores neither a name nor an mtime, whether it reads a file or
+ *   stdin.
+ *
+ * `run` checks each exit code, so a tar failure still fails the run. The
+ * intermediate files are removed whichever step fails, and a failure to remove
+ * them never replaces the error that got there first.
  */
 export async function packArchive(
   tar: TarFlavor,
@@ -118,13 +125,12 @@ export async function packArchive(
 ): Promise<void> {
   const tarPath = `${archivePath}.tar`
   try {
-    await run([tar.command, ...tar.flags, '-cf', tarPath, '-C', parentDir, '-T', fileList], cwd)
+    await run([tar.command, ...tar.flags, '-b', '20', '-cf', tarPath, '-C', parentDir, '-T', fileList], cwd)
     await run(['gzip', '-n', '-9', '-f', tarPath], cwd)
     await rename(`${tarPath}.gz`, archivePath)
   }
   finally {
-    await rm(tarPath, { force: true })
-    await rm(`${tarPath}.gz`, { force: true })
+    await Promise.all([tarPath, `${tarPath}.gz`].map(path => rm(path, { force: true }).catch(() => {})))
   }
 }
 
