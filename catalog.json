@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-24T02:56:45.293Z",
+  "generated_at": "2026-09-24T15:43:55.343Z",
   "projects": {
     "ai": {
       "1.0.0": {
@@ -309,6 +309,12 @@
       "4.1.1": {
         "tag": "boot-4.1.1+rebuild.1",
         "released_at": "2026-09-16T08:58:53Z"
+      }
+    },
+    "data-couchbase": {
+      "5.4.5": {
+        "tag": "data-couchbase-5.4.5",
+        "released_at": "2026-09-24T15:43:54Z"
       }
     },
     "data-jpa": {
