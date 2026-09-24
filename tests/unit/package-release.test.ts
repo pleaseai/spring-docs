@@ -1,6 +1,9 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
-import { insertSorted, parseArgs, requiredString, textChecksum } from '../../scripts/package-release.ts'
+import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { insertSorted, packArchive, parseArgs, requiredString, textChecksum } from '../../scripts/package-release.ts'
 
 describe('parseArgs', () => {
   test('parses the source positional and --out', () => {
@@ -87,5 +90,58 @@ describe('textChecksum', () => {
 
   test('differs for different text', async () => {
     expect(await textChecksum('a')).not.toBe(await textChecksum('b'))
+  })
+})
+
+describe('packArchive', () => {
+  // The system tar with no reproducibility flags: these tests check the
+  // two-step packing, not the archive bytes, which the pipeline test pins.
+  const tar = { command: 'tar', flags: [] }
+  let work: string
+
+  beforeEach(async () => {
+    work = await mkdtemp(join(tmpdir(), 'pack-archive-'))
+    await mkdir(join(work, 'tree', 'r-1.0.0'), { recursive: true })
+    await writeFile(join(work, 'tree', 'r-1.0.0', 'a.md'), 'a\n')
+    await mkdir(join(work, 'out'))
+  })
+
+  afterEach(async () => {
+    await rm(work, { recursive: true, force: true })
+  })
+
+  test('leaves only the archive, holding every listed entry', async () => {
+    const list = join(work, 'files')
+    await writeFile(list, 'r-1.0.0/a.md\n')
+
+    await packArchive(tar, work, join(work, 'tree'), list, join(work, 'out', 'r-1.0.0.tar.gz'))
+
+    expect(await readdir(join(work, 'out'))).toEqual(['r-1.0.0.tar.gz'])
+    const listed = Bun.spawnSync(['tar', '-tzf', join(work, 'out', 'r-1.0.0.tar.gz')])
+    expect(listed.stdout.toString().trim()).toBe('r-1.0.0/a.md')
+  })
+
+  test('fails on a tar failure and leaves nothing behind', async () => {
+    const list = join(work, 'files')
+    await writeFile(list, 'r-1.0.0/missing.md\n')
+
+    await expect(packArchive(tar, work, join(work, 'tree'), list, join(work, 'out', 'r-1.0.0.tar.gz')))
+      .rejects
+      .toThrow(/missing\.md/)
+    expect(await readdir(join(work, 'out'))).toEqual([])
+  })
+
+  test('fails on a gzip failure with gzip\'s error, and removes the tar it left', async () => {
+    const list = join(work, 'files')
+    await writeFile(list, 'r-1.0.0/a.md\n')
+    // A directory where gzip writes its output makes gzip fail after tar has
+    // succeeded. Removing it fails too, which must not hide gzip's error.
+    const blocked = join(work, 'out', 'r-1.0.0.tar.gz.tar.gz')
+    await mkdir(blocked)
+
+    await expect(packArchive(tar, work, join(work, 'tree'), list, join(work, 'out', 'r-1.0.0.tar.gz')))
+      .rejects
+      .toThrow(/^gzip .* failed/)
+    expect(await readdir(join(work, 'out'))).toEqual(['r-1.0.0.tar.gz.tar.gz'])
   })
 })
