@@ -1,0 +1,37 @@
+---
+title: "Frequently Asked Questions"
+source: "ROOT:jpa/faq.adoc"
+---
+
+<a id="faq"></a>
+
+# Frequently Asked Questions
+
+<a id="faq.common"></a>
+
+## Common
+
+**I’d like to get more detailed logging information on what methods are called inside `JpaRepository` for example. How can I gain them? **
+
+You can make use of `CustomizableTraceInterceptor` provided by Spring, as shown in the following example:
+
+```xml
+<bean id="customizableTraceInterceptor" class="
+  org.springframework.aop.interceptor.CustomizableTraceInterceptor">
+  <property name="enterMessage" value="Entering $[methodName]($[arguments])"/>
+  <property name="exitMessage" value="Leaving $[methodName](): $[returnValue]"/>
+</bean>
+
+<aop:config>
+  <aop:advisor advice-ref="customizableTraceInterceptor"
+    pointcut="execution(public * org.springframework.data.jpa.repository.JpaRepository+.*(..))"/>
+</aop:config>
+```
+
+<a id="faq.auditing"></a>
+
+## Auditing
+
+**I want to use Spring Data JPA auditing capabilities but have my database already configured to set modification and creation date on entities. How can I prevent Spring Data from setting the date programmatically? **
+
+Set the `set-dates` attribute of the `auditing` namespace element to `false`.
