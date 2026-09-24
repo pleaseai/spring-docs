@@ -354,7 +354,7 @@ Spring Security 6.4 introduces a new implementation based on `RestClient`, which
 > This section focuses on `RestClientAuthorizationCodeTokenResponseClient`.
 > You can read about [`DefaultAuthorizationCodeTokenResponseClient`](https://docs.spring.io/spring-security/reference/6.3/servlet/oauth2/client/authorization-grants.html#_requesting_an_access_token) in the Spring Security 6.3 documentation.
 
-To opt-in to using `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
+To opt-in to using `RestClientAuthorizationCodeTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-authorization-code-access-token-response-client-bean"></a>
 
@@ -362,8 +362,8 @@ To opt-in to using `{class-name}`, simply provide a bean as in the following exa
 
 ```java
 @Bean
-public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	return new {class-name}();
+public OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
+	return new RestClientAuthorizationCodeTokenResponseClient();
 }
 ```
 
@@ -371,28 +371,28 @@ public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClien
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<{grant-type}> {
-	return {class-name}()
+fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<Authorization Code> {
+	return RestClientAuthorizationCodeTokenResponseClient()
 }
 ```
 
 > [!NOTE]
 > The new implementation will be the default in Spring Security 7.
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`RestClientAuthorizationCodeTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Authorization Code grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize the instance of `RestClient` that is used](#oauth2-client-{section-id}-access-token-response-rest-client)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize error handling of the Access Token response](#oauth2-client-{section-id}-access-token-response-errors)
+- I want to [customize headers of the Access Token request](#oauth2-client-authorization-code-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-authorization-code-access-token-request-parameters)
+- I want to [customize the instance of `RestClient` that is used](#oauth2-client-authorization-code-access-token-response-rest-client)
+- I want to [customize parameters of the Access Token response](#oauth2-client-authorization-code-access-token-response-parameters)
+- I want to [customize error handling of the Access Token response](#oauth2-client-authorization-code-access-token-response-errors)
 
 <a id="oauth2-client-authorization-code-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
+`RestClientAuthorizationCodeTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
 
 <a id="oauth2-client-authorization-code-access-token-request-headers"></a>
 
@@ -409,8 +409,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new RestClientAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -424,7 +424,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -445,8 +445,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new RestClientAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -456,7 +456,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -480,8 +480,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new RestClientAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -495,7 +495,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -512,8 +512,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new RestClientAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -527,14 +527,14 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<{grant-request}>()
+val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<OAuth2AuthorizationCodeGrantRequest>()
 parametersConverter.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
 	}
 }
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -551,8 +551,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new RestClientAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -563,7 +563,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -575,7 +575,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
+`RestClientAuthorizationCodeTokenResponseClient` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-authorization-code-access-token-response-rest-client"></a>
 
@@ -596,8 +596,8 @@ RestClient restClient = RestClient.builder()
 	.defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientAuthorizationCodeTokenResponseClient accessTokenResponseClient =
+	new RestClientAuthorizationCodeTokenResponseClient();
 accessTokenResponseClient.setRestClient(restClient);
 ```
 
@@ -613,7 +613,7 @@ val restClient = RestClient.builder()
 	.defaultStatusHandler(OAuth2ErrorResponseErrorHandler())
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientAuthorizationCodeTokenResponseClient()
 accessTokenResponseClient.setRestClient(restClient)
 ```
 
@@ -697,7 +697,7 @@ errorHandler.setErrorConverter(errorConverter)
 
 ### Customize using the DSL
 
-Whether you customize `{class-name}` or provide your own implementation of `OAuth2AccessTokenResponseClient`, you can configure it using the DSL (as an alternative to [publishing a bean](#oauth2-client-authorization-code-access-token-response-client-bean)) as follows:
+Whether you customize `RestClientAuthorizationCodeTokenResponseClient` or provide your own implementation of `OAuth2AccessTokenResponseClient`, you can configure it using the DSL (as an alternative to [publishing a bean](#oauth2-client-authorization-code-access-token-response-client-bean)) as follows:
 
 #### Java
 
@@ -777,7 +777,7 @@ Spring Security 6.4 introduces a new implementation based on `RestClient`, which
 > This section focuses on `RestClientRefreshTokenTokenResponseClient`.
 > You can read about [`DefaultRefreshTokenTokenResponseClient`](https://docs.spring.io/spring-security/reference/6.3/servlet/oauth2/client/authorization-grants.html#_refreshing_an_access_token) in the Spring Security 6.3 documentation.
 
-To opt-in to using `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
+To opt-in to using `RestClientRefreshTokenTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-refresh-token-access-token-response-client-bean"></a>
 
@@ -785,8 +785,8 @@ To opt-in to using `{class-name}`, simply provide a bean as in the following exa
 
 ```java
 @Bean
-public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	return new {class-name}();
+public OAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> accessTokenResponseClient() {
+	return new RestClientRefreshTokenTokenResponseClient();
 }
 ```
 
@@ -794,28 +794,28 @@ public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClien
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<{grant-type}> {
-	return {class-name}()
+fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<Refresh Token> {
+	return RestClientRefreshTokenTokenResponseClient()
 }
 ```
 
 > [!NOTE]
 > The new implementation will be the default in Spring Security 7.
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`RestClientRefreshTokenTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Refresh Token grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize the instance of `RestClient` that is used](#oauth2-client-{section-id}-access-token-response-rest-client)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize error handling of the Access Token response](#oauth2-client-{section-id}-access-token-response-errors)
+- I want to [customize headers of the Access Token request](#oauth2-client-refresh-token-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-refresh-token-access-token-request-parameters)
+- I want to [customize the instance of `RestClient` that is used](#oauth2-client-refresh-token-access-token-response-rest-client)
+- I want to [customize parameters of the Access Token response](#oauth2-client-refresh-token-access-token-response-parameters)
+- I want to [customize error handling of the Access Token response](#oauth2-client-refresh-token-access-token-response-errors)
 
 <a id="oauth2-client-refresh-token-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
+`RestClientRefreshTokenTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
 
 <a id="oauth2-client-refresh-token-access-token-request-headers"></a>
 
@@ -832,8 +832,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new RestClientRefreshTokenTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -847,7 +847,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientRefreshTokenTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -868,8 +868,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new RestClientRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -879,7 +879,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -903,8 +903,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new RestClientRefreshTokenTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -918,7 +918,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientRefreshTokenTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -935,8 +935,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new RestClientRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -950,14 +950,14 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<{grant-request}>()
+val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<OAuth2RefreshTokenGrantRequest>()
 parametersConverter.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
 	}
 }
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -974,8 +974,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new RestClientRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -986,7 +986,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -998,7 +998,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
+`RestClientRefreshTokenTokenResponseClient` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-refresh-token-access-token-response-rest-client"></a>
 
@@ -1019,8 +1019,8 @@ RestClient restClient = RestClient.builder()
 	.defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientRefreshTokenTokenResponseClient accessTokenResponseClient =
+	new RestClientRefreshTokenTokenResponseClient();
 accessTokenResponseClient.setRestClient(restClient);
 ```
 
@@ -1036,7 +1036,7 @@ val restClient = RestClient.builder()
 	.defaultStatusHandler(OAuth2ErrorResponseErrorHandler())
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientRefreshTokenTokenResponseClient()
 accessTokenResponseClient.setRestClient(restClient)
 ```
 
@@ -1188,7 +1188,7 @@ Spring Security 6.4 introduces a new implementation based on `RestClient`, which
 > This section focuses on `RestClientClientCredentialsTokenResponseClient`.
 > You can read about [`DefaultClientCredentialsTokenResponseClient`](https://docs.spring.io/spring-security/reference/6.3/servlet/oauth2/client/authorization-grants.html#_requesting_an_access_token_2) in the Spring Security 6.3 documentation.
 
-To opt-in to using `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
+To opt-in to using `RestClientClientCredentialsTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-client-credentials-access-token-response-client-bean"></a>
 
@@ -1196,8 +1196,8 @@ To opt-in to using `{class-name}`, simply provide a bean as in the following exa
 
 ```java
 @Bean
-public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	return new {class-name}();
+public OAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> accessTokenResponseClient() {
+	return new RestClientClientCredentialsTokenResponseClient();
 }
 ```
 
@@ -1205,28 +1205,28 @@ public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClien
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<{grant-type}> {
-	return {class-name}()
+fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<Client Credentials> {
+	return RestClientClientCredentialsTokenResponseClient()
 }
 ```
 
 > [!NOTE]
 > The new implementation will be the default in Spring Security 7.
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`RestClientClientCredentialsTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Client Credentials grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize the instance of `RestClient` that is used](#oauth2-client-{section-id}-access-token-response-rest-client)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize error handling of the Access Token response](#oauth2-client-{section-id}-access-token-response-errors)
+- I want to [customize headers of the Access Token request](#oauth2-client-client-credentials-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-client-credentials-access-token-request-parameters)
+- I want to [customize the instance of `RestClient` that is used](#oauth2-client-client-credentials-access-token-response-rest-client)
+- I want to [customize parameters of the Access Token response](#oauth2-client-client-credentials-access-token-response-parameters)
+- I want to [customize error handling of the Access Token response](#oauth2-client-client-credentials-access-token-response-errors)
 
 <a id="oauth2-client-client-credentials-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
+`RestClientClientCredentialsTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
 
 <a id="oauth2-client-client-credentials-access-token-request-headers"></a>
 
@@ -1243,8 +1243,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new RestClientClientCredentialsTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -1258,7 +1258,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientClientCredentialsTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -1279,8 +1279,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new RestClientClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -1290,7 +1290,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -1314,8 +1314,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new RestClientClientCredentialsTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -1329,7 +1329,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientClientCredentialsTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -1346,8 +1346,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new RestClientClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -1361,14 +1361,14 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<{grant-request}>()
+val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<OAuth2ClientCredentialsGrantRequest>()
 parametersConverter.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
 	}
 }
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -1385,8 +1385,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new RestClientClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -1397,7 +1397,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -1409,7 +1409,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
+`RestClientClientCredentialsTokenResponseClient` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-client-credentials-access-token-response-rest-client"></a>
 
@@ -1430,8 +1430,8 @@ RestClient restClient = RestClient.builder()
 	.defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientClientCredentialsTokenResponseClient accessTokenResponseClient =
+	new RestClientClientCredentialsTokenResponseClient();
 accessTokenResponseClient.setRestClient(restClient);
 ```
 
@@ -1447,7 +1447,7 @@ val restClient = RestClient.builder()
 	.defaultStatusHandler(OAuth2ErrorResponseErrorHandler())
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientClientCredentialsTokenResponseClient()
 accessTokenResponseClient.setRestClient(restClient)
 ```
 
@@ -2014,7 +2014,7 @@ Spring Security 6.4 introduces a new implementation based on `RestClient`, which
 > This section focuses on `RestClientJwtBearerTokenResponseClient`.
 > You can read about [`DefaultClientCredentialsTokenResponseClient`](https://docs.spring.io/spring-security/reference/6.3/servlet/oauth2/client/authorization-grants.html#_requesting_an_access_token_4) in the Spring Security 6.3 documentation.
 
-To opt-in to using `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
+To opt-in to using `RestClientJwtBearerTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-jwt-bearer-access-token-response-client-bean"></a>
 
@@ -2022,8 +2022,8 @@ To opt-in to using `{class-name}`, simply provide a bean as in the following exa
 
 ```java
 @Bean
-public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	return new {class-name}();
+public OAuth2AccessTokenResponseClient<JwtBearerGrantRequest> accessTokenResponseClient() {
+	return new RestClientJwtBearerTokenResponseClient();
 }
 ```
 
@@ -2031,28 +2031,28 @@ public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClien
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<{grant-type}> {
-	return {class-name}()
+fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<JWT Bearer> {
+	return RestClientJwtBearerTokenResponseClient()
 }
 ```
 
 > [!NOTE]
 > The new implementation will be the default in Spring Security 7.
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`RestClientJwtBearerTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the JWT Bearer grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize the instance of `RestClient` that is used](#oauth2-client-{section-id}-access-token-response-rest-client)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize error handling of the Access Token response](#oauth2-client-{section-id}-access-token-response-errors)
+- I want to [customize headers of the Access Token request](#oauth2-client-jwt-bearer-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-jwt-bearer-access-token-request-parameters)
+- I want to [customize the instance of `RestClient` that is used](#oauth2-client-jwt-bearer-access-token-response-rest-client)
+- I want to [customize parameters of the Access Token response](#oauth2-client-jwt-bearer-access-token-response-parameters)
+- I want to [customize error handling of the Access Token response](#oauth2-client-jwt-bearer-access-token-response-errors)
 
 <a id="oauth2-client-jwt-bearer-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
+`RestClientJwtBearerTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
 
 <a id="oauth2-client-jwt-bearer-access-token-request-headers"></a>
 
@@ -2069,8 +2069,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientJwtBearerTokenResponseClient accessTokenResponseClient =
+	new RestClientJwtBearerTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -2084,7 +2084,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientJwtBearerTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -2105,8 +2105,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientJwtBearerTokenResponseClient accessTokenResponseClient =
+	new RestClientJwtBearerTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -2116,7 +2116,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientJwtBearerTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -2140,8 +2140,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientJwtBearerTokenResponseClient accessTokenResponseClient =
+	new RestClientJwtBearerTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -2155,7 +2155,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientJwtBearerTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2172,8 +2172,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientJwtBearerTokenResponseClient accessTokenResponseClient =
+	new RestClientJwtBearerTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -2187,14 +2187,14 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<{grant-request}>()
+val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<JwtBearerGrantRequest>()
 parametersConverter.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
 	}
 }
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientJwtBearerTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2211,8 +2211,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientJwtBearerTokenResponseClient accessTokenResponseClient =
+	new RestClientJwtBearerTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -2223,7 +2223,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientJwtBearerTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -2235,7 +2235,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
+`RestClientJwtBearerTokenResponseClient` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-jwt-bearer-access-token-response-rest-client"></a>
 
@@ -2256,8 +2256,8 @@ RestClient restClient = RestClient.builder()
 	.defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientJwtBearerTokenResponseClient accessTokenResponseClient =
+	new RestClientJwtBearerTokenResponseClient();
 accessTokenResponseClient.setRestClient(restClient);
 ```
 
@@ -2273,7 +2273,7 @@ val restClient = RestClient.builder()
 	.defaultStatusHandler(OAuth2ErrorResponseErrorHandler())
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientJwtBearerTokenResponseClient()
 accessTokenResponseClient.setRestClient(restClient)
 ```
 
@@ -2542,7 +2542,7 @@ Spring Security 6.4 introduces a new implementation based on `RestClient`, which
 > This section focuses on `RestClientTokenExchangeTokenResponseClient`.
 > You can read about [`DefaultTokenExchangeTokenResponseClient`](https://docs.spring.io/spring-security/reference/6.3/servlet/oauth2/client/authorization-grants.html#_requesting_an_access_token_5) in the Spring Security 6.3 documentation.
 
-To opt-in to using `{class-name}`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
+To opt-in to using `RestClientTokenExchangeTokenResponseClient`, simply provide a bean as in the following example and it will be picked up by the default `OAuth2AuthorizedClientManager` automatically:
 
 <a id="oauth2-client-token-exchange-access-token-response-client-bean"></a>
 
@@ -2550,8 +2550,8 @@ To opt-in to using `{class-name}`, simply provide a bean as in the following exa
 
 ```java
 @Bean
-public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClient() {
-	return new {class-name}();
+public OAuth2AccessTokenResponseClient<TokenExchangeGrantRequest> accessTokenResponseClient() {
+	return new RestClientTokenExchangeTokenResponseClient();
 }
 ```
 
@@ -2559,28 +2559,28 @@ public OAuth2AccessTokenResponseClient<{grant-request}> accessTokenResponseClien
 
 ```kotlin
 @Bean
-fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<{grant-type}> {
-	return {class-name}()
+fun accessTokenResponseClient(): OAuth2AccessTokenResponseClient<Token Exchange> {
+	return RestClientTokenExchangeTokenResponseClient()
 }
 ```
 
 > [!NOTE]
 > The new implementation will be the default in Spring Security 7.
 
-`{class-name}` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the {grant-type} grant.
+`RestClientTokenExchangeTokenResponseClient` is very flexible and provides several options for customizing the OAuth 2.0 Access Token request and response for the Token Exchange grant.
 Choose from the following use cases to learn more:
 
-- I want to [customize headers of the Access Token request](#oauth2-client-{section-id}-access-token-request-headers)
-- I want to [customize parameters of the Access Token request](#oauth2-client-{section-id}-access-token-request-parameters)
-- I want to [customize the instance of `RestClient` that is used](#oauth2-client-{section-id}-access-token-response-rest-client)
-- I want to [customize parameters of the Access Token response](#oauth2-client-{section-id}-access-token-response-parameters)
-- I want to [customize error handling of the Access Token response](#oauth2-client-{section-id}-access-token-response-errors)
+- I want to [customize headers of the Access Token request](#oauth2-client-token-exchange-access-token-request-headers)
+- I want to [customize parameters of the Access Token request](#oauth2-client-token-exchange-access-token-request-parameters)
+- I want to [customize the instance of `RestClient` that is used](#oauth2-client-token-exchange-access-token-response-rest-client)
+- I want to [customize parameters of the Access Token response](#oauth2-client-token-exchange-access-token-response-parameters)
+- I want to [customize error handling of the Access Token response](#oauth2-client-token-exchange-access-token-response-errors)
 
 <a id="oauth2-client-token-exchange-access-token-request"></a>
 
 ### Customizing the Access Token Request
 
-`{class-name}` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
+`RestClientTokenExchangeTokenResponseClient` provides hooks for customizing HTTP headers and request parameters of the OAuth 2.0 Access Token Request.
 
 <a id="oauth2-client-token-exchange-access-token-request-headers"></a>
 
@@ -2597,8 +2597,8 @@ The following example adds a `User-Agent` header to the request when the `regist
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new RestClientTokenExchangeTokenResponseClient();
 accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	HttpHeaders headers = new HttpHeaders();
@@ -2612,7 +2612,7 @@ accessTokenResponseClient.addHeadersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientTokenExchangeTokenResponseClient()
 accessTokenResponseClient.addHeadersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val headers = HttpHeaders()
@@ -2633,8 +2633,8 @@ DefaultOAuth2TokenRequestHeadersConverter headersConverter =
 	new DefaultOAuth2TokenRequestHeadersConverter();
 headersConverter.setEncodeClientCredentials(false);
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new RestClientTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setHeadersConverter(headersConverter);
 ```
 
@@ -2644,7 +2644,7 @@ accessTokenResponseClient.setHeadersConverter(headersConverter);
 val headersConverter = DefaultOAuth2TokenRequestHeadersConverter()
 headersConverter.setEncodeClientCredentials(false)
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setHeadersConverter(headersConverter)
 ```
 
@@ -2668,8 +2668,8 @@ The following example adds an `audience` parameter to the request when the `regi
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new RestClientTokenExchangeTokenResponseClient();
 accessTokenResponseClient.addParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	MultiValueMap<String, String> parameters = new LinkedMultiValueMap<String, String>();
@@ -2683,7 +2683,7 @@ accessTokenResponseClient.addParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientTokenExchangeTokenResponseClient()
 accessTokenResponseClient.addParametersConverter { grantRequest ->
 	val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2700,8 +2700,8 @@ The following example overrides the `client_id` parameter when the `registration
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new RestClientTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setParametersConverter(grantRequest -> {
 	ClientRegistration clientRegistration = grantRequest.getClientRegistration();
 	LinkedMultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
@@ -2715,14 +2715,14 @@ accessTokenResponseClient.setParametersConverter(grantRequest -> {
 #### Kotlin
 
 ```kotlin
-val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<{grant-request}>()
+val parametersConverter = DefaultOAuth2TokenRequestParametersConverter<TokenExchangeGrantRequest>()
 parametersConverter.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
 	}
 }
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setParametersConverter { grantRequest ->
     val clientRegistration = grantRequest.getClientRegistration()
 	val parameters = LinkedMultiValueMap<String, String>()
@@ -2739,8 +2739,8 @@ The following example omits the `client_id` parameter when the `client_assertion
 #### Java
 
 ```java
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new RestClientTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setParametersCustomizer(parameters -> {
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID);
@@ -2751,7 +2751,7 @@ accessTokenResponseClient.setParametersCustomizer(parameters -> {
 #### Kotlin
 
 ```kotlin
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setParametersCustomizer { parameters ->
 	if (parameters.containsKey(OAuth2ParameterNames.CLIENT_ASSERTION)) {
 		parameters.remove(OAuth2ParameterNames.CLIENT_ID)
@@ -2763,7 +2763,7 @@ accessTokenResponseClient.setParametersCustomizer { parameters ->
 
 ### Customizing the Access Token Response
 
-`{class-name}` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
+`RestClientTokenExchangeTokenResponseClient` provides hooks for customizing response parameters and error handling of the OAuth 2.0 Access Token Response.
 
 <a id="oauth2-client-token-exchange-access-token-response-rest-client"></a>
 
@@ -2784,8 +2784,8 @@ RestClient restClient = RestClient.builder()
 	.defaultStatusHandler(new OAuth2ErrorResponseErrorHandler())
 	.build();
 
-{class-name} accessTokenResponseClient =
-	new {class-name}();
+RestClientTokenExchangeTokenResponseClient accessTokenResponseClient =
+	new RestClientTokenExchangeTokenResponseClient();
 accessTokenResponseClient.setRestClient(restClient);
 ```
 
@@ -2801,7 +2801,7 @@ val restClient = RestClient.builder()
 	.defaultStatusHandler(OAuth2ErrorResponseErrorHandler())
 	.build()
 
-val accessTokenResponseClient = {class-name}()
+val accessTokenResponseClient = RestClientTokenExchangeTokenResponseClient()
 accessTokenResponseClient.setRestClient(restClient)
 ```
 
