@@ -1,0 +1,16 @@
+.claude/agent-memory/review-review-ocr-reviewer/MEMORY.md
+  h_9ee0685e8f5c3a 4
+.claude/agent-memory/review-review-ocr-reviewer/tooling_ocr_mise_shim.md
+  h_9ee0685e8f5c3a 1-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.23",
+  "base_commit_sha": "e14c8ed566f399290181de75a2351aa13ca16aba",
+  "prompts": {},
+  "humans": {
+    "h_9ee0685e8f5c3a": {
+      "author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
