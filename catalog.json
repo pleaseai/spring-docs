@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-24T16:19:40.972Z",
+  "generated_at": "2026-09-25T00:21:02.177Z",
   "projects": {
     "ai": {
       "1.0.0": {
@@ -1881,6 +1881,12 @@
       "4.1.1": {
         "tag": "data-ldap-4.1.1",
         "released_at": "2026-09-24T15:53:06Z"
+      }
+    },
+    "data-neo4j": {
+      "7.4.7": {
+        "tag": "data-neo4j-7.4.7",
+        "released_at": "2026-09-25T00:21:01Z"
       }
     },
     "framework": {
