@@ -1,0 +1,53 @@
+---
+title: "Observability"
+source: "ROOT:observability/observability.adoc"
+---
+
+<a id="mongodb.observability"></a>
+
+# Observability
+
+> [!NOTE]
+> MongoDB Java Driver 5.7+ comes with observability directly built in.
+> We recommend switching to the driver native `ObservabilitySettings`, which can be configured as outlined below:
+>
+> ```java
+> @Bean
+> MongoClientSettingsBuilderCustomizer mongoDbObservabilitySettings(ObservationRegistry registry) {
+>     return (clientSettingsBuilder) -> {
+>         clientSettingsBuilder.observabilitySettings(ObservabilitySettings.micrometerBuilder()
+>                 .observationRegistry(observationRegistry)
+>                 .build());
+>     };
+> }
+> ```
+>
+> In the light of driver native observability support, the types within the Spring Data provided *org.springframework.data.mongodb.observability* package will not see further development and are subject to deprecation/removal in subsequent releases.
+
+To use Spring Data MongoDB’s flavor of Observability you must:
+
+1. opt into Spring Data MongoDB’s configuration settings by customizing `MongoClientSettings` through either your `@SpringBootApplication` class or one of your configuration classes.
+
+   ```java
+   @Bean
+   MongoClientSettingsBuilderCustomizer mongoMetricsSynchronousContextProvider(ObservationRegistry registry) {
+       return (clientSettingsBuilder) -> {
+           clientSettingsBuilder.contextProvider(ContextProviderFactory.create(registry))
+                                .addCommandListener(new MongoObservationCommandListener(registry));
+       };
+   }
+   ```
+1. Your project must include **Spring Boot Actuator**.
+1. Disable Spring Boot’s autoconfigured MongoDB command listener and enable tracing manually by adding the following properties to your `application.properties`
+
+   ```
+   # Disable Spring Boot's autoconfigured tracing
+   management.metrics.mongo.command.enabled=false
+   # Enable it manually
+   management.tracing.enabled=true
+   ```
+
+   Be sure to add any other relevant settings needed to configure the tracer you are using based upon Micrometer’s reference documentation.
+
+This should do it! You are now running with Spring Data MongoDB’s usage of Spring Observability’s `Observation` API.
+See also [OpenTelemetry Semantic Conventions](https://opentelemetry.io/docs/reference/specification/trace/semantic_conventions/database/#mongodb) for further reference.
