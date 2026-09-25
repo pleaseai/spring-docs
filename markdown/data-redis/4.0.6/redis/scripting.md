@@ -1,0 +1,78 @@
+---
+title: "Scripting"
+source: "ROOT:redis/scripting.adoc"
+---
+
+<a id="scripting"></a>
+
+# Scripting
+
+Redis versions 2.6 and higher provide support for running Lua scripts through the [eval](https://redis.io/commands/eval) and [evalsha](https://redis.io/commands/evalsha) commands. Spring Data Redis provides a high-level abstraction for running scripts  that handles serialization and automatically uses the Redis script cache.
+
+Scripts can be run by calling the `execute` methods of `RedisTemplate` and `ReactiveRedisTemplate`. Both use a configurable [`ScriptExecutor`](https://docs.spring.io/spring-data/redis/docs/4.0.6/api/org/springframework/data/redis/core/script/ScriptExecutor.html) (or [`ReactiveScriptExecutor`](https://docs.spring.io/spring-data/redis/docs/4.0.6/api/org/springframework/data/redis/core/script/ReactiveScriptExecutor.html)) to run the provided script. By default, the [`ScriptExecutor`](https://docs.spring.io/spring-data/redis/docs/4.0.6/api/org/springframework/data/redis/core/script/ScriptExecutor.html) (or [`ReactiveScriptExecutor`](https://docs.spring.io/spring-data/redis/docs/4.0.6/api/org/springframework/data/redis/core/script/ReactiveScriptExecutor.html)) takes care of serializing the provided keys and arguments and deserializing the script result. This is done through the key and value serializers of the template. There is an additional overload that lets you pass custom serializers for the script arguments and the result.
+
+The default [`ScriptExecutor`](https://docs.spring.io/spring-data/redis/docs/4.0.6/api/org/springframework/data/redis/core/script/ScriptExecutor.html) optimizes performance by retrieving the SHA1 of the script and attempting first to run `evalsha`, falling back to `eval` if the script is not yet present in the Redis script cache.
+
+The following example runs a common “check-and-set” scenario by using a Lua script. This is an ideal use case for a Redis script, as it requires that running a set of commands atomically, and the behavior of one command is influenced by the result of another.
+
+```java
+@Bean
+public RedisScript<Boolean> script() {
+
+  ScriptSource scriptSource = new ResourceScriptSource(new ClassPathResource("META-INF/scripts/checkandset.lua"));
+  return RedisScript.of(scriptSource, Boolean.class);
+}
+```
+
+#### Imperative
+
+```java
+public class Example {
+
+  @Autowired
+  RedisOperations<String, String> redisOperations;
+
+  @Autowired
+  RedisScript<Boolean> script;
+
+  public boolean checkAndSet(String expectedValue, String newValue) {
+    return redisOperations.execute(script, List.of("key"), expectedValue, newValue);
+  }
+}
+```
+
+#### Reactive
+
+```java
+public class Example {
+
+  @Autowired
+  ReactiveRedisOperations<String, String> redisOperations;
+
+  @Autowired
+  RedisScript<Boolean> script;
+
+  public Flux<Boolean> checkAndSet(String expectedValue, String newValue) {
+    return redisOperations.execute(script, List.of("key"), expectedValue, newValue);
+  }
+}
+```
+
+```lua
+-- checkandset.lua
+local current = redis.call('GET', KEYS[1])
+if current == ARGV[1]
+  then redis.call('SET', KEYS[1], ARGV[2])
+  return true
+end
+return false
+```
+
+The preceding code configures a [`RedisScript`](https://docs.spring.io/spring-data/redis/docs/4.0.6/api/org/springframework/data/redis/core/script/RedisScript.html) pointing to a file called `checkandset.lua`, which is expected to return a boolean value. The script `resultType` should be one of `Long`, `Boolean`, `List`, or a deserialized value type. It can also be `null` if the script returns a throw-away status (specifically, `OK`).
+
+> [!TIP]
+> It is ideal to configure a single instance of `DefaultRedisScript` in your application context to avoid re-calculation of the script’s SHA1 on every script run.
+
+The `checkAndSet` method above then runs the scripts. Scripts can be run within a [`SessionCallback`](https://docs.spring.io/spring-data/redis/docs/4.0.6/api/org/springframework/data/redis/core/SessionCallback.html) as part of a transaction or pipeline. See “[Redis Transactions](transactions.md)” and “[Pipelining](pipelining.md)” for more information.
+
+The scripting support provided by Spring Data Redis also lets you schedule Redis scripts for periodic running by using the Spring Task and Scheduler abstractions. See the [Spring Framework](https://spring.io/projects/spring-framework/) documentation for more details.
