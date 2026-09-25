@@ -1,0 +1,28 @@
+# data-rest 5.0.2
+
+24 pages, converted from upstream Spring AsciiDoc.
+
+- [customizing-sdr](./customizing-sdr.md)
+- [customizing/adding-sdr-to-spring-mvc-app](./customizing/adding-sdr-to-spring-mvc-app.md)
+- [customizing/configuring-cors](./customizing/configuring-cors.md)
+- [customizing/configuring-the-rest-url-path](./customizing/configuring-the-rest-url-path.md)
+- [customizing/custom-jackson-deserialization](./customizing/custom-jackson-deserialization.md)
+- [customizing/customizing-json-output](./customizing/customizing-json-output.md)
+- [customizing/overriding-sdr-response-handlers](./customizing/overriding-sdr-response-handlers.md)
+- [etags-and-other-conditionals](./etags-and-other-conditionals.md)
+- [events](./events.md)
+- [index](./index.md)
+- [integration](./integration.md)
+- [intro](./intro.md)
+- [introduction/example-api-usage-with-curl](./introduction/example-api-usage-with-curl.md)
+- [introduction/getting-started](./introduction/getting-started.md)
+- [introduction/spring-data-rest-examples](./introduction/spring-data-rest-examples.md)
+- [introduction/upgrade](./introduction/upgrade.md)
+- [metadata](./metadata.md)
+- [paging-and-sorting](./paging-and-sorting.md)
+- [projections-excerpts](./projections-excerpts.md)
+- [repository-resources](./repository-resources.md)
+- [representations](./representations.md)
+- [security](./security.md)
+- [tools](./tools.md)
+- [validation](./validation.md)
