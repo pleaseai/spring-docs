@@ -1,0 +1,30 @@
+---
+title: "Script Operations"
+source: "ROOT:mongodb/mongo-server-side-scripts.adoc"
+---
+
+<a id="mongo.server-side-scripts"></a>
+
+# Script Operations
+
+> [!WARNING]
+> [MongoDB 4.2](https://docs.mongodb.com/master/release-notes/4.2-compatibility/) removed support for the `eval` command used
+> by `ScriptOperations`.
+>
+> There is no replacement for the removed functionality.
+
+MongoDB allows running JavaScript functions on the server by either directly sending the script or calling a stored one. `ScriptOperations` can be accessed through `MongoTemplate` and provides basic abstraction for `JavaScript` usage. The following example shows how to us the `ScriptOperations` class:
+
+```java
+ScriptOperations scriptOps = template.scriptOps();
+
+ExecutableMongoScript echoScript = new ExecutableMongoScript("function(x) { return x; }");
+scriptOps.execute(echoScript, "directly execute script");     <1>
+
+scriptOps.register(new NamedMongoScript("echo", echoScript)); <2>
+scriptOps.call("echo", "execute script via name");            <3>
+```
+
+1. Run the script directly without storing the function on server side.
+1. Store the script using 'echo' as its name. The given name identifies the script and allows calling it later.
+1. Run the script with name 'echo' using the provided parameters.
