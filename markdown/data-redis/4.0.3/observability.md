@@ -1,0 +1,45 @@
+---
+title: "Observability"
+source: "ROOT:observability.adoc"
+---
+
+<a id="redis.observability"></a>
+
+# Observability
+
+Getting insights from an application component about its operations, timing and relation to application code is crucial to understand latency.
+Lettuce ships with a Micrometer integration to collect observations during Redis interaction.
+Once the integration is set up, Micrometer will create meters and spans (for distributed tracing) for each Redis command.
+
+To enable the integration, apply the following configuration to `LettuceClientConfiguration`:
+
+```java
+@Configuration
+class ObservabilityConfiguration {
+
+  @Bean
+  public ClientResources clientResources(ObservationRegistry observationRegistry) {
+
+    return ClientResources.builder()
+              .tracing(new MicrometerTracing(observationRegistry, "my-redis-cache"))
+              .build();
+  }
+
+  @Bean
+  public LettuceConnectionFactory lettuceConnectionFactory(ClientResources clientResources) {
+
+    LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                                                .clientResources(clientResources).build();
+    RedisConfiguration redisConfiguration = …;
+    return new LettuceConnectionFactory(redisConfiguration, clientConfig);
+  }
+}
+```
+
+> [!NOTE]
+> When using Spring Boot, `LettuceMetricsAutoConfiguration` configures Lettuce’s `MicrometerCommandLatencyRecorder`.
+> Depending on whether you want only Metrics or Metrics and Tracing, you might want to exclude this auto-configuration class in your application.
+
+See also for further reference:
+\* [Lettuce Tracing](https://redis.github.io/lettuce/advanced-usage/#micrometer)
+\* [OpenTelemetry Semantic Conventions](https://opentelemetry.io/docs/reference/specification/trace/semantic_conventions/database/#redis) .
