@@ -1,0 +1,49 @@
+---
+title: "Integration"
+source: "ROOT:integration.adoc"
+---
+
+<a id="integration"></a>
+
+# Integration
+
+This section details various ways to integrate with Spring Data REST components, whether from a Spring application that is using Spring Data REST or from other means.
+
+<a id="integration.programmatic-links"></a>
+
+## Programmatic Links
+
+Sometimes you need to add links to exported resources in your own custom-built Spring MVC controllers. There are three basic levels of linking available:
+
+- Manually assembling links.
+- Using Spring HATEOAS’s [`LinkBuilder`](https://docs.spring.io/spring-hateoas/docs/current/reference/html/#fundamentals.obtaining-links.builder) with `linkTo()`, `slash()`, and so on.
+- Using Spring Data REST’s implementation of [`RepositoryEntityLinks`](https://docs.spring.io/spring-data/rest/docs/4.4.10/api/org/springframework/data/rest/webmvc/support/RepositoryEntityLinks.html).
+
+The first suggestion is terrible and should be avoided at all costs. It makes your code brittle and high-risk. The second is handy when creating links to other hand-written Spring MVC controllers. The last one, which we explore in the rest of this section, is good for looking up resource links that are exported by Spring Data REST.
+
+Consider the following class ,which uses Spring’s autowiring:
+
+```java
+public class MyWebApp {
+
+	private RepositoryEntityLinks entityLinks;
+
+	@Autowired
+	public MyWebApp(RepositoryEntityLinks entityLinks) {
+		this.entityLinks = entityLinks;
+	}
+}
+```
+
+With the class in the preceding example, you can use the following operations:
+
+| Method | Description |
+| --- | --- |
+| `entityLinks.linkToCollectionResource(Person.class)` | Provide a link to the collection resource of the specified type (`Person`, in this case). |
+| `entityLinks.linkToItemResource(Person.class, 1)` | Provide a link to a single resource. |
+| `entityLinks.linkToPagedResource(Person.class, new PageRequest(…​))` | Provide a link to a paged resource. |
+| `entityLinks.linksToSearchResources(Person.class)` | Provides a list of links for all the finder methods exposed by the corresponding repository. |
+| `entityLinks.linkToSearchResource(Person.class, "findByLastName")` | Provide a finder link by `rel` (that is, the name of the finder). |
+
+> [!NOTE]
+> All of the search-based links support extra parameters for paging and sorting. See [`RepositoryEntityLinks`](https://docs.spring.io/spring-data/rest/docs/4.4.10/api/org/springframework/data/rest/webmvc/support/RepositoryEntityLinks.html) for the details. There is also `linkFor(Class<?> type)`, but that returns a Spring HATEOAS `LinkBuilder`, which returns you to the lower level API. Try to use the other ones first.

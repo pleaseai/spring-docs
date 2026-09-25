@@ -1,0 +1,354 @@
+---
+title: "Encryption"
+source: "ROOT:mongodb/mongo-encryption.adoc"
+---
+
+<a id="mongo.encryption"></a>
+
+# Encryption
+
+Client Side Encryption is a feature that encrypts data in your application before it is sent to MongoDB.
+We recommend you get familiar with the concepts, ideally from the [MongoDB Documentation](https://www.mongodb.com/docs/manual/core/security-in-use-encryption/) to learn more about its capabilities and restrictions before you continue applying Encryption through Spring Data.
+
+> [!NOTE]
+> Make sure to set the drivers `com.mongodb.AutoEncryptionSettings` to use client-side encryption.
+> MongoDB does not support encryption for all field types.
+> Specific data types require deterministic encryption to preserve equality comparison functionality.
+
+<a id="_client_side_field_level_encryption_csfle"></a>
+
+## Client Side Field Level Encryption (CSFLE)
+
+Choosing CSFLE gives you full flexibility and allows you to use different keys for a single field, eg. in a one key per tenant scenario.
+
+Please make sure to consult the [MongoDB CSFLE Documentation](https://www.mongodb.com/docs/manual/core/csfle/) before you continue reading.
+
+<a id="mongo.encryption.automatic"></a>
+
+### Automatic Encryption (CSFLE)
+
+MongoDB supports [Client-Side Field Level Encryption](https://www.mongodb.com/docs/manual/core/csfle/) out of the box using the MongoDB driver with its Automatic Encryption feature.
+Automatic Encryption requires a [JSON Schema](mapping/mapping-schema.md) that allows to perform encrypted read and write operations without the need to provide an explicit en-/decryption step.
+
+Please refer to the [JSON Schema](mapping/mapping-schema.md#mongo.jsonSchema.encrypted-fields) section for more information on defining a JSON Schema that holds encryption information.
+
+To use a `MongoJsonSchema`, you must supply it together with `AutoEncryptionSettings` which can be done e.g., via a `MongoClientSettingsBuilderCustomizer`.
+
+```java
+@Bean
+MongoClientSettingsBuilderCustomizer customizer(MappingContext mappingContext) {
+    return (builder) -> {
+
+        // ... keyVaultCollection, kmsProvider, ...
+
+        MongoJsonSchemaCreator schemaCreator = MongoJsonSchemaCreator.create(mappingContext);
+        MongoJsonSchema patientSchema = schemaCreator
+            .filter(MongoJsonSchemaCreator.encryptedOnly())
+            .createSchemaFor(Patient.class);
+
+        AutoEncryptionSettings autoEncryptionSettings = AutoEncryptionSettings.builder()
+            .keyVaultNamespace(keyVaultCollection)
+            .kmsProviders(kmsProviders)
+            .extraOptions(extraOpts)
+            .schemaMap(Collections.singletonMap("db.patient", patientSchema.schemaDocument().toBsonDocument()))
+            .build();
+
+        builder.autoEncryptionSettings(autoEncryptionSettings);
+    };
+}
+```
+
+<a id="mongo.encryption.explicit"></a>
+
+### Explicit Encryption (CSFLE)
+
+Explicit encryption uses the MongoDB driver’s encryption library (`org.mongodb:mongodb-crypt`) to perform encryption and decryption tasks.
+The `@ExplicitEncrypted` annotation is a combination of the `@Encrypted` annotation used for [JSON Schema creation](mapping/mapping-schema.md#mongo.jsonSchema.encrypted-fields) and a [Property Converter](mapping/property-converters.md).
+In other words, `@ExplicitEncrypted` uses existing building blocks to combine them for simplified explicit encryption support.
+
+> [!NOTE]
+> Fields annotated with `@ExplicitEncrypted` are always encrypted as whole.
+> Consider the following example:
+>
+> ```java
+> @ExplicitEncrypted(…)
+> String simpleValue;        <1>
+>
+> @ExplicitEncrypted(…)
+> Address address;           <2>
+>
+> @ExplicitEncrypted(…)
+> List<...> list;            <3>
+>
+> @ExplicitEncrypted(…)
+> Map<..., ...> mapOfString; <4>
+> ```
+>
+> 1. Encrypts the value of the simple type such as a `String` if not `null`.
+> 1. Encrypts the entire `Address` object and all its nested fields as `Document`.
+> To only encrypt parts of the `Address`, like `Address#street` the `street` field within `Address` needs to be annotated with `@ExplicitEncrypted`.
+> 1. `Collection`-like fields are encrypted as single value and not per entry.
+> 1. `Map`-like fields are encrypted as single value and not as a key/value entry.
+
+Client-Side Field Level Encryption allows you to choose between a deterministic and a randomized algorithm. Depending on the [chosen algorithm](https://www.mongodb.com/docs/v5.0/reference/security-client-side-automatic-json-schema/#std-label-field-level-encryption-json-schema/), [different operations](https://www.mongodb.com/docs/manual/core/csfle/reference/supported-operations/) may be supported.
+To pick a certain algorithm use `@ExplicitEncrypted(algorithm)`, see `EncryptionAlgorithms` for algorithm constants.
+Please read the [Encryption Types](https://www.mongodb.com/docs/manual/core/csfle/fundamentals/encryption-algorithms) manual for more information on algorithms and their usage.
+
+To perform the actual encryption we require a Data Encryption Key (DEK).
+Please refer to the [MongoDB Documentation](https://www.mongodb.com/docs/manual/core/csfle/quick-start/#create-a-data-encryption-key) for more information on how to set up key management and create a Data Encryption Key.
+The DEK can be referenced directly via its `id` or a defined *alternative name*.
+The `@EncryptedField` annotation only allows referencing a DEK via an alternative name.
+It is possible to provide an `EncryptionKeyResolver`, which will be discussed later, to any DEK.
+
+```java
+@EncryptedField(algorithm=…, altKeyName = "secret-key") <1>
+String ssn;
+```
+
+```java
+@EncryptedField(algorithm=…, altKeyName = "/name")      <2>
+String ssn;
+```
+
+1. Use the DEK stored with the alternative name `secret-key`.
+1. Uses a field reference that will read the actual field value and use that for key lookup.
+Always requires the full document to be present for save operations.
+Fields cannot be used in queries/aggregations.
+
+By default, the `@ExplicitEncrypted(value=…)` attribute references a `MongoEncryptionConverter`.
+It is possible to change the default implementation and exchange it with any `PropertyValueConverter` implementation by providing the according type reference.
+To learn more about custom `PropertyValueConverters` and the required configuration, please refer to the [Property Converters - Mapping specific fields](mapping/property-converters.md) section.
+
+<a id="mongo.encryption.queryable"></a>
+
+## Queryable Encryption (QE)
+
+Choosing QE enables you to run different types of queries, like *range* or *equality*, against encrypted fields.
+
+Please make sure to consult the [MongoDB QE Documentation](https://www.mongodb.com/docs/manual/core/queryable-encryption/) before you continue reading to learn more about QE features and limitations.
+
+<a id="_collection_setup"></a>
+
+### Collection Setup
+
+Queryable Encryption requires upfront declaration of certain aspects allowed within an actual query against an encrypted field.
+The information covers the algorithm in use as well as allowed query types along with their attributes and must be provided when creating the collection.
+
+`MongoOperations#createCollection(…​)` can be used to do the initial setup for collections utilizing QE.
+The configuration for QE via Spring Data uses the same building blocks (a [JSON Schema creation](mapping/mapping-schema.md#mongo.jsonSchema.encrypted-fields)) as CSFLE, converting the schema/properties into the configuration format required by MongoDB.
+
+You can configure Queryable Encryption either manually or in a derived way:
+
+**Manual setup**
+
+Manual setup gives you full control over how encrypted fields are declared and how collections are created.
+It’s useful when you need to explicitly manage data keys, encryption algorithms, and field mappings.
+
+- ✅ Full control over encryption configuration
+- ✅ Explicitly manage data keys and algorithms
+- ✅ Allows for complex encryption scenarios
+- ✅ Explicit configuration avoids the risk of surprises (e.g. missing configuration because of improper annotations or class-path scanning)
+- ⚠️ An Explicit Field Configuration can diverge from the domain model and you must keep it in sync with the domain model
+
+**Derived setup**
+
+Derived setup relies on annotations in your domain model and automatically generates the required encrypted field configuration from it.
+This is simpler and recommended for typical Spring applications where your data model is already annotated.
+
+- ✅ Domain model-driven configuration
+- ✅ Easy to set up and maintain
+- ⚠️ Might not cover all complex scenarios
+- ⚠️ Risk of surprises (e.g. missing configuration for documents based on subtypes because of improper annotations or class-path scanning)
+
+#### Manual Collection Setup
+
+```java
+BsonBinary pinDK = clientEncryption.createDataKey("local", new com.mongodb.client.model.vault.DataKeyOptions());
+BsonBinary ssnDK = clientEncryption.createDataKey("local", new com.mongodb.client.model.vault.DataKeyOptions());
+BsonBinary ageDK = clientEncryption.createDataKey("local", new com.mongodb.client.model.vault.DataKeyOptions());
+BsonBinary signDK = clientEncryption.createDataKey("local", new com.mongodb.client.model.vault.DataKeyOptions());
+
+CollectionOptions collectionOptions = CollectionOptions.encryptedCollection(options -> options
+    .encrypted(string("pin"), pinDK)
+    .queryable(encrypted(string("ssn")).algorithm("Indexed").keyId(ssnDK.asUuid()), equality().contention(0))
+    .queryable(encrypted(int32("age")).algorithm("Range").keyId(ageDK.asUuid()), range().contention(8).min(0).max(150))
+    .queryable(encrypted(int64("address.sign")).algorithm("Range").keyId(signDK.asUuid()), range().contention(2).min(-10L).max(10L))
+);
+
+mongoTemplate.createCollection(Patient.class, collectionOptions); <1>
+```
+
+1. Using the template to create the collection may prevent capturing generated keyIds. In this case render the `Document` from the options and use the `createEncryptedCollection(…​)` method via the encryption library.
+
+#### Derived Collection Setup
+
+```java
+class Patient {
+
+    @Id String id;        <1>
+
+    Address address;      <1>
+
+    @Encrypted(algorithm = "Unindexed")
+    String pin;           <2>
+
+    @Encrypted(algorithm = "Indexed")
+    @Queryable(queryType = "equality", contentionFactor = 0)
+    String ssn;           <3>
+
+    @RangeEncrypted(contentionFactor = 8, rangeOptions = "{ 'min' : 0, 'max' : 150 }")
+    Integer age;          <4>
+
+    @RangeEncrypted(contentionFactor = 0L,
+        rangeOptions = "{\"min\": {\"$numberDouble\": \"0.3\"}, \"max\": {\"$numberDouble\": \"2.5\"}, \"precision\": 2 }")
+    double height;        <5>
+}
+
+MongoJsonSchema patientSchema = MongoJsonSchemaCreator.create(mappingContext)
+    .filter(MongoJsonSchemaCreator.encryptedOnly())
+    .createSchemaFor(Patient.class);
+
+Document encryptedFields = CollectionOptions.encryptedCollection(patientSchema)
+        .getEncryptedFieldsOptions()
+        .map(CollectionOptions.EncryptedFieldsOptions::toDocument)
+        .orElseThrow();
+
+template.execute(db -> clientEncryption.createEncryptedCollection(db, template.getCollectionName(Patient.class), new CreateCollectionOptions()
+        .encryptedFields(encryptedFields), new CreateEncryptedCollectionParams("local"))); <1>
+
+```
+
+1. `id` and `address` are not encrypted.
+Those fields can be queried normally.
+1. `pin` is encrypted but does not support queries.
+1. `ssn` is encrypted and allows equality queries.
+1. `age` is encrypted and allows range queries between `0` and `150`.
+1. `height` is encrypted and allows range queries between `0.3` and `2.5`.
+
+The `Queryable` annotation allows to define allowed query types for encrypted fields.
+`@RangeEncrypted` is a combination of `@Encrypted` and `@Queryable` for fields allowing `range` queries.
+It is possible to create custom annotations out of the provided ones.
+
+#### MongoDB Collection Info
+
+```json
+{
+    name: 'patient',
+    type: 'collection',
+    options: {
+      encryptedFields: {
+        escCollection: 'enxcol_.test.esc',
+        ecocCollection: 'enxcol_.test.ecoc',
+        fields: [
+          {
+            keyId: ...,
+            path: 'ssn',
+            bsonType: 'string',
+            queries: [ { queryType: 'equality', contention: Long('0') } ]
+          },
+          {
+            keyId: ...,
+            path: 'age',
+            bsonType: 'int',
+            queries: [ { queryType: 'range', contention: Long('8'), min: 0, max: 150 } ]
+          },
+          {
+            keyId: ...,
+            path: 'pin',
+            bsonType: 'string'
+          },
+          {
+            keyId: ...,
+            path: 'address.sign',
+            bsonType: 'long',
+            queries: [ { queryType: 'range', contention: Long('2'), min: Long('-10'), max: Long('10') } ]
+          }
+        ]
+      }
+    }
+}
+```
+
+> [!NOTE]
+> - It is not possible to use both QE and CSFLE within the same collection.
+> - It is not possible to query a `range` indexed field with an `equality` operator.
+> - It is not possible to query an `equality` indexed field with a `range` operator.
+> - It is not possible to set `bypassAutoEncrytion(true)`.
+> - It is not possible to use self maintained encryption keys via `@Encrypted` in combination with Queryable Encryption.
+> - Contention is only optional on the server side, the clients requires you to set the value (Default us `8`).
+> - Additional options for eg. `min` and `max` need to match the actual field type. Make sure to use `$numberLong` etc. to ensure target types when parsing bson String.
+> - Queryable Encryption will an extra field `safeContent` to each of your documents.
+> Unless explicitly excluded the field will be loaded into memory when retrieving results.
+> - For a complete example, see:
+> [spring-data-queryable-encryption](https://github.com/mongodb-developer/spring-data-queryable-encryption)
+
+<a id="mongo.encryption.queryable.automatic"></a>
+
+### Automatic Encryption (QE)
+
+MongoDB supports Queryable Encryption out of the box using the MongoDB driver with its Automatic Encryption feature.
+Automatic Encryption requires a [JSON Schema](mapping/mapping-schema.md) that allows to perform encrypted read and write operations without the need to provide an explicit en-/decryption step.
+
+All you need to do is create the collection according to the MongoDB documentation.
+You may utilize techniques to create the required configuration outlined in the section above.
+
+<a id="mongo.encryption.queryable.manual"></a>
+
+### Explicit Encryption (QE)
+
+Explicit encryption uses the MongoDB driver’s encryption library (`org.mongodb:mongodb-crypt`) to perform encryption and decryption tasks based on the meta information provided by annotation within the domain model.
+
+> [!NOTE]
+> There is no official support for using Explicit Queryable Encryption.
+> The audacious user may combine `@Encrypted` and `@Queryable` with `@ValueConverter(MongoEncryptionConverter.class)` at their own risk.
+
+<a id="mongo.encryption.converter-setup"></a>
+
+## MongoEncryptionConverter Setup
+
+The converter setup for `MongoEncryptionConverter` requires a few steps as several components are involved.
+The bean setup consists of the following:
+
+1. The `ClientEncryption` engine
+1. A `MongoEncryptionConverter` instance configured with `ClientEncryption` and a `EncryptionKeyResolver`.
+1. A `PropertyValueConverterFactory` that uses the registered `MongoEncryptionConverter` bean.
+
+The `EncryptionKeyResolver` uses an `EncryptionContext` providing access to the property allowing for dynamic DEK resolution.
+
+```java
+class Config extends AbstractMongoClientConfiguration {
+
+    @Autowired ApplicationContext appContext;
+
+    @Bean
+    ClientEncryption clientEncryption() {                                                            <1>
+        ClientEncryptionSettings encryptionSettings = ClientEncryptionSettings.builder();
+        // …
+
+        return ClientEncryptions.create(encryptionSettings);
+    }
+
+    @Bean
+    MongoEncryptionConverter encryptingConverter(ClientEncryption clientEncryption) {
+
+        Encryption<BsonValue, BsonBinary> encryption = MongoClientEncryption.just(clientEncryption);
+        EncryptionKeyResolver keyResolver = EncryptionKeyResolver.annotated((ctx) -> …);             <2>
+
+        return new MongoEncryptionConverter(encryption, keyResolver);                                <3>
+    }
+
+    @Override
+    protected void configureConverters(MongoConverterConfigurationAdapter adapter) {
+
+        adapter
+            .registerPropertyValueConverterFactory(PropertyValueConverterFactory.beanFactoryAware(appContext)); <4>
+    }
+}
+```
+
+1. Set up a `Encryption` engine using `com.mongodb.client.vault.ClientEncryption`.
+The instance is stateful and must be closed after usage.
+Spring takes care of this because `ClientEncryption` is `Closeable`.
+1. Set up an annotation-based `EncryptionKeyResolver` to determine the `EncryptionKey` from annotations.
+1. Create the `MongoEncryptionConverter`.
+1. Enable for a `PropertyValueConverter` lookup from the `BeanFactory`.

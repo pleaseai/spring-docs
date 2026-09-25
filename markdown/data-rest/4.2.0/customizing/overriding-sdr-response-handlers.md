@@ -1,0 +1,112 @@
+---
+title: "Overriding Spring Data REST Response Handlers"
+source: "ROOT:customizing/overriding-sdr-response-handlers.adoc"
+---
+
+<a id="customizing-sdr.overriding-sdr-response-handlers"></a>
+
+# Overriding Spring Data REST Response Handlers
+
+Sometimes, you may want to write a custom handler for a specific resource.
+To take advantage of Spring Data REST’s settings, message converters, exception handling, and more, use the `@RepositoryRestController` annotation instead of a standard Spring MVC `@Controller` or `@RestController`.
+Controllers annotated with `@RepositoryRestController` are served from the API base path defined in `RepositoryRestConfiguration.setBasePath`, which is used by all other RESTful endpoints (for example, `/api`).
+The following example shows how to use the `@RepositoryRestController` annotation:
+
+```java
+@BasePathAwareController
+class ScannerController {
+
+  private final ScannerRepository repository;
+
+  ScannerController(ScannerRepository repository) { // <1>
+    repository = repository;
+  }
+
+  @GetMapping(path = "/scanners/search/producers") // <2>
+  ResponseEntity<?> getProducers() {
+
+    List<String> producers = repository.listProducers(); // <3>
+
+    //
+    // do some intermediate processing, logging, etc. with the producers
+    //
+
+    CollectionModel<String> resources = CollectionModel.of(producers); // <4>
+
+    resources.add(linkTo(methodOn(ScannerController.class).getProducers()).withSelfRel()); // <5>
+
+    // add other links as needed
+
+    return ResponseEntity.ok(resources); // <6>
+  }
+}
+```
+
+1. This example uses constructor injection.
+1. This handler plugs in a custom handler method as query method resource
+1. This handler uses the underlying repository to fetch data, but then does some form of post processing before returning the final data set to the client.
+1. The results of type T need to be wrapped up in a Spring HATEOAS `CollectionModel<T>` object to return a collection. `EntityModel<T>` or `RepresentationModel<T>` are suitable wrappers for a single item, respectively.
+1. Add a link back to this exact method as a `self` link.
+1. Returning the collection by using Spring MVC’s `ResponseEntity` wrapper ensures that the collection is properly wrapped and rendered in the proper accept type.
+
+`CollectionModel` is for a collection, while `EntityModel` — or the more general class `RepresentationModel` — is for a single item. These types can be combined. If you know the links for each item in a collection, use `CollectionModel<EntityModel<String>>` (or whatever the core domain type is rather than `String`). Doing so lets you assemble links for each item as well as for the whole collection.
+
+> [!IMPORTANT]
+> In this example, the combined path is `RepositoryRestConfiguration.getBasePath()` + `/scanners/search/listProducers`.
+
+<a id="customizing-sdr.aggregate-references"></a>
+
+## Obtaining Aggregate References
+
+For custom controllers receiving `PUT` and `POST` requests, the request body usually contains a JSON document that will use URIs to express references to other resources.
+For `GET` requests, those references are handed in via a request parameter.
+
+As of Spring Data REST 4.1, we provide `AggregateReference<T, ID>` to be used as handler method parameter type to capture such references and resolve them into either the referenced aggregate’s identifier, the aggregate itself or a jMolecules `Association`.
+All you need to do is declare an `@RequestParam` of that type and then consume either the identifier or the fully resolved aggregate.
+
+```java
+@BasePathAwareController
+class ScannerController {
+
+  private final ScannerRepository repository;
+
+  ScannerController(ScannerRepository repository) {
+    repository = repository;
+  }
+
+  @GetMapping(path = "/scanners")
+  ResponseEntity<?> getProducers(
+    @RequestParam AggregateReference<Producer, ProducerIdentifier> producer) {
+
+    var identifier = producer.resolveRequiredId();
+    // Alternatively
+    var aggregate = producer.resolveRequiredAggregate();
+  }
+
+  // Alternatively
+
+  @GetMapping(path = "/scanners")
+  ResponseEntity<?> getProducers(
+    @RequestParam AssociationAggregateReference<Producer, ProducerIdentifier> producer) {
+
+    var association = producer.resolveRequiredAssociation();
+  }
+}
+```
+
+In case you are using jMolecules, `AssociationAggregateReference` also allows you to obtain an `Association`.
+While both of the abstraction assume the value for the parameter to be a URI matching the scheme that Spring Data REST uses to expose item resources, that source value resolution can be customized by calling `….withIdSource(…)` on the reference instance to provide a function to extract the identifier value to be used for aggregate resolution eventually from the `UriComponents` obtained from the URI received.
+
+<a id="customizing-sdr.overriding-sdr-response-handlers.annotations"></a>
+
+## `@RepositoryRestResource` VS. `@BasePathAwareController`
+
+If you are not interested in entity-specific operations but still want to build custom operations underneath `basePath`, such as Spring MVC views, resources, and others, use `@BasePathAwareController`.
+If you’re using `@RepositoryRestController` on your custom controller, it will only handle the request if your request mappings blend into the URI space used by the repository.
+It will also apply the following extra functionality to the controller methods:
+
+1. CORS configuration according as defined for the repository mapped to the base path segment used in the request mapping of the handler method.
+1. Apply an `OpenEntityManagerInViewInterceptor` if JPA is used to make sure you can access properties marked as to be resolved lazily.
+
+> [!WARNING]
+> If you use `@Controller` or `@RestController` for anything, that code is totally outside the scope of Spring Data REST. This extends to request handling, message converters, exception handling, and other uses.

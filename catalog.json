@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1",
-  "generated_at": "2026-09-24T16:19:40.972Z",
+  "generated_at": "2026-09-25T00:44:04.815Z",
   "projects": {
     "ai": {
       "1.0.0": {
@@ -1881,6 +1881,1316 @@
       "4.1.1": {
         "tag": "data-ldap-4.1.1",
         "released_at": "2026-09-24T15:53:06Z"
+      }
+    },
+    "data-mongodb": {
+      "4.2.0": {
+        "tag": "data-mongodb-4.2.0",
+        "released_at": "2026-09-25T00:17:07Z"
+      },
+      "4.2.1": {
+        "tag": "data-mongodb-4.2.1",
+        "released_at": "2026-09-25T00:17:10Z"
+      },
+      "4.2.2": {
+        "tag": "data-mongodb-4.2.2",
+        "released_at": "2026-09-25T00:17:29Z"
+      },
+      "4.2.3": {
+        "tag": "data-mongodb-4.2.3",
+        "released_at": "2026-09-25T00:17:20Z"
+      },
+      "4.2.4": {
+        "tag": "data-mongodb-4.2.4",
+        "released_at": "2026-09-25T00:17:20Z"
+      },
+      "4.2.5": {
+        "tag": "data-mongodb-4.2.5",
+        "released_at": "2026-09-25T00:17:30Z"
+      },
+      "4.2.6": {
+        "tag": "data-mongodb-4.2.6",
+        "released_at": "2026-09-25T00:17:35Z"
+      },
+      "4.2.7": {
+        "tag": "data-mongodb-4.2.7",
+        "released_at": "2026-09-25T00:17:28Z"
+      },
+      "4.2.8": {
+        "tag": "data-mongodb-4.2.8",
+        "released_at": "2026-09-25T00:17:33Z"
+      },
+      "4.2.9": {
+        "tag": "data-mongodb-4.2.9",
+        "released_at": "2026-09-25T00:17:33Z"
+      },
+      "4.2.10": {
+        "tag": "data-mongodb-4.2.10",
+        "released_at": "2026-09-25T00:17:08Z"
+      },
+      "4.2.11": {
+        "tag": "data-mongodb-4.2.11",
+        "released_at": "2026-09-25T00:17:16Z"
+      },
+      "4.2.12": {
+        "tag": "data-mongodb-4.2.12",
+        "released_at": "2026-09-25T00:17:15Z"
+      },
+      "4.3.0": {
+        "tag": "data-mongodb-4.3.0",
+        "released_at": "2026-09-25T00:17:37Z"
+      },
+      "4.3.1": {
+        "tag": "data-mongodb-4.3.1",
+        "released_at": "2026-09-25T00:17:37Z"
+      },
+      "4.3.2": {
+        "tag": "data-mongodb-4.3.2",
+        "released_at": "2026-09-25T00:17:48Z"
+      },
+      "4.3.3": {
+        "tag": "data-mongodb-4.3.3",
+        "released_at": "2026-09-25T00:17:49Z"
+      },
+      "4.3.4": {
+        "tag": "data-mongodb-4.3.4",
+        "released_at": "2026-09-25T00:17:51Z"
+      },
+      "4.3.5": {
+        "tag": "data-mongodb-4.3.5",
+        "released_at": "2026-09-25T00:17:51Z"
+      },
+      "4.3.6": {
+        "tag": "data-mongodb-4.3.6",
+        "released_at": "2026-09-25T00:18:04Z"
+      },
+      "4.3.7": {
+        "tag": "data-mongodb-4.3.7",
+        "released_at": "2026-09-25T00:18:08Z"
+      },
+      "4.3.8": {
+        "tag": "data-mongodb-4.3.8",
+        "released_at": "2026-09-25T00:18:00Z"
+      },
+      "4.3.9": {
+        "tag": "data-mongodb-4.3.9",
+        "released_at": "2026-09-25T00:18:09Z"
+      },
+      "4.3.10": {
+        "tag": "data-mongodb-4.3.10",
+        "released_at": "2026-09-25T00:17:42Z"
+      },
+      "4.3.11": {
+        "tag": "data-mongodb-4.3.11",
+        "released_at": "2026-09-25T00:17:47Z"
+      },
+      "4.3.12": {
+        "tag": "data-mongodb-4.3.12",
+        "released_at": "2026-09-25T00:17:46Z"
+      },
+      "4.3.13": {
+        "tag": "data-mongodb-4.3.13",
+        "released_at": "2026-09-25T00:17:41Z"
+      },
+      "4.4.0": {
+        "tag": "data-mongodb-4.4.0",
+        "released_at": "2026-09-25T00:18:05Z"
+      },
+      "4.4.1": {
+        "tag": "data-mongodb-4.4.1",
+        "released_at": "2026-09-25T00:18:07Z"
+      },
+      "4.4.2": {
+        "tag": "data-mongodb-4.4.2",
+        "released_at": "2026-09-25T00:18:24Z"
+      },
+      "4.4.3": {
+        "tag": "data-mongodb-4.4.3",
+        "released_at": "2026-09-25T00:18:24Z"
+      },
+      "4.4.4": {
+        "tag": "data-mongodb-4.4.4",
+        "released_at": "2026-09-25T00:18:26Z"
+      },
+      "4.4.5": {
+        "tag": "data-mongodb-4.4.5",
+        "released_at": "2026-09-25T00:18:28Z"
+      },
+      "4.4.6": {
+        "tag": "data-mongodb-4.4.6",
+        "released_at": "2026-09-25T00:18:31Z"
+      },
+      "4.4.7": {
+        "tag": "data-mongodb-4.4.7",
+        "released_at": "2026-09-25T00:18:38Z"
+      },
+      "4.4.8": {
+        "tag": "data-mongodb-4.4.8",
+        "released_at": "2026-09-25T00:18:53Z"
+      },
+      "4.4.9": {
+        "tag": "data-mongodb-4.4.9",
+        "released_at": "2026-09-25T00:18:39Z"
+      },
+      "4.4.10": {
+        "tag": "data-mongodb-4.4.10",
+        "released_at": "2026-09-25T00:18:14Z"
+      },
+      "4.4.11": {
+        "tag": "data-mongodb-4.4.11",
+        "released_at": "2026-09-25T00:18:53Z"
+      },
+      "4.4.12": {
+        "tag": "data-mongodb-4.4.12",
+        "released_at": "2026-09-25T00:18:14Z"
+      },
+      "4.4.13": {
+        "tag": "data-mongodb-4.4.13",
+        "released_at": "2026-09-25T00:18:22Z"
+      },
+      "4.5.0": {
+        "tag": "data-mongodb-4.5.0",
+        "released_at": "2026-09-25T00:18:43Z"
+      },
+      "4.5.1": {
+        "tag": "data-mongodb-4.5.1",
+        "released_at": "2026-09-25T00:18:46Z"
+      },
+      "4.5.2": {
+        "tag": "data-mongodb-4.5.2",
+        "released_at": "2026-09-25T00:18:56Z"
+      },
+      "4.5.3": {
+        "tag": "data-mongodb-4.5.3",
+        "released_at": "2026-09-25T00:18:54Z"
+      },
+      "4.5.4": {
+        "tag": "data-mongodb-4.5.4",
+        "released_at": "2026-09-25T00:18:58Z"
+      },
+      "4.5.5": {
+        "tag": "data-mongodb-4.5.5",
+        "released_at": "2026-09-25T00:19:01Z"
+      },
+      "4.5.6": {
+        "tag": "data-mongodb-4.5.6",
+        "released_at": "2026-09-25T00:19:05Z"
+      },
+      "4.5.7": {
+        "tag": "data-mongodb-4.5.7",
+        "released_at": "2026-09-25T00:19:15Z"
+      },
+      "4.5.8": {
+        "tag": "data-mongodb-4.5.8",
+        "released_at": "2026-09-25T00:19:13Z"
+      },
+      "4.5.9": {
+        "tag": "data-mongodb-4.5.9",
+        "released_at": "2026-09-25T00:19:11Z"
+      },
+      "4.5.10": {
+        "tag": "data-mongodb-4.5.10",
+        "released_at": "2026-09-25T00:18:44Z"
+      },
+      "4.5.11": {
+        "tag": "data-mongodb-4.5.11",
+        "released_at": "2026-09-25T00:18:51Z"
+      },
+      "4.5.12": {
+        "tag": "data-mongodb-4.5.12",
+        "released_at": "2026-09-25T00:18:45Z"
+      },
+      "4.5.13": {
+        "tag": "data-mongodb-4.5.13",
+        "released_at": "2026-09-25T00:19:04Z"
+      },
+      "5.0.0": {
+        "tag": "data-mongodb-5.0.0",
+        "released_at": "2026-09-25T00:19:19Z"
+      },
+      "5.0.1": {
+        "tag": "data-mongodb-5.0.1",
+        "released_at": "2026-09-25T00:19:20Z"
+      },
+      "5.0.2": {
+        "tag": "data-mongodb-5.0.2",
+        "released_at": "2026-09-25T00:19:14Z"
+      },
+      "5.0.3": {
+        "tag": "data-mongodb-5.0.3",
+        "released_at": "2026-09-25T00:19:15Z"
+      },
+      "5.0.4": {
+        "tag": "data-mongodb-5.0.4",
+        "released_at": "2026-09-25T00:19:20Z"
+      },
+      "5.0.5": {
+        "tag": "data-mongodb-5.0.5",
+        "released_at": "2026-09-25T00:19:25Z"
+      },
+      "5.0.6": {
+        "tag": "data-mongodb-5.0.6",
+        "released_at": "2026-09-25T00:19:29Z"
+      },
+      "5.0.7": {
+        "tag": "data-mongodb-5.0.7",
+        "released_at": "2026-09-25T00:19:26Z"
+      },
+      "5.1.0": {
+        "tag": "data-mongodb-5.1.0",
+        "released_at": "2026-09-25T00:19:33Z"
+      },
+      "5.1.1": {
+        "tag": "data-mongodb-5.1.1",
+        "released_at": "2026-09-25T00:19:37Z"
+      }
+    },
+    "data-neo4j": {
+      "7.2.0": {
+        "tag": "data-neo4j-7.2.0",
+        "released_at": "2026-09-25T00:19:38Z"
+      },
+      "7.2.1": {
+        "tag": "data-neo4j-7.2.1",
+        "released_at": "2026-09-25T00:19:36Z"
+      },
+      "7.2.2": {
+        "tag": "data-neo4j-7.2.2",
+        "released_at": "2026-09-25T00:19:42Z"
+      },
+      "7.2.3": {
+        "tag": "data-neo4j-7.2.3",
+        "released_at": "2026-09-25T00:19:53Z"
+      },
+      "7.2.4": {
+        "tag": "data-neo4j-7.2.4",
+        "released_at": "2026-09-25T00:19:47Z"
+      },
+      "7.2.5": {
+        "tag": "data-neo4j-7.2.5",
+        "released_at": "2026-09-25T00:19:50Z"
+      },
+      "7.2.6": {
+        "tag": "data-neo4j-7.2.6",
+        "released_at": "2026-09-25T00:19:59Z"
+      },
+      "7.2.7": {
+        "tag": "data-neo4j-7.2.7",
+        "released_at": "2026-09-25T00:19:59Z"
+      },
+      "7.2.8": {
+        "tag": "data-neo4j-7.2.8",
+        "released_at": "2026-09-25T00:19:59Z"
+      },
+      "7.2.9": {
+        "tag": "data-neo4j-7.2.9",
+        "released_at": "2026-09-25T00:20:05Z"
+      },
+      "7.2.10": {
+        "tag": "data-neo4j-7.2.10",
+        "released_at": "2026-09-25T00:19:42Z"
+      },
+      "7.2.11": {
+        "tag": "data-neo4j-7.2.11",
+        "released_at": "2026-09-25T00:19:43Z"
+      },
+      "7.2.12": {
+        "tag": "data-neo4j-7.2.12",
+        "released_at": "2026-09-25T00:19:47Z"
+      },
+      "7.3.0": {
+        "tag": "data-neo4j-7.3.0",
+        "released_at": "2026-09-25T00:20:02Z"
+      },
+      "7.3.1": {
+        "tag": "data-neo4j-7.3.1",
+        "released_at": "2026-09-25T00:20:01Z"
+      },
+      "7.3.2": {
+        "tag": "data-neo4j-7.3.2",
+        "released_at": "2026-09-25T00:20:17Z"
+      },
+      "7.3.3": {
+        "tag": "data-neo4j-7.3.3",
+        "released_at": "2026-09-25T00:20:21Z"
+      },
+      "7.3.4": {
+        "tag": "data-neo4j-7.3.4",
+        "released_at": "2026-09-25T00:20:26Z"
+      },
+      "7.3.5": {
+        "tag": "data-neo4j-7.3.5",
+        "released_at": "2026-09-25T00:20:29Z"
+      },
+      "7.3.6": {
+        "tag": "data-neo4j-7.3.6",
+        "released_at": "2026-09-25T00:20:29Z"
+      },
+      "7.3.7": {
+        "tag": "data-neo4j-7.3.7",
+        "released_at": "2026-09-25T00:20:33Z"
+      },
+      "7.3.8": {
+        "tag": "data-neo4j-7.3.8",
+        "released_at": "2026-09-25T00:20:31Z"
+      },
+      "7.3.9": {
+        "tag": "data-neo4j-7.3.9",
+        "released_at": "2026-09-25T00:20:35Z"
+      },
+      "7.3.10": {
+        "tag": "data-neo4j-7.3.10",
+        "released_at": "2026-09-25T00:20:04Z"
+      },
+      "7.3.11": {
+        "tag": "data-neo4j-7.3.11",
+        "released_at": "2026-09-25T00:20:07Z"
+      },
+      "7.3.12": {
+        "tag": "data-neo4j-7.3.12",
+        "released_at": "2026-09-25T00:20:10Z"
+      },
+      "7.3.13": {
+        "tag": "data-neo4j-7.3.13",
+        "released_at": "2026-09-25T00:20:20Z"
+      },
+      "7.4.0": {
+        "tag": "data-neo4j-7.4.0",
+        "released_at": "2026-09-25T00:20:38Z"
+      },
+      "7.4.1": {
+        "tag": "data-neo4j-7.4.1",
+        "released_at": "2026-09-25T00:20:36Z"
+      },
+      "7.4.2": {
+        "tag": "data-neo4j-7.4.2",
+        "released_at": "2026-09-25T00:20:53Z"
+      },
+      "7.4.3": {
+        "tag": "data-neo4j-7.4.3",
+        "released_at": "2026-09-25T00:20:51Z"
+      },
+      "7.4.4": {
+        "tag": "data-neo4j-7.4.4",
+        "released_at": "2026-09-25T00:20:54Z"
+      },
+      "7.4.5": {
+        "tag": "data-neo4j-7.4.5",
+        "released_at": "2026-09-25T00:20:55Z"
+      },
+      "7.4.6": {
+        "tag": "data-neo4j-7.4.6",
+        "released_at": "2026-09-25T00:21:00Z"
+      },
+      "7.4.7": {
+        "tag": "data-neo4j-7.4.7",
+        "released_at": "2026-09-25T00:21:01Z"
+      },
+      "7.4.8": {
+        "tag": "data-neo4j-7.4.8",
+        "released_at": "2026-09-25T00:21:04Z"
+      },
+      "7.4.9": {
+        "tag": "data-neo4j-7.4.9",
+        "released_at": "2026-09-25T00:21:10Z"
+      },
+      "7.4.10": {
+        "tag": "data-neo4j-7.4.10",
+        "released_at": "2026-09-25T00:20:45Z"
+      },
+      "7.4.11": {
+        "tag": "data-neo4j-7.4.11",
+        "released_at": "2026-09-25T00:20:46Z"
+      },
+      "7.4.12": {
+        "tag": "data-neo4j-7.4.12",
+        "released_at": "2026-09-25T00:20:43Z"
+      },
+      "7.4.13": {
+        "tag": "data-neo4j-7.4.13",
+        "released_at": "2026-09-25T00:20:46Z"
+      },
+      "7.5.0": {
+        "tag": "data-neo4j-7.5.0",
+        "released_at": "2026-09-25T00:21:14Z"
+      },
+      "7.5.1": {
+        "tag": "data-neo4j-7.5.1",
+        "released_at": "2026-09-25T00:21:14Z"
+      },
+      "7.5.2": {
+        "tag": "data-neo4j-7.5.2",
+        "released_at": "2026-09-25T00:21:26Z"
+      },
+      "7.5.3": {
+        "tag": "data-neo4j-7.5.3",
+        "released_at": "2026-09-25T00:21:33Z"
+      },
+      "7.5.4": {
+        "tag": "data-neo4j-7.5.4",
+        "released_at": "2026-09-25T00:21:28Z"
+      },
+      "7.5.5": {
+        "tag": "data-neo4j-7.5.5",
+        "released_at": "2026-09-25T00:21:30Z"
+      },
+      "7.5.6": {
+        "tag": "data-neo4j-7.5.6",
+        "released_at": "2026-09-25T00:21:33Z"
+      },
+      "7.5.7": {
+        "tag": "data-neo4j-7.5.7",
+        "released_at": "2026-09-25T00:21:43Z"
+      },
+      "7.5.8": {
+        "tag": "data-neo4j-7.5.8",
+        "released_at": "2026-09-25T00:21:44Z"
+      },
+      "7.5.9": {
+        "tag": "data-neo4j-7.5.9",
+        "released_at": "2026-09-25T00:21:44Z"
+      },
+      "7.5.10": {
+        "tag": "data-neo4j-7.5.10",
+        "released_at": "2026-09-25T00:21:19Z"
+      },
+      "7.5.11": {
+        "tag": "data-neo4j-7.5.11",
+        "released_at": "2026-09-25T00:21:18Z"
+      },
+      "7.5.12": {
+        "tag": "data-neo4j-7.5.12",
+        "released_at": "2026-09-25T00:21:18Z"
+      },
+      "7.5.13": {
+        "tag": "data-neo4j-7.5.13",
+        "released_at": "2026-09-25T00:21:25Z"
+      },
+      "8.0.0": {
+        "tag": "data-neo4j-8.0.0",
+        "released_at": "2026-09-25T00:21:45Z"
+      },
+      "8.0.1": {
+        "tag": "data-neo4j-8.0.1",
+        "released_at": "2026-09-25T00:21:51Z"
+      },
+      "8.0.2": {
+        "tag": "data-neo4j-8.0.2",
+        "released_at": "2026-09-25T00:21:51Z"
+      },
+      "8.0.3": {
+        "tag": "data-neo4j-8.0.3",
+        "released_at": "2026-09-25T00:21:57Z"
+      },
+      "8.0.4": {
+        "tag": "data-neo4j-8.0.4",
+        "released_at": "2026-09-25T00:21:58Z"
+      },
+      "8.0.5": {
+        "tag": "data-neo4j-8.0.5",
+        "released_at": "2026-09-25T00:21:58Z"
+      },
+      "8.0.6": {
+        "tag": "data-neo4j-8.0.6",
+        "released_at": "2026-09-25T00:22:08Z"
+      },
+      "8.0.7": {
+        "tag": "data-neo4j-8.0.7",
+        "released_at": "2026-09-25T00:22:09Z"
+      },
+      "8.1.0": {
+        "tag": "data-neo4j-8.1.0",
+        "released_at": "2026-09-25T00:22:09Z"
+      },
+      "8.1.1": {
+        "tag": "data-neo4j-8.1.1",
+        "released_at": "2026-09-25T00:22:15Z"
+      }
+    },
+    "data-redis": {
+      "3.2.0": {
+        "tag": "data-redis-3.2.0",
+        "released_at": "2026-09-25T00:22:09Z"
+      },
+      "3.2.1": {
+        "tag": "data-redis-3.2.1",
+        "released_at": "2026-09-25T00:22:27Z"
+      },
+      "3.2.2": {
+        "tag": "data-redis-3.2.2",
+        "released_at": "2026-09-25T00:22:30Z"
+      },
+      "3.2.3": {
+        "tag": "data-redis-3.2.3",
+        "released_at": "2026-09-25T00:22:24Z"
+      },
+      "3.2.4": {
+        "tag": "data-redis-3.2.4",
+        "released_at": "2026-09-25T00:22:27Z"
+      },
+      "3.2.5": {
+        "tag": "data-redis-3.2.5",
+        "released_at": "2026-09-25T00:22:28Z"
+      },
+      "3.2.6": {
+        "tag": "data-redis-3.2.6",
+        "released_at": "2026-09-25T00:22:30Z"
+      },
+      "3.2.7": {
+        "tag": "data-redis-3.2.7",
+        "released_at": "2026-09-25T00:22:56Z"
+      },
+      "3.2.8": {
+        "tag": "data-redis-3.2.8",
+        "released_at": "2026-09-25T00:22:35Z"
+      },
+      "3.2.9": {
+        "tag": "data-redis-3.2.9",
+        "released_at": "2026-09-25T00:22:44Z"
+      },
+      "3.2.10": {
+        "tag": "data-redis-3.2.10",
+        "released_at": "2026-09-25T00:22:24Z"
+      },
+      "3.2.11": {
+        "tag": "data-redis-3.2.11",
+        "released_at": "2026-09-25T00:22:26Z"
+      },
+      "3.2.12": {
+        "tag": "data-redis-3.2.12",
+        "released_at": "2026-09-25T00:22:31Z"
+      },
+      "3.3.0": {
+        "tag": "data-redis-3.3.0",
+        "released_at": "2026-09-25T00:22:41Z"
+      },
+      "3.3.1": {
+        "tag": "data-redis-3.3.1",
+        "released_at": "2026-09-25T00:22:48Z"
+      },
+      "3.3.2": {
+        "tag": "data-redis-3.3.2",
+        "released_at": "2026-09-25T00:23:04Z"
+      },
+      "3.3.3": {
+        "tag": "data-redis-3.3.3",
+        "released_at": "2026-09-25T00:23:00Z"
+      },
+      "3.3.4": {
+        "tag": "data-redis-3.3.4",
+        "released_at": "2026-09-25T00:23:01Z"
+      },
+      "3.3.5": {
+        "tag": "data-redis-3.3.5",
+        "released_at": "2026-09-25T00:23:06Z"
+      },
+      "3.3.6": {
+        "tag": "data-redis-3.3.6",
+        "released_at": "2026-09-25T00:23:07Z"
+      },
+      "3.3.7": {
+        "tag": "data-redis-3.3.7",
+        "released_at": "2026-09-25T00:23:05Z"
+      },
+      "3.3.8": {
+        "tag": "data-redis-3.3.8",
+        "released_at": "2026-09-25T00:23:12Z"
+      },
+      "3.3.9": {
+        "tag": "data-redis-3.3.9",
+        "released_at": "2026-09-25T00:28:13Z"
+      },
+      "3.3.10": {
+        "tag": "data-redis-3.3.10",
+        "released_at": "2026-09-25T00:22:43Z"
+      },
+      "3.3.11": {
+        "tag": "data-redis-3.3.11",
+        "released_at": "2026-09-25T00:22:49Z"
+      },
+      "3.3.12": {
+        "tag": "data-redis-3.3.12",
+        "released_at": "2026-09-25T00:22:51Z"
+      },
+      "3.3.13": {
+        "tag": "data-redis-3.3.13",
+        "released_at": "2026-09-25T00:22:56Z"
+      },
+      "3.4.0": {
+        "tag": "data-redis-3.4.0",
+        "released_at": "2026-09-25T00:23:17Z"
+      },
+      "3.4.1": {
+        "tag": "data-redis-3.4.1",
+        "released_at": "2026-09-25T00:23:19Z"
+      },
+      "3.4.2": {
+        "tag": "data-redis-3.4.2",
+        "released_at": "2026-09-25T00:23:28Z"
+      },
+      "3.4.3": {
+        "tag": "data-redis-3.4.3",
+        "released_at": "2026-09-25T00:23:31Z"
+      },
+      "3.4.4": {
+        "tag": "data-redis-3.4.4",
+        "released_at": "2026-09-25T00:23:35Z"
+      },
+      "3.4.5": {
+        "tag": "data-redis-3.4.5",
+        "released_at": "2026-09-25T00:23:35Z"
+      },
+      "3.4.6": {
+        "tag": "data-redis-3.4.6",
+        "released_at": "2026-09-25T00:23:51Z"
+      },
+      "3.4.7": {
+        "tag": "data-redis-3.4.7",
+        "released_at": "2026-09-25T00:23:46Z"
+      },
+      "3.4.8": {
+        "tag": "data-redis-3.4.8",
+        "released_at": "2026-09-25T00:23:53Z"
+      },
+      "3.4.9": {
+        "tag": "data-redis-3.4.9",
+        "released_at": "2026-09-25T00:23:47Z"
+      },
+      "3.4.10": {
+        "tag": "data-redis-3.4.10",
+        "released_at": "2026-09-25T00:23:18Z"
+      },
+      "3.4.11": {
+        "tag": "data-redis-3.4.11",
+        "released_at": "2026-09-25T00:23:19Z"
+      },
+      "3.4.12": {
+        "tag": "data-redis-3.4.12",
+        "released_at": "2026-09-25T00:23:27Z"
+      },
+      "3.4.13": {
+        "tag": "data-redis-3.4.13",
+        "released_at": "2026-09-25T00:23:28Z"
+      },
+      "3.5.0": {
+        "tag": "data-redis-3.5.0",
+        "released_at": "2026-09-25T00:23:47Z"
+      },
+      "3.5.1": {
+        "tag": "data-redis-3.5.1",
+        "released_at": "2026-09-25T00:23:55Z"
+      },
+      "3.5.2": {
+        "tag": "data-redis-3.5.2",
+        "released_at": "2026-09-25T00:24:02Z"
+      },
+      "3.5.3": {
+        "tag": "data-redis-3.5.3",
+        "released_at": "2026-09-25T00:24:09Z"
+      },
+      "3.5.4": {
+        "tag": "data-redis-3.5.4",
+        "released_at": "2026-09-25T00:24:03Z"
+      },
+      "3.5.5": {
+        "tag": "data-redis-3.5.5",
+        "released_at": "2026-09-25T00:24:07Z"
+      },
+      "3.5.6": {
+        "tag": "data-redis-3.5.6",
+        "released_at": "2026-09-25T00:24:15Z"
+      },
+      "3.5.7": {
+        "tag": "data-redis-3.5.7",
+        "released_at": "2026-09-25T00:24:13Z"
+      },
+      "3.5.8": {
+        "tag": "data-redis-3.5.8",
+        "released_at": "2026-09-25T00:24:18Z"
+      },
+      "3.5.9": {
+        "tag": "data-redis-3.5.9",
+        "released_at": "2026-09-25T00:24:19Z"
+      },
+      "3.5.10": {
+        "tag": "data-redis-3.5.10",
+        "released_at": "2026-09-25T00:23:53Z"
+      },
+      "3.5.11": {
+        "tag": "data-redis-3.5.11",
+        "released_at": "2026-09-25T00:23:57Z"
+      },
+      "3.5.12": {
+        "tag": "data-redis-3.5.12",
+        "released_at": "2026-09-25T00:24:00Z"
+      },
+      "3.5.13": {
+        "tag": "data-redis-3.5.13",
+        "released_at": "2026-09-25T00:23:57Z"
+      },
+      "4.0.0": {
+        "tag": "data-redis-4.0.0",
+        "released_at": "2026-09-25T00:24:21Z"
+      },
+      "4.0.1": {
+        "tag": "data-redis-4.0.1",
+        "released_at": "2026-09-25T00:24:24Z"
+      },
+      "4.0.2": {
+        "tag": "data-redis-4.0.2",
+        "released_at": "2026-09-25T00:24:26Z"
+      },
+      "4.0.3": {
+        "tag": "data-redis-4.0.3",
+        "released_at": "2026-09-25T00:24:28Z"
+      },
+      "4.0.4": {
+        "tag": "data-redis-4.0.4",
+        "released_at": "2026-09-25T00:24:27Z"
+      },
+      "4.0.5": {
+        "tag": "data-redis-4.0.5",
+        "released_at": "2026-09-25T00:24:34Z"
+      },
+      "4.0.6": {
+        "tag": "data-redis-4.0.6",
+        "released_at": "2026-09-25T00:24:34Z"
+      },
+      "4.0.7": {
+        "tag": "data-redis-4.0.7",
+        "released_at": "2026-09-25T00:24:34Z"
+      },
+      "4.1.0": {
+        "tag": "data-redis-4.1.0",
+        "released_at": "2026-09-25T00:24:38Z"
+      },
+      "4.1.1": {
+        "tag": "data-redis-4.1.1",
+        "released_at": "2026-09-25T00:24:43Z"
+      }
+    },
+    "data-relational": {
+      "3.2.0": {
+        "tag": "data-relational-3.2.0",
+        "released_at": "2026-09-25T00:24:43Z"
+      },
+      "3.2.1": {
+        "tag": "data-relational-3.2.1",
+        "released_at": "2026-09-25T00:24:47Z"
+      },
+      "3.2.2": {
+        "tag": "data-relational-3.2.2",
+        "released_at": "2026-09-25T00:24:51Z"
+      },
+      "3.2.3": {
+        "tag": "data-relational-3.2.3",
+        "released_at": "2026-09-25T00:24:53Z"
+      },
+      "3.2.4": {
+        "tag": "data-relational-3.2.4",
+        "released_at": "2026-09-25T00:25:02Z"
+      },
+      "3.2.5": {
+        "tag": "data-relational-3.2.5",
+        "released_at": "2026-09-25T00:24:59Z"
+      },
+      "3.2.6": {
+        "tag": "data-relational-3.2.6",
+        "released_at": "2026-09-25T00:25:06Z"
+      },
+      "3.2.7": {
+        "tag": "data-relational-3.2.7",
+        "released_at": "2026-09-25T00:25:08Z"
+      },
+      "3.2.8": {
+        "tag": "data-relational-3.2.8",
+        "released_at": "2026-09-25T00:25:13Z"
+      },
+      "3.2.9": {
+        "tag": "data-relational-3.2.9",
+        "released_at": "2026-09-25T00:25:13Z"
+      },
+      "3.2.10": {
+        "tag": "data-relational-3.2.10",
+        "released_at": "2026-09-25T00:24:45Z"
+      },
+      "3.2.11": {
+        "tag": "data-relational-3.2.11",
+        "released_at": "2026-09-25T00:25:16Z"
+      },
+      "3.2.12": {
+        "tag": "data-relational-3.2.12",
+        "released_at": "2026-09-25T00:24:54Z"
+      },
+      "3.3.0": {
+        "tag": "data-relational-3.3.0",
+        "released_at": "2026-09-25T00:25:19Z"
+      },
+      "3.3.1": {
+        "tag": "data-relational-3.3.1",
+        "released_at": "2026-09-25T00:25:18Z"
+      },
+      "3.3.2": {
+        "tag": "data-relational-3.3.2",
+        "released_at": "2026-09-25T00:25:34Z"
+      },
+      "3.3.3": {
+        "tag": "data-relational-3.3.3",
+        "released_at": "2026-09-25T00:25:36Z"
+      },
+      "3.3.4": {
+        "tag": "data-relational-3.3.4",
+        "released_at": "2026-09-25T00:25:34Z"
+      },
+      "3.3.5": {
+        "tag": "data-relational-3.3.5",
+        "released_at": "2026-09-25T00:25:37Z"
+      },
+      "3.3.6": {
+        "tag": "data-relational-3.3.6",
+        "released_at": "2026-09-25T00:25:34Z"
+      },
+      "3.3.7": {
+        "tag": "data-relational-3.3.7",
+        "released_at": "2026-09-25T00:25:42Z"
+      },
+      "3.3.8": {
+        "tag": "data-relational-3.3.8",
+        "released_at": "2026-09-25T00:25:45Z"
+      },
+      "3.3.9": {
+        "tag": "data-relational-3.3.9",
+        "released_at": "2026-09-25T00:25:41Z"
+      },
+      "3.3.10": {
+        "tag": "data-relational-3.3.10",
+        "released_at": "2026-09-25T00:25:21Z"
+      },
+      "3.3.11": {
+        "tag": "data-relational-3.3.11",
+        "released_at": "2026-09-25T00:25:17Z"
+      },
+      "3.3.12": {
+        "tag": "data-relational-3.3.12",
+        "released_at": "2026-09-25T00:25:21Z"
+      },
+      "3.3.13": {
+        "tag": "data-relational-3.3.13",
+        "released_at": "2026-09-25T00:25:24Z"
+      },
+      "3.4.0": {
+        "tag": "data-relational-3.4.0",
+        "released_at": "2026-09-25T00:25:47Z"
+      },
+      "3.4.1": {
+        "tag": "data-relational-3.4.1",
+        "released_at": "2026-09-25T00:25:47Z"
+      },
+      "3.4.2": {
+        "tag": "data-relational-3.4.2",
+        "released_at": "2026-09-25T00:25:57Z"
+      },
+      "3.4.3": {
+        "tag": "data-relational-3.4.3",
+        "released_at": "2026-09-25T00:26:03Z"
+      },
+      "3.4.4": {
+        "tag": "data-relational-3.4.4",
+        "released_at": "2026-09-25T00:26:01Z"
+      },
+      "3.4.5": {
+        "tag": "data-relational-3.4.5",
+        "released_at": "2026-09-25T00:26:03Z"
+      },
+      "3.4.6": {
+        "tag": "data-relational-3.4.6",
+        "released_at": "2026-09-25T00:26:10Z"
+      },
+      "3.4.7": {
+        "tag": "data-relational-3.4.7",
+        "released_at": "2026-09-25T00:26:14Z"
+      },
+      "3.4.8": {
+        "tag": "data-relational-3.4.8",
+        "released_at": "2026-09-25T00:26:15Z"
+      },
+      "3.4.9": {
+        "tag": "data-relational-3.4.9",
+        "released_at": "2026-09-25T00:26:17Z"
+      },
+      "3.4.10": {
+        "tag": "data-relational-3.4.10",
+        "released_at": "2026-09-25T00:25:46Z"
+      },
+      "3.4.11": {
+        "tag": "data-relational-3.4.11",
+        "released_at": "2026-09-25T00:25:49Z"
+      },
+      "3.4.12": {
+        "tag": "data-relational-3.4.12",
+        "released_at": "2026-09-25T00:25:56Z"
+      },
+      "3.4.13": {
+        "tag": "data-relational-3.4.13",
+        "released_at": "2026-09-25T00:25:55Z"
+      },
+      "3.5.0": {
+        "tag": "data-relational-3.5.0",
+        "released_at": "2026-09-25T00:26:54Z"
+      },
+      "3.5.1": {
+        "tag": "data-relational-3.5.1",
+        "released_at": "2026-09-25T00:26:16Z"
+      },
+      "3.5.2": {
+        "tag": "data-relational-3.5.2",
+        "released_at": "2026-09-25T00:26:29Z"
+      },
+      "3.5.3": {
+        "tag": "data-relational-3.5.3",
+        "released_at": "2026-09-25T00:26:34Z"
+      },
+      "3.5.4": {
+        "tag": "data-relational-3.5.4",
+        "released_at": "2026-09-25T00:26:39Z"
+      },
+      "3.5.5": {
+        "tag": "data-relational-3.5.5",
+        "released_at": "2026-09-25T00:26:42Z"
+      },
+      "3.5.6": {
+        "tag": "data-relational-3.5.6",
+        "released_at": "2026-09-25T00:27:14Z"
+      },
+      "3.5.7": {
+        "tag": "data-relational-3.5.7",
+        "released_at": "2026-09-25T00:26:41Z"
+      },
+      "3.5.8": {
+        "tag": "data-relational-3.5.8",
+        "released_at": "2026-09-25T00:26:48Z"
+      },
+      "3.5.9": {
+        "tag": "data-relational-3.5.9",
+        "released_at": "2026-09-25T00:26:51Z"
+      },
+      "3.5.10": {
+        "tag": "data-relational-3.5.10",
+        "released_at": "2026-09-25T00:26:24Z"
+      },
+      "3.5.11": {
+        "tag": "data-relational-3.5.11",
+        "released_at": "2026-09-25T00:26:23Z"
+      },
+      "3.5.12": {
+        "tag": "data-relational-3.5.12",
+        "released_at": "2026-09-25T00:26:27Z"
+      },
+      "3.5.13": {
+        "tag": "data-relational-3.5.13",
+        "released_at": "2026-09-25T00:26:30Z"
+      },
+      "4.0.0": {
+        "tag": "data-relational-4.0.0",
+        "released_at": "2026-09-25T00:26:48Z"
+      },
+      "4.0.1": {
+        "tag": "data-relational-4.0.1",
+        "released_at": "2026-09-25T00:26:51Z"
+      },
+      "4.0.2": {
+        "tag": "data-relational-4.0.2",
+        "released_at": "2026-09-25T00:26:55Z"
+      },
+      "4.0.3": {
+        "tag": "data-relational-4.0.3",
+        "released_at": "2026-09-25T00:26:59Z"
+      },
+      "4.0.4": {
+        "tag": "data-relational-4.0.4",
+        "released_at": "2026-09-25T00:27:02Z"
+      },
+      "4.0.5": {
+        "tag": "data-relational-4.0.5",
+        "released_at": "2026-09-25T00:27:03Z"
+      },
+      "4.0.6": {
+        "tag": "data-relational-4.0.6",
+        "released_at": "2026-09-25T00:27:19Z"
+      },
+      "4.0.7": {
+        "tag": "data-relational-4.0.7",
+        "released_at": "2026-09-25T00:27:05Z"
+      },
+      "4.1.0": {
+        "tag": "data-relational-4.1.0",
+        "released_at": "2026-09-25T00:27:06Z"
+      },
+      "4.1.1": {
+        "tag": "data-relational-4.1.1",
+        "released_at": "2026-09-25T00:27:10Z"
+      }
+    },
+    "data-rest": {
+      "4.2.0": {
+        "tag": "data-rest-4.2.0",
+        "released_at": "2026-09-25T00:27:17Z"
+      },
+      "4.2.1": {
+        "tag": "data-rest-4.2.1",
+        "released_at": "2026-09-25T00:27:18Z"
+      },
+      "4.2.2": {
+        "tag": "data-rest-4.2.2",
+        "released_at": "2026-09-25T00:27:26Z"
+      },
+      "4.2.3": {
+        "tag": "data-rest-4.2.3",
+        "released_at": "2026-09-25T00:27:27Z"
+      },
+      "4.2.4": {
+        "tag": "data-rest-4.2.4",
+        "released_at": "2026-09-25T00:27:30Z"
+      },
+      "4.2.5": {
+        "tag": "data-rest-4.2.5",
+        "released_at": "2026-09-25T00:27:30Z"
+      },
+      "4.2.6": {
+        "tag": "data-rest-4.2.6",
+        "released_at": "2026-09-25T00:27:37Z"
+      },
+      "4.2.7": {
+        "tag": "data-rest-4.2.7",
+        "released_at": "2026-09-25T00:27:35Z"
+      },
+      "4.2.8": {
+        "tag": "data-rest-4.2.8",
+        "released_at": "2026-09-25T00:27:45Z"
+      },
+      "4.2.9": {
+        "tag": "data-rest-4.2.9",
+        "released_at": "2026-09-25T00:27:44Z"
+      },
+      "4.2.10": {
+        "tag": "data-rest-4.2.10",
+        "released_at": "2026-09-25T00:27:18Z"
+      },
+      "4.2.11": {
+        "tag": "data-rest-4.2.11",
+        "released_at": "2026-09-25T00:27:19Z"
+      },
+      "4.2.12": {
+        "tag": "data-rest-4.2.12",
+        "released_at": "2026-09-25T00:27:19Z"
+      },
+      "4.3.0": {
+        "tag": "data-rest-4.3.0",
+        "released_at": "2026-09-25T00:27:42Z"
+      },
+      "4.3.1": {
+        "tag": "data-rest-4.3.1",
+        "released_at": "2026-09-25T00:27:46Z"
+      },
+      "4.3.2": {
+        "tag": "data-rest-4.3.2",
+        "released_at": "2026-09-25T00:27:55Z"
+      },
+      "4.3.3": {
+        "tag": "data-rest-4.3.3",
+        "released_at": "2026-09-25T00:27:57Z"
+      },
+      "4.3.4": {
+        "tag": "data-rest-4.3.4",
+        "released_at": "2026-09-25T00:28:36Z"
+      },
+      "4.3.5": {
+        "tag": "data-rest-4.3.5",
+        "released_at": "2026-09-25T00:28:07Z"
+      },
+      "4.3.6": {
+        "tag": "data-rest-4.3.6",
+        "released_at": "2026-09-25T00:28:06Z"
+      },
+      "4.3.7": {
+        "tag": "data-rest-4.3.7",
+        "released_at": "2026-09-25T00:28:07Z"
+      },
+      "4.3.8": {
+        "tag": "data-rest-4.3.8",
+        "released_at": "2026-09-25T00:29:23Z"
+      },
+      "4.3.9": {
+        "tag": "data-rest-4.3.9",
+        "released_at": "2026-09-25T00:28:17Z"
+      },
+      "4.3.10": {
+        "tag": "data-rest-4.3.10",
+        "released_at": "2026-09-25T00:27:58Z"
+      },
+      "4.3.11": {
+        "tag": "data-rest-4.3.11",
+        "released_at": "2026-09-25T00:27:49Z"
+      },
+      "4.3.12": {
+        "tag": "data-rest-4.3.12",
+        "released_at": "2026-09-25T00:27:52Z"
+      },
+      "4.3.13": {
+        "tag": "data-rest-4.3.13",
+        "released_at": "2026-09-25T00:27:58Z"
+      },
+      "4.4.0": {
+        "tag": "data-rest-4.4.0",
+        "released_at": "2026-09-25T00:28:55Z"
+      },
+      "4.4.1": {
+        "tag": "data-rest-4.4.1",
+        "released_at": "2026-09-25T00:28:16Z"
+      },
+      "4.4.2": {
+        "tag": "data-rest-4.4.2",
+        "released_at": "2026-09-25T00:28:32Z"
+      },
+      "4.4.3": {
+        "tag": "data-rest-4.4.3",
+        "released_at": "2026-09-25T00:28:34Z"
+      },
+      "4.4.4": {
+        "tag": "data-rest-4.4.4",
+        "released_at": "2026-09-25T00:28:39Z"
+      },
+      "4.4.5": {
+        "tag": "data-rest-4.4.5",
+        "released_at": "2026-09-25T00:28:34Z"
+      },
+      "4.4.6": {
+        "tag": "data-rest-4.4.6",
+        "released_at": "2026-09-25T00:28:42Z"
+      },
+      "4.4.7": {
+        "tag": "data-rest-4.4.7",
+        "released_at": "2026-09-25T00:28:48Z"
+      },
+      "4.4.8": {
+        "tag": "data-rest-4.4.8",
+        "released_at": "2026-09-25T00:28:42Z"
+      },
+      "4.4.9": {
+        "tag": "data-rest-4.4.9",
+        "released_at": "2026-09-25T00:28:45Z"
+      },
+      "4.4.10": {
+        "tag": "data-rest-4.4.10",
+        "released_at": "2026-09-25T00:28:20Z"
+      },
+      "4.4.11": {
+        "tag": "data-rest-4.4.11",
+        "released_at": "2026-09-25T00:28:22Z"
+      },
+      "4.4.12": {
+        "tag": "data-rest-4.4.12",
+        "released_at": "2026-09-25T00:28:27Z"
+      },
+      "4.4.13": {
+        "tag": "data-rest-4.4.13",
+        "released_at": "2026-09-25T00:28:28Z"
+      },
+      "4.5.0": {
+        "tag": "data-rest-4.5.0",
+        "released_at": "2026-09-25T00:28:47Z"
+      },
+      "4.5.1": {
+        "tag": "data-rest-4.5.1",
+        "released_at": "2026-09-25T00:28:50Z"
+      },
+      "4.5.2": {
+        "tag": "data-rest-4.5.2",
+        "released_at": "2026-09-25T00:29:05Z"
+      },
+      "4.5.3": {
+        "tag": "data-rest-4.5.3",
+        "released_at": "2026-09-25T00:29:06Z"
+      },
+      "4.5.4": {
+        "tag": "data-rest-4.5.4",
+        "released_at": "2026-09-25T00:29:11Z"
+      },
+      "4.5.5": {
+        "tag": "data-rest-4.5.5",
+        "released_at": "2026-09-25T00:29:15Z"
+      },
+      "4.5.6": {
+        "tag": "data-rest-4.5.6",
+        "released_at": "2026-09-25T00:29:09Z"
+      },
+      "4.5.7": {
+        "tag": "data-rest-4.5.7",
+        "released_at": "2026-09-25T00:29:16Z"
+      },
+      "4.5.8": {
+        "tag": "data-rest-4.5.8",
+        "released_at": "2026-09-25T00:29:21Z"
+      },
+      "4.5.9": {
+        "tag": "data-rest-4.5.9",
+        "released_at": "2026-09-25T00:29:22Z"
+      },
+      "4.5.10": {
+        "tag": "data-rest-4.5.10",
+        "released_at": "2026-09-25T00:28:51Z"
+      },
+      "4.5.11": {
+        "tag": "data-rest-4.5.11",
+        "released_at": "2026-09-25T00:28:53Z"
+      },
+      "4.5.12": {
+        "tag": "data-rest-4.5.12",
+        "released_at": "2026-09-25T00:28:56Z"
+      },
+      "4.5.13": {
+        "tag": "data-rest-4.5.13",
+        "released_at": "2026-09-25T00:29:06Z"
+      },
+      "5.0.0": {
+        "tag": "data-rest-5.0.0",
+        "released_at": "2026-09-25T00:29:20Z"
+      },
+      "5.0.1": {
+        "tag": "data-rest-5.0.1",
+        "released_at": "2026-09-25T00:29:24Z"
+      },
+      "5.0.2": {
+        "tag": "data-rest-5.0.2",
+        "released_at": "2026-09-25T00:29:30Z"
+      },
+      "5.0.3": {
+        "tag": "data-rest-5.0.3",
+        "released_at": "2026-09-25T00:29:34Z"
+      },
+      "5.0.4": {
+        "tag": "data-rest-5.0.4",
+        "released_at": "2026-09-25T00:29:31Z"
+      },
+      "5.0.5": {
+        "tag": "data-rest-5.0.5",
+        "released_at": "2026-09-25T00:29:36Z"
+      },
+      "5.0.6": {
+        "tag": "data-rest-5.0.6",
+        "released_at": "2026-09-25T00:29:38Z"
+      },
+      "5.0.7": {
+        "tag": "data-rest-5.0.7",
+        "released_at": "2026-09-25T00:29:40Z"
+      },
+      "5.1.0": {
+        "tag": "data-rest-5.1.0",
+        "released_at": "2026-09-25T00:29:39Z"
+      },
+      "5.1.1": {
+        "tag": "data-rest-5.1.1",
+        "released_at": "2026-09-25T00:29:42Z"
       }
     },
     "framework": {

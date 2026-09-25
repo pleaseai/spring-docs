@@ -1,0 +1,18 @@
+---
+title: "EntityCallbacks"
+source: "ROOT:r2dbc/entity-callbacks.adoc"
+---
+
+<a id="r2dbc.entity-callbacks"></a>
+
+# EntityCallbacks
+
+Spring Data R2DBC uses the [`EntityCallback` API](../commons/entity-callbacks.md) for its auditing support and reacts on the following callbacks.
+
+| Callback | Method | Description | Order |
+| --- | --- | --- | --- |
+| BeforeConvertCallback | `onBeforeConvert(T entity, SqlIdentifier table)` | Invoked before a domain object is converted to `OutboundRow`. | `Ordered.LOWEST_PRECEDENCE` |
+| AfterConvertCallback | `onAfterConvert(T entity, SqlIdentifier table)` | Invoked after a domain object is loaded. Can modify the domain object after reading it from a row. | `Ordered.LOWEST_PRECEDENCE` |
+| AuditingEntityCallback | `onBeforeConvert(T entity, SqlIdentifier table)` | Marks an auditable entity *created* or *modified* | 100 |
+| BeforeSaveCallback | `onBeforeSave(T entity, OutboundRow row, SqlIdentifier table)` | Invoked before a domain object is saved. Can modify the target, to be persisted, `OutboundRow` containing all mapped entity information. | `Ordered.LOWEST_PRECEDENCE` |
+| AfterSaveCallback | `onAfterSave(T entity, OutboundRow row, SqlIdentifier table)` | Invoked after a domain object is saved. Can modify the domain object, to be returned after save, `OutboundRow` containing all mapped entity information. | `Ordered.LOWEST_PRECEDENCE` |

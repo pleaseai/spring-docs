@@ -1,0 +1,16 @@
+---
+title: "Conventions"
+source: "ROOT:observability/conventions.adoc"
+---
+
+<a id="observability-conventions"></a>
+
+# Conventions
+
+Below you can find a list of all `GlobalObservationConvention` and `ObservationConvention` declared by this project.
+
+|  |  |
+| --- | --- |
+| ObservationConvention Class Name | Applicable ObservationContext Class Name |
+| `org.springframework.data.mongodb.observability.DefaultMongoHandlerObservationConvention` | `MongoHandlerContext` |
+| `org.springframework.data.mongodb.observability.MongoHandlerObservationConvention` | `MongoHandlerContext` |

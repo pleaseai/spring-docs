@@ -1,0 +1,196 @@
+---
+title: "MongoDB Repositories"
+source: "ROOT:mongodb/repositories/repositories.adoc"
+---
+
+<a id="mongo.repositories"></a>
+
+# MongoDB Repositories
+
+<a id="mongo-repo-intro"></a>
+
+This chapter points out the specialties for repository support for MongoDB.
+This chapter builds on the core repository support explained in [core concepts](../../repositories/core-concepts.md).
+You should have a sound understanding of the basic concepts explained there.
+
+<a id="mongo-repo-usage"></a>
+
+## Usage
+
+To access domain entities stored in a MongoDB, you can use our sophisticated repository support that eases implementation quite significantly.
+To do so, create an interface for your repository, as the following example shows:
+
+```java
+public class Person {
+
+  @Id
+  private String id;
+  private String firstname;
+  private String lastname;
+  private Address address;
+
+  // … getters and setters omitted
+}
+```
+
+Note that the domain type shown in the preceding example has a property named `id` of type `String`.The default serialization mechanism used in `MongoTemplate` (which backs the repository support) regards properties named `id` as the document ID.
+Currently, we support `String`, `ObjectId`, and `BigInteger` as ID types.
+Please see [ID mapping](../template-crud-operations.md#mongo-template.id-handling) for more information about on how the `id` field is handled in the mapping layer.
+
+Now that we have a domain object, we can define an interface that uses it, as follows:
+
+#### Imperative
+
+```java
+public interface PersonRepository extends PagingAndSortingRepository<Person, String> {
+
+    // additional custom query methods go here
+}
+```
+
+#### Reactive
+
+```java
+public interface PersonRepository extends ReactiveSortingRepository<Person, String> {
+
+    // additional custom query methods go here
+}
+```
+
+To start using the repository, use the `@EnableMongoRepositories` annotation.
+That annotation carries the same attributes as the namespace element.
+If no base package is configured, the infrastructure scans the package of the annotated configuration class.
+The following example shows how to configuration your application to use MongoDB repositories:
+
+#### Imperative
+
+```java
+@Configuration
+@EnableMongoRepositories("com.acme.*.repositories")
+class ApplicationConfig extends AbstractMongoClientConfiguration {
+
+  @Override
+  protected String getDatabaseName() {
+    return "e-store";
+  }
+
+  @Override
+  protected String getMappingBasePackage() {
+    return "com.acme.*.repositories";
+  }
+}
+```
+
+#### Reactive
+
+```java
+@Configuration
+@EnableReactiveMongoRepositories("com.acme.*.repositories")
+class ApplicationConfig extends AbstractReactiveMongoConfiguration {
+
+  @Override
+  protected String getDatabaseName() {
+    return "e-store";
+  }
+
+  @Override
+  protected String getMappingBasePackage() {
+    return "com.acme.*.repositories";
+  }
+}
+```
+
+> [!NOTE]
+> MongoDB uses two different drivers for imperative (synchronous/blocking) and reactive (non-blocking) data access. You must create a connection by using the Reactive Streams driver to provide the required infrastructure for Spring Data’s Reactive MongoDB support. Consequently, you must provide a separate configuration for MongoDB’s Reactive Streams driver. Note that your application operates on two different connections if you use reactive and blocking Spring Data MongoDB templates and repositories.
+
+#### XML
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans
+    https://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+    http://www.springframework.org/schema/data/mongo
+    https://www.springframework.org/schema/data/mongo/spring-mongo-1.0.xsd">
+
+  <mongo:mongo-client id="mongoClient" />
+
+  <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+    <constructor-arg ref="mongoClient" />
+    <constructor-arg value="databaseName" />
+  </bean>
+
+  <mongo:repositories base-package="com.acme.*.repositories" />
+
+</beans>
+```
+
+This namespace element causes the base packages to be scanned for interfaces that extend `MongoRepository` and create Spring beans for each one found.
+By default, the repositories get a `MongoTemplate` Spring bean wired that is called `mongoTemplate`, so you only need to configure `mongo-template-ref` explicitly if you deviate from this convention.
+
+Because our domain repository extends `PagingAndSortingRepository`, it provides you with methods for paginated and sorted access to the entities.
+In the case of reactive repositories only `ReactiveSortingRepository` is available since the notion of a `Page` is not applicable.
+However finder methods still accept a `Sort` and `Limit` parameter.
+
+> [!NOTE]
+> The reactive space offers various reactive composition libraries. The most common libraries are [RxJava](https://github.com/ReactiveX/RxJava) and [Project Reactor](https://projectreactor.io/).
+>
+> Spring Data MongoDB is built on top of the [MongoDB Reactive Streams](https://mongodb.github.io/mongo-java-driver-reactivestreams/) driver, to provide maximal interoperability by relying on the [Reactive Streams](https://www.reactive-streams.org/) initiative. Static APIs, such as `ReactiveMongoOperations`, are provided by using Project Reactor’s `Flux` and `Mono` types. Project Reactor offers various adapters to convert reactive wrapper types  (`Flux` to `Observable` and vice versa), but conversion can easily clutter your code.
+>
+> Spring Data’s Reactive Repository abstraction is a dynamic API, mostly defined by you and your requirements as you declare query methods. Reactive MongoDB repositories can be implemented by using either RxJava or Project Reactor wrapper types by extending from one of the following library-specific repository interfaces:
+>
+> - `ReactiveCrudRepository`
+> - `ReactiveSortingRepository`
+> - `RxJava3CrudRepository`
+> - `RxJava3SortingRepository`
+>
+> Spring Data converts reactive wrapper types behind the scenes so that you can stick to your favorite composition library.
+
+In case you want to obtain methods for basic CRUD operations also add the `CrudRepository` interface.
+Working with the repository instance is just a matter of dependency injecting it into a client .
+Consequently, accessing the second page of `Person` objects at a page size of 10 would resemble the following code:
+
+#### Imperative
+
+```java
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration
+class PersonRepositoryTests {
+
+    @Autowired PersonRepository repository;
+
+    @Test
+    void readsFirstPageCorrectly() {
+
+      Page<Person> persons = repository.findAll(PageRequest.of(0, 10));
+      assertThat(persons.isFirstPage()).isTrue();
+    }
+}
+```
+
+#### Reactive
+
+```java
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration
+class PersonRepositoryTests {
+
+    @Autowired PersonRepository repository;
+
+    @Test
+    void readsFirstPageCorrectly() {
+
+        Flux<Person> persons = repository.findAll(Sort.unsorted(), Limit.of(10));
+
+        persons.as(StepVerifer::create)
+            .expectNextCount(10)
+            .verifyComplete();
+    }
+}
+```
+
+The preceding example creates an application context with Spring’s unit test support, which performs annotation-based dependency injection into test cases.
+Inside the test method, we use the repository to query the datastore.
+We hand the repository a `PageRequest` instance that requests the first page of `Person` objects at a page size of 10.

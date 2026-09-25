@@ -1,0 +1,68 @@
+---
+title: "Support Classes"
+source: "ROOT:redis/support-classes.adoc"
+---
+
+<a id="redis:support"></a>
+
+# Support Classes
+
+Package `org.springframework.data.redis.support` offers various reusable components that rely on Redis as a backing store.
+Currently, the package contains various JDK-based interface implementations on top of Redis, such as [atomic](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/atomic/package-summary.html) counters and JDK [Collections](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Collection.html).
+
+> [!NOTE]
+> [`RedisList`](https://docs.spring.io/spring-data/redis/docs/3.4.4/api/org/springframework/data/redis/support/collections/RedisList.html) is forward-compatible with Java 21 `SequencedCollection`.
+
+The atomic counters make it easy to wrap Redis key incrementation while the collections allow easy management of Redis keys with minimal storage exposure or API leakage.
+In particular, the [`RedisSet`](https://docs.spring.io/spring-data/redis/docs/3.4.4/api/org/springframework/data/redis/support/collections/RedisSet.html) and [`RedisZSet`](https://docs.spring.io/spring-data/redis/docs/3.4.4/api/org/springframework/data/redis/support/collections/RedisZSet.html) interfaces offer easy access to the set operations supported by Redis, such as `intersection` and `union`. [`RedisList`](https://docs.spring.io/spring-data/redis/docs/3.4.4/api/org/springframework/data/redis/support/collections/RedisList.html) implements the `List`, `Queue`, and `Deque` contracts (and their equivalent blocking siblings) on top of Redis, exposing the storage as a FIFO (First-In-First-Out), LIFO (Last-In-First-Out) or capped collection with minimal configuration.
+The following example shows the configuration for a bean that uses a [`RedisList`](https://docs.spring.io/spring-data/redis/docs/3.4.4/api/org/springframework/data/redis/support/collections/RedisList.html):
+
+#### Java
+
+```java
+@Configuration
+class MyConfig {
+
+  // …
+
+  @Bean
+  RedisList<String> stringRedisTemplate(RedisTemplate<String, String> redisTemplate) {
+    return new DefaultRedisList<>(template, "queue-key");
+  }
+}
+```
+
+#### XML
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:p="http://www.springframework.org/schema/p" xsi:schemaLocation="
+  http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+  <bean id="queue" class="org.springframework.data.redis.support.collections.DefaultRedisList">
+    <constructor-arg ref="redisTemplate"/>
+    <constructor-arg value="queue-key"/>
+  </bean>
+
+</beans>
+```
+
+The following example shows a Java configuration example for a `Deque`:
+
+```java
+public class AnotherExample {
+
+  // injected
+  private Deque<String> queue;
+
+  public void addTag(String tag) {
+    queue.push(tag);
+  }
+}
+```
+
+As shown in the preceding example, the consuming code is decoupled from the actual storage implementation.
+In fact, there is no indication that Redis is used underneath.
+This makes moving from development to production environments transparent and highly increases testability (the Redis implementation can be replaced with an in-memory one).
