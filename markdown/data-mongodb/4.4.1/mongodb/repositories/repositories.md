@@ -1,0 +1,398 @@
+---
+title: "MongoDB Repositories"
+source: "ROOT:mongodb/repositories/repositories.adoc"
+---
+
+<a id="mongo.repositories"></a>
+
+# MongoDB Repositories
+
+<a id="mongo-repo-intro"></a>
+
+This chapter points out the specialties for repository support for MongoDB.
+This chapter builds on the core repository support explained in [core concepts](../../repositories/core-concepts.md).
+You should have a sound understanding of the basic concepts explained there.
+
+<a id="mongo-repo-usage"></a>
+
+## Usage
+
+To access domain entities stored in a MongoDB, you can use our sophisticated repository support that eases implementation quite significantly.
+To do so, create an interface for your repository, as the following example shows:
+
+```java
+public class Person {
+
+  @Id
+  private String id;
+  private String firstname;
+  private String lastname;
+  private Address address;
+
+  // … getters and setters omitted
+}
+```
+
+Note that the domain type shown in the preceding example has a property named `id` of type `String`.The default serialization mechanism used in `MongoTemplate` (which backs the repository support) regards properties named `id` as the document ID.
+Currently, we support `String`, `ObjectId`, and `BigInteger` as ID types.
+Please see [ID mapping](../template-crud-operations.md#mongo-template.id-handling) for more information about on how the `id` field is handled in the mapping layer.
+
+Now that we have a domain object, we can define an interface that uses it, as follows:
+
+#### Imperative
+
+```java
+public interface PersonRepository extends PagingAndSortingRepository<Person, String> {
+
+    // additional custom query methods go here
+}
+```
+
+#### Reactive
+
+```java
+public interface PersonRepository extends ReactiveSortingRepository<Person, String> {
+
+    // additional custom query methods go here
+}
+```
+
+To start using the repository, use the `@EnableMongoRepositories` annotation.
+That annotation carries the same attributes as the namespace element.
+If no base package is configured, the infrastructure scans the package of the annotated configuration class.
+The following example shows how to configuration your application to use MongoDB repositories:
+
+#### Imperative
+
+```java
+@Configuration
+@EnableMongoRepositories("com.acme.*.repositories")
+class ApplicationConfig extends AbstractMongoClientConfiguration {
+
+  @Override
+  protected String getDatabaseName() {
+    return "e-store";
+  }
+
+  @Override
+  protected String getMappingBasePackage() {
+    return "com.acme.*.repositories";
+  }
+}
+```
+
+#### Reactive
+
+```java
+@Configuration
+@EnableReactiveMongoRepositories("com.acme.*.repositories")
+class ApplicationConfig extends AbstractReactiveMongoConfiguration {
+
+  @Override
+  protected String getDatabaseName() {
+    return "e-store";
+  }
+
+  @Override
+  protected String getMappingBasePackage() {
+    return "com.acme.*.repositories";
+  }
+}
+```
+
+> [!NOTE]
+> MongoDB uses two different drivers for imperative (synchronous/blocking) and reactive (non-blocking) data access. You must create a connection by using the Reactive Streams driver to provide the required infrastructure for Spring Data’s Reactive MongoDB support. Consequently, you must provide a separate configuration for MongoDB’s Reactive Streams driver. Note that your application operates on two different connections if you use reactive and blocking Spring Data MongoDB templates and repositories.
+
+#### XML
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:mongo="http://www.springframework.org/schema/data/mongo"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans
+    https://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+    http://www.springframework.org/schema/data/mongo
+    https://www.springframework.org/schema/data/mongo/spring-mongo-1.0.xsd">
+
+  <mongo:mongo-client id="mongoClient" />
+
+  <bean id="mongoTemplate" class="org.springframework.data.mongodb.core.MongoTemplate">
+    <constructor-arg ref="mongoClient" />
+    <constructor-arg value="databaseName" />
+  </bean>
+
+  <mongo:repositories base-package="com.acme.*.repositories" />
+
+</beans>
+```
+
+This namespace element causes the base packages to be scanned for interfaces that extend `MongoRepository` and create Spring beans for each one found.
+By default, the repositories get a `MongoTemplate` Spring bean wired that is called `mongoTemplate`, so you only need to configure `mongo-template-ref` explicitly if you deviate from this convention.
+
+Because our domain repository extends `PagingAndSortingRepository`, it provides you with methods for paginated and sorted access to the entities.
+In the case of reactive repositories only `ReactiveSortingRepository` is available since the notion of a `Page` is not applicable.
+However finder methods still accept a `Sort` and `Limit` parameter.
+
+> [!NOTE]
+> The reactive space offers various reactive composition libraries. The most common libraries are [RxJava](https://github.com/ReactiveX/RxJava) and [Project Reactor](https://projectreactor.io/).
+>
+> Spring Data MongoDB is built on top of the [MongoDB Reactive Streams](https://mongodb.github.io/mongo-java-driver-reactivestreams/) driver, to provide maximal interoperability by relying on the [Reactive Streams](https://www.reactive-streams.org/) initiative. Static APIs, such as `ReactiveMongoOperations`, are provided by using Project Reactor’s `Flux` and `Mono` types. Project Reactor offers various adapters to convert reactive wrapper types  (`Flux` to `Observable` and vice versa), but conversion can easily clutter your code.
+>
+> Spring Data’s Reactive Repository abstraction is a dynamic API, mostly defined by you and your requirements as you declare query methods. Reactive MongoDB repositories can be implemented by using either RxJava or Project Reactor wrapper types by extending from one of the following library-specific repository interfaces:
+>
+> - `ReactiveCrudRepository`
+> - `ReactiveSortingRepository`
+> - `RxJava3CrudRepository`
+> - `RxJava3SortingRepository`
+>
+> Spring Data converts reactive wrapper types behind the scenes so that you can stick to your favorite composition library.
+
+In case you want to obtain methods for basic CRUD operations also add the `CrudRepository` interface.
+Working with the repository instance is just a matter of dependency injecting it into a client .
+Consequently, accessing the second page of `Person` objects at a page size of 10 would resemble the following code:
+
+#### Imperative
+
+```java
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration
+class PersonRepositoryTests {
+
+    @Autowired PersonRepository repository;
+
+    @Test
+    void readsFirstPageCorrectly() {
+
+      Page<Person> persons = repository.findAll(PageRequest.of(0, 10));
+      assertThat(persons.isFirstPage()).isTrue();
+    }
+}
+```
+
+#### Reactive
+
+```java
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration
+class PersonRepositoryTests {
+
+    @Autowired PersonRepository repository;
+
+    @Test
+    void readsFirstPageCorrectly() {
+
+        Flux<Person> persons = repository.findAll(Sort.unsorted(), Limit.of(10));
+
+        persons.as(StepVerifer::create)
+            .expectNextCount(10)
+            .verifyComplete();
+    }
+}
+```
+
+The preceding example creates an application context with Spring’s unit test support, which performs annotation-based dependency injection into test cases.
+Inside the test method, we use the repository to query the datastore.
+We hand the repository a `PageRequest` instance that requests the first page of `Person` objects at a page size of 10.
+
+<a id="mongodb.repositories.queries.type-safe"></a>
+
+## Type-safe Query Methods with Querydsl
+
+MongoDB repository and its reactive counterpart integrates with the [Querydsl](http://www.querydsl.com/) project, which provides a way to perform type-safe queries.
+
+> Instead of writing queries as inline strings or externalizing them into XML files they are constructed via a fluent API.
+>
+> — Querydsl Team
+
+It provides the following features:
+
+- Code completion in the IDE (all properties, methods, and operations can be expanded in your favorite Java IDE).
+- Almost no syntactically invalid queries allowed (type-safe on all levels).
+- Domain types and properties can be referenced safely — no strings involved!
+- Adapts better to refactoring changes in domain types.
+- Incremental query definition is easier.
+
+See the [QueryDSL documentation](http://www.querydsl.com/static/querydsl/latest/reference/html/) for how to bootstrap your environment for APT-based code generation using Maven or Ant.
+
+QueryDSL lets you write queries such as the following:
+
+#### Imperative
+
+```java
+QPerson person = QPerson.person;
+List<Person> result = repository.findAll(person.address.zipCode.eq("C0123"));
+
+Page<Person> page = repository.findAll(person.lastname.contains("a"),
+                                       PageRequest.of(0, 2, Direction.ASC, "lastname"));
+```
+
+#### Reactive
+
+```java
+QPerson person = QPerson.person;
+
+Flux<Person> result = repository.findAll(person.address.zipCode.eq("C0123"));
+```
+
+`QPerson` is a class that is generated by the Java annotation processor.
+See [Setting up Annotation Processing](#mongodb.repositories.queries.type-safe.apt) for how to setup Annotation Processing with your Build System.
+It is a `Predicate` that lets you write type-safe queries.
+Notice that there are no strings in the query other than the `C0123` value.
+
+You can use the generated `Predicate` class by using the `QuerydslPredicateExecutor` / `ReactiveQuerydslPredicateExecutor` interface, which the following listing shows:
+
+#### Imperative
+
+```java
+public interface QuerydslPredicateExecutor<T> {
+
+    Optional<T> findOne(Predicate predicate);
+
+    List<T> findAll(Predicate predicate);
+
+    List<T> findAll(Predicate predicate, Sort sort);
+
+    List<T> findAll(Predicate predicate, OrderSpecifier<?>... orders);
+
+    Page<T> findAll(Predicate predicate, Pageable pageable);
+
+    List<T> findAll(OrderSpecifier<?>... orders);
+
+    long count(Predicate predicate);
+
+    boolean exists(Predicate predicate);
+
+    <S extends T, R> R findBy(Predicate predicate, Function<FluentQuery.FetchableFluentQuery<S>, R> queryFunction);
+}
+```
+
+#### Reactive
+
+```java
+interface ReactiveQuerydslPredicateExecutor<T> {
+
+    Mono<T> findOne(Predicate predicate);
+
+    Flux<T> findAll(Predicate predicate);
+
+    Flux<T> findAll(Predicate predicate, Sort sort);
+
+    Flux<T> findAll(Predicate predicate, OrderSpecifier<?>... orders);
+
+    Flux<T> findAll(OrderSpecifier<?>... orders);
+
+    Mono<Long> count(Predicate predicate);
+
+    Mono<Boolean> exists(Predicate predicate);
+
+    <S extends T, R, P extends Publisher<R>> P findBy(Predicate predicate,
+            Function<FluentQuery.ReactiveFluentQuery<S>, P> queryFunction);
+}
+```
+
+To use this in your repository implementation, add it to the list of repository interfaces from which your interface inherits, as the following example shows:
+
+#### Imperative
+
+```java
+interface PersonRepository extends MongoRepository<Person, String>, QuerydslPredicateExecutor<Person> {
+
+    // additional query methods go here
+}
+```
+
+#### Reactive
+
+```java
+interface PersonRepository extends ReactiveMongoRepository<Person, String>, ReactiveQuerydslPredicateExecutor<Person> {
+
+    // additional query methods go here
+}
+```
+
+> [!NOTE]
+> Please note that joins (DBRef’s) are not supported with Reactive MongoDB support.
+
+<a id="mongodb.repositories.queries.type-safe.apt"></a>
+
+### Setting up Annotation Processing
+
+To use Querydsl with Spring Data MongoDB, you need to set up annotation processing in your build system that generates the `Q` classes.
+While you could write the `Q` classes by hand, it is recommended to use the Querydsl annotation processor to generate them for you to keep your `Q` classes in sync with your domain model.
+
+Spring Data MongoDB ships with an annotation processor [`MongoAnnotationProcessor`](https://docs.spring.io/spring-data/mongodb/docs/4.4.1/api/org/springframework/data/mongodb/repository/support/MongoAnnotationProcessor.html) that isn’t registered by default.
+Typically, annotation processors are registered through Java’s service loader via `META-INF/services/javax.annotation.processing.Processor` that also activates these once you have them on the class path.
+Most Spring Data users do not use Querydsl, so it does not make sense to require additional mandatory dependencies for projects that would not benefit from Querydsl.
+Hence, you need to activate annotation processing in your build system.
+
+The following example shows how to set up annotation processing by mentioning dependencies and compiler config changes in Maven and Gradle:
+
+#### Maven
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>com.querydsl</groupId>
+        <artifactId>querydsl-mongodb</artifactId>
+        <version>${querydslVersion}</version>
+
+        <!-- Recommended: Exclude the mongo-java-driver to avoid version conflicts -->
+        <exclusions>
+            <exclusion>
+                <groupId>org.mongodb</groupId>
+                <artifactId>mongo-java-driver</artifactId>
+            </exclusion>
+        </exclusions>
+    </dependency>
+
+    <dependency>
+        <groupId>com.querydsl</groupId>
+        <artifactId>querydsl-apt</artifactId>
+        <version>${querydslVersion}</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+
+<build>
+    <plugins>
+        <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <configuration>
+                <annotationProcessors>
+                    <annotationProcessor>
+                        org.springframework.data.mongodb.repository.support.MongoAnnotationProcessor
+                    </annotationProcessor>
+                </annotationProcessors>
+
+                <!-- Recommended: Some IDE's might require this configuration to include generated sources for IDE usage -->
+                <generatedTestSourcesDirectory>target/generated-test-sources</generatedTestSourcesDirectory>
+                <generatedSourcesDirectory>target/generated-sources</generatedSourcesDirectory>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
+```
+
+#### Gradle
+
+```groovy
+dependencies {
+    implementation 'com.querydsl:querydsl-mongodb:${querydslVersion}'
+
+    annotationProcessor 'com.querydsl:querydsl-apt:${querydslVersion}'
+    annotationProcessor 'org.springframework.data:spring-data-mongodb'
+
+    testAnnotationProcessor 'com.querydsl:querydsl-apt:${querydslVersion}'
+    testAnnotationProcessor 'org.springframework.data:spring-data-mongodb'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+            "-processor",
+            "org.springframework.data.mongodb.repository.support.MongoAnnotationProcessor"]
+}
+```
+
+Note that the setup above shows the simplest usage omitting any other options or dependencies that your project might require.

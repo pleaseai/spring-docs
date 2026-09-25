@@ -1,0 +1,28 @@
+---
+title: "Methods for the Criteria Class"
+source: "ROOT:commons/criteria-methods.adoc"
+---
+
+# Methods for the Criteria Class
+
+<a id="_methods_for_the_criteria_class"></a>
+
+### Methods for the Criteria Class
+
+The `Criteria` class provides the following methods, all of which correspond to SQL operators:
+
+- `Criteria` **and** `(String column)`: Adds a chained `Criteria` with the specified `property` to the current `Criteria` and returns the newly created one.
+- `Criteria` **or** `(String column)`: Adds a chained `Criteria` with the specified `property` to the current `Criteria` and returns the newly created one.
+- `Criteria` **greaterThan** `(Object o)`: Creates a criterion by using the `>` operator.
+- `Criteria` **greaterThanOrEquals** `(Object o)`: Creates a criterion by using the `>=` operator.
+- `Criteria` **in** `(Object…​ o)`: Creates a criterion by using the `IN` operator for a varargs argument.
+- `Criteria` **in** `(Collection<?> collection)`: Creates a criterion by using the `IN` operator using a collection.
+- `Criteria` **is** `(Object o)`: Creates a criterion by using column matching (`property = value`).
+- `Criteria` **isNull** `()`: Creates a criterion by using the `IS NULL` operator.
+- `Criteria` **isNotNull** `()`: Creates a criterion by using the `IS NOT NULL` operator.
+- `Criteria` **lessThan** `(Object o)`: Creates a criterion by using the `<` operator.
+- `Criteria` **lessThanOrEquals** `(Object o)`: Creates a criterion by using the `⇐` operator.
+- `Criteria` **like** `(Object o)`: Creates a criterion by using the `LIKE` operator without escape character processing.
+- `Criteria` **not** `(Object o)`: Creates a criterion by using the `!=` operator.
+- `Criteria` **notIn** `(Object…​ o)`: Creates a criterion by using the `NOT IN` operator for a varargs argument.
+- `Criteria` **notIn** `(Collection<?> collection)`: Creates a criterion by using the `NOT IN` operator using a collection.

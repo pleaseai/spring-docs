@@ -1,0 +1,51 @@
+---
+title: "Customizing the JSON Output"
+source: "ROOT:customizing/customizing-json-output.adoc"
+---
+
+<a id="customizing-sdr.customizing-json-output"></a>
+
+# Customizing the JSON Output
+
+Sometimes in your application, you need to provide links to other resources from a particular entity. For example, a `Customer` response might be enriched with links to a current shopping cart or links to manage resources related to that entity. Spring Data REST provides integration with [Spring HATEOAS](https://github.com/spring-projects/spring-hateoas) and provides an extension hook that lets you alter the representation of resources that go out to the client.
+
+<a id="customizing-sdr.customizing-json-output.representation-model-processor"></a>
+
+## The `RepresentationModelProcessor` Interface
+
+Spring HATEOAS defines a `RepresentationModelProcessor<>` interface for processing entities. All beans of type `RepresentationModelProcessor<EntityModel<T>>` are automatically picked up by the Spring Data REST exporter and triggered when serializing an entity of type `T`.
+
+For example, to define a processor for a `Person` entity, add a `@Bean` similar to the following (which is taken from the Spring Data REST tests) to your `ApplicationContext`:
+
+```java
+@Bean
+public RepresentationModelProcessor<EntityModel<Person>> personProcessor() {
+
+   return new RepresentationModelProcessor<EntityModel<Person>>() {
+
+     @Override
+     public EntityModel<Person> process(EntityModel<Person> model) {
+
+      model.add(new Link("http://localhost:8080/people", "added-link"));
+      return model;
+     }
+   };
+}
+```
+
+> [!IMPORTANT]
+> The preceding example hard codes a link to `localhost:8080/people`. If you have a Spring MVC endpoint inside your app to which you wish to link, consider using Spring HATEOAS’s [`linkTo(…​)`](https://docs.spring.io/spring-hateoas/docs/current/reference/html/#fundamentals.obtaining-links.builder.methods) method to avoid managing the URL.
+
+<a id="customizing-sdr.customizing-json-output.adding-links"></a>
+
+## Adding Links
+
+You can add links to the default representation of an entity by calling `model.add(Link)`, as the preceding example shows. Any links you add to the `EntityModel` are added to the final output.
+
+<a id="customizing-sdr.customizing-json-output.customizing-representation"></a>
+
+## Customizing the Representation
+
+The Spring Data REST exporter runs any discovered `RepresentationModelProcessor` instances before it creates the output representation. It does so by registering a `Converter<Entity, EntityModel>` instance with an internal `ConversionService`. This is the component responsible for creating the links to referenced entities (such as those objects under the `_links` property in the object’s JSON representation). It takes an `@Entity` and iterates over its properties, creating links for those properties that are managed by a `Repository` and copying across any embedded or simple properties.
+
+If your project needs to have output in a different format, however, you can completely replace the default outgoing JSON representation with your own. If you register your own `ConversionService` in the `ApplicationContext` and register your own `Converter<Entity, EntityModel>`, you can return a `EntityModel` implementation of your choosing.

@@ -1,0 +1,114 @@
+---
+title: "MongoDB Search"
+source: "ROOT:mongodb/mongo-search-indexes.adoc"
+---
+
+<a id="mongo.search"></a>
+
+# MongoDB Search
+
+MongoDB enables users to do keyword or lexical search as well as vector search data using dedicated search indexes.
+
+<a id="mongo.search.vector"></a>
+
+## Vector Search
+
+MongoDB Vector Search uses the `$vectorSearch` aggregation stage to run queries against specialized indexes.
+Please refer to the MongoDB documentation to learn more about requirements and restrictions of `vectorSearch` indexes.
+
+<a id="mongo.search.vector.index"></a>
+
+### Managing Vector Indexes
+
+`SearchIndexOperationsProvider` implemented by `MongoTemplate` are the entrypoint to `SearchIndexOperations` offering various methods for managing vector indexes.
+
+The following snippet shows how to create a vector index for a collection
+
+#### Java
+
+```java
+VectorIndex index = new VectorIndex("vector_index")
+  .addVector("plotEmbedding", vector -> vector.dimensions(1536).similarity(COSINE)) <1>
+  .addFilter("year"); <2>
+
+mongoTemplate.searchIndexOps(Movie.class) <3>
+  .createIndex(index);
+```
+
+1. A vector index may cover multiple vector embeddings that can be added via the `addVector` method.
+1. Vector indexes can contain additional fields to narrow down search results when running queries.
+1. Obtain `SearchIndexOperations` bound to the `Movie` type which is used for field name mapping.
+
+#### Mongo Shell
+
+```console
+db.movie.createSearchIndex("movie", "vector_index",
+  {
+    "fields": [
+      {
+        "type": "vector",
+        "numDimensions": 1536,
+        "path": "plot_embedding", <1>
+        "similarity": "cosine"
+      },
+      {
+        "type": "filter",
+        "path": "year"
+      }
+    ]
+  }
+)
+```
+
+1. Field name `plotEmbedding` got mapped to `plot_embedding` considering a `@Field(name = "…​")` annotation.
+
+Once created, vector indexes are not immediately ready to use although the `exists` check returns `true`.
+The actual status of a search index can be obtained via `SearchIndexOperations#status(…​)`.
+The `READY` state indicates the index is ready to accept queries.
+
+<a id="mongo.search.vector.query"></a>
+
+### Querying Vector Indexes
+
+Vector indexes can be queried by issuing an aggregation using a `VectorSearchOperation` via `MongoOperations` as shown in the following example
+
+#### Java
+
+```java
+VectorSearchOperation search = VectorSearchOperation.search("vector_index") <1>
+  .path("plotEmbedding") <2>
+  .vector( ... )
+  .numCandidates(150)
+  .limit(10)
+  .withSearchScore("score"); <3>
+
+AggregationResults<MovieWithSearchScore> results = mongoTemplate
+  .aggregate(newAggregation(Movie.class, search), MovieWithSearchScore.class);
+```
+
+1. Provide the name of the vector index to query since a collection may hold multiple ones.
+1. The name of the path used for comparison.
+1. Optionally add the search score with given name to the result document.
+
+#### Mongo Shell
+
+```console
+db.embedded_movies.aggregate([
+  {
+    "$vectorSearch": {
+      "index": "vector_index",
+      "path": "plot_embedding", <1>
+      "queryVector": [ ... ],
+      "numCandidates": 150,
+      "limit": 10
+    }
+  },
+  {
+    "$addFields": {
+      "score": { $meta: "vectorSearchScore" }
+    }
+  }
+])
+```
+
+1. Field name `plotEmbedding` got mapped to `plot_embedding` considering a `@Field(name = "…​")` annotation.

@@ -1,0 +1,628 @@
+---
+title: "Metadata-based Mapping"
+source: "ROOT:object-mapping/metadata-based-mapping.adoc"
+---
+
+<a id="mapping.annotations"></a>
+
+# Metadata-based Mapping
+
+To take full advantage of the object mapping functionality inside SDN, you should annotate your mapped objects with the `@Node` annotation.
+Although it is not necessary for the mapping framework to have this annotation (your POJOs are mapped correctly, even without any annotations), it lets the classpath scanner find and pre-process your domain objects to extract the necessary metadata.
+If you do not use this annotation, your application takes a slight performance hit the first time you store a domain object, because the mapping framework needs to build up its internal metadata model so that it knows about the properties of your domain object and how to persist them.
+
+<a id="build-in.conversions"></a>
+
+## Convention-based Mapping
+
+The Neo4j Converter has a few conventions for mapping objects when no additional mapping metadata is provided.
+The conventions are:
+
+- The short Java class name is mapped to the primary label in the following manner:
+The class `com.bigbank.SavingsAccount` maps to the `savingsAccount` primary label.
+- The converter uses any [Spring Converter](#custom.conversions) registered with it to override the default mapping of object properties to node fields and values.
+- The fields of an object are used to convert to and from fields in the graph.
+Public `JavaBean` properties are not used.
+- If you have a single non-zero-argument constructor whose constructor argument names match top-level property names of node, that constructor is used.
+Otherwise, the zero-argument constructor is used.
+If there is more than one non-zero-argument constructor, an exception will be thrown.
+
+We support a broad range of conversions out of the box.
+Find the list of supported cypher types in the official drivers manual: [Type mapping](https://neo4j.com/docs/java-manual/current/cypher-workflow/#java-driver-type-mapping).
+
+Primitive types of wrapper types are equally supported.
+
+| Domain type | Cypher type | Maps directly to native type |
+| --- | --- | --- |
+| `java.lang.Boolean` | Boolean | ✔ |
+| `boolean[]` | List of Boolean | ✔ |
+| `java.lang.Long` | Integer | ✔ |
+| `long[]` | List of Integer | ✔ |
+| `java.lang.Double` | Float | ✔ |
+| `double[]` | List of Float | ✔ |
+| `java.lang.String` | String | ✔ |
+| `java.lang.String[]` | List of String | ✔ |
+| `byte[]` | ByteArray | ✔ |
+| `java.lang.Byte` | ByteArray with length 1 |  |
+| `java.lang.Character` | String with length 1 |  |
+| `char[]` | List of String with length 1 |  |
+| `java.util.Date` | String formatted as ISO 8601 Date (`yyyy-MM-dd’T’HH:mm:ss.SSSZ`). Notice the `Z`: SDN will store all `java.util.Date` instances in `UTC`. If you require the time zone, use a type that supports it (i.e. `ZoneDateTime`) or store the zone as a separate property. |  |
+| `java.lang.Float` | String |  |
+| `float[]` | List of String |  |
+| `java.lang.Integer` | Integer |  |
+| `int[]` | List of Integer |  |
+| `java.util.Locale` | String formatted as BCP 47 language tag |  |
+| `java.lang.Short` | Integer |  |
+| `short[]` | List of Integer |  |
+| `java.math.BigDecimal` | String |  |
+| `java.math.BigInteger` | String |  |
+| `java.time.LocalDate` | Date | ✔ |
+| `java.time.OffsetTime` | Time | ✔ |
+| `java.time.LocalTime` | LocalTime | ✔ |
+| `java.time.ZonedDateTime` | DateTime | ✔ |
+| `java.time.LocalDateTime` | LocalDateTime | ✔ |
+| `java.time.OffsetDateTime` | DateTime |  |
+| `java.time.Instant` | DateTime |  |
+| `java.util.TimeZone` | String |  |
+| `java.time.ZoneId` | String |  |
+| `java.time.Period` | Duration |  |
+| `java.time.Duration` | Duration |  |
+| `org.neo4j.driver.types.IsoDuration` | Duration | ✔ |
+| `org.neo4j.driver.types.Point` | Point | ✔ |
+| `org.springframework.data.neo4j.types.GeographicPoint2d` | Point with CRS 4326 |  |
+| `org.springframework.data.neo4j.types.GeographicPoint3d` | Point with CRS 4979 |  |
+| `org.springframework.data.neo4j.types.CartesianPoint2d` | Point with CRS 7203 |  |
+| `org.springframework.data.neo4j.types.CartesianPoint3d` | Point with CRS 9157 |  |
+| `org.springframework.data.geo.Point` | Point with CRS 4326 and x/y corresponding to lat/long |  |
+| Instances of `Enum` | String (The name value of the enum) |  |
+| Instances of `Enum[]` | List of String (The name value of the enum) |  |
+| `java.net.URL` | String |  |
+| `java.net.URI` | String |  |
+| `java.util.UUID` | String |  |
+
+<a id="mapping.annotations.overview"></a>
+
+## Mapping Annotation Overview
+
+<a id="mapping.annotations.overview.from.sdn"></a>
+
+### From SDN
+
+- `@Node`: Applied at the class level to indicate this class is a candidate for mapping to the database.
+- `@Id`: Applied at the field level to mark the field used for identity purpose.
+- `@GeneratedValue`: Applied at the field level together with `@Id` to specify how unique identifiers should be generated.
+- `@Property`: Applied at the field level to modify the mapping from attributes to properties.
+- `@CompositeProperty`: Applied at the field level on attributes of type Map that shall be read back as a composite. See [Composite properties](#custom.conversions.composite-properties).
+- `@Relationship`: Applied at the field level to specify the details of a relationship.
+- `@DynamicLabels`: Applied at the field level to specify the source of dynamic labels.
+- `@RelationshipProperties`: Applied at the class level to indicate this class as the target for properties of a relationship.
+- `@TargetNode`: Applied on a field of a class annotated with `@RelationshipProperties` to mark the target of that relationship from the perspective of the other end.
+
+The following annotations are used to specify conversions and ensure backwards compatibility with OGM.
+
+- `@DateLong`
+- `@DateString`
+- `@ConvertWith`
+
+See [conversions](#custom.conversions) for more information on that.
+
+<a id="mapping.annotations.overview.from.commons"></a>
+
+### From Spring Data commons
+
+- `@org.springframework.data.annotation.Id` same as `@Id` from SDN, in fact, `@Id` is annotated with Spring Data Common’s Id-annotation.
+- `@CreatedBy`: Applied at the field level to indicate the creator of a node.
+- `@CreatedDate`: Applied at the field level to indicate the creation date of a node.
+- `@LastModifiedBy`: Applied at the field level to indicate the author of the last change to a node.
+- `@LastModifiedDate`: Applied at the field level to indicate the last modification date of a node.
+- `@PersistenceCreator`: Applied at one constructor to mark it as the preferred constructor when reading entities.
+- `@Persistent`: Applied at the class level to indicate this class is a candidate for mapping to the database.
+- `@Version`: Applied at field level it is used for optimistic locking and checked for modification on save operations.
+The initial value is zero which is bumped automatically on every update.
+- `@ReadOnlyProperty`: Applied at field level to mark a property as read only. The property will be hydrated during database reads,
+but not be subject to writes. When used on relationships be aware that no related entity in that collection will be persisted
+if not related otherwise.
+
+Have a look at [auditing.adoc](../auditing.md) for all annotations regarding auditing support.
+
+<a id="mapping.annotations.node"></a>
+
+## The basic building block: `@Node`
+
+The `@Node` annotation is used to mark a class as a managed domain class, subject to the classpath scanning by the mapping context.
+
+To map an Object to nodes in the graph and vice versa, we need a label to identify the class to map to and from.
+
+`@Node` has an attribute `labels` that allows you to configure one or more labels to be used when reading and writing instances of the annotated class.
+The `value` attribute is an alias for `labels`.
+If you don’t specify a label, then the simple class name will be used as the primary label.
+In case you want to provide multiple labels, you could either:
+
+1. Supply an array to the `labels` property.
+The first element in the array will be considered as the primary label.
+1. Supply a value for `primaryLabel` and put the additional labels in `labels`.
+
+The primary label should always be the most concrete label that reflects your domain class.
+
+For each instance of an annotated class that is written through a repository or through the Neo4j template, one node in the graph with at least the primary label will be written.
+Vice versa, all nodes with the primary label will be mapped to the instances of the annotated class.
+
+<a id="_a_note_on_class_hierarchies"></a>
+
+### A note on class hierarchies
+
+The `@Node` annotation is not inherited from super-types and interfaces.
+You can however annotate your domain classes individually at every inheritance level.
+This allows polymorphic queries: You can pass in base or intermediate classes and retrieve the correct, concrete instance for your nodes.
+This is only supported for abstract bases annotated with `@Node`.
+The labels defined on such a class will be used as additional labels together with the labels of the concrete implementations.
+
+We also support interfaces in domain-class-hierarchies for some scenarios:
+
+#### Domain model in a separate module, same primary label like the interface name
+
+```java
+public interface SomeInterface { // <.>
+
+    String getName();
+
+    SomeInterface getRelated();
+}
+
+@Node("SomeInterface") // <.>
+public static class SomeInterfaceEntity implements SomeInterface {
+
+    @Id
+    @GeneratedValue
+    private Long id;
+
+    private final String name;
+
+    private SomeInterface related;
+
+    public SomeInterfaceEntity(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public SomeInterface getRelated() {
+        return related;
+    }
+}
+```
+
+1. Just the plain interface name, as you would name your domain
+1. As we need to synchronize the primary labels, we put `@Node` on the implementing class, which
+is probably in another module. Note that the value is exactly the same as the name of the interface
+implemented. Renaming is not possible.
+
+Using a different primary label instead of the interface name is possible, too:
+
+#### Different primary label
+
+```java
+@Node("PrimaryLabelWN") // <.>
+public interface SomeInterface2 {
+
+    String getName();
+
+    SomeInterface2 getRelated();
+}
+
+public static class SomeInterfaceEntity2 implements SomeInterface2 {
+
+    // Overrides omitted for brevity
+}
+```
+
+1. Put the `@Node` annotation on the interface
+
+It’s also possible to use different implementations of an interface and have a polymorph domain model.
+When doing so, at least two labels are required: A label determining the interface and one determining the concrete class:
+
+#### Multiple implementations
+
+```java
+@Node("SomeInterface3") // <.>
+public interface SomeInterface3 {
+
+    String getName();
+
+    SomeInterface3 getRelated();
+}
+
+@Node("SomeInterface3a") // <.>
+public static class SomeInterfaceImpl3a implements SomeInterface3 {
+
+    // Overrides omitted for brevity
+}
+@Node("SomeInterface3b") // <.>
+public static class SomeInterfaceImpl3b implements SomeInterface3 {
+
+    // Overrides omitted for brevity
+}
+
+@Node
+public static class ParentModel { // <.>
+
+    @Id
+    @GeneratedValue
+    private Long id;
+
+    private SomeInterface3 related1; // <.>
+
+    private SomeInterface3 related2;
+}
+```
+
+1. Explicitly specifying the label that identifies the interface is required in this scenario
+1. Which applies for the first…
+1. and second implementation as well
+1. This is a client or parent model, using `SomeInterface3` transparently for two relationships
+1. No concrete type is specified
+
+The data structure needed is shown in the following test. The same would be written by the OGM:
+
+#### Data structure needed for using multiple, different interface implementations
+
+```java
+Long id;
+try (Session session = driver.session(bookmarkCapture.createSessionConfig()); Transaction transaction = session.beginTransaction()) {
+    id = transaction.run("" +
+        "CREATE (s:ParentModel{name:'s'}) " +
+        "CREATE (s)-[:RELATED_1]-> (:SomeInterface3:SomeInterface3b {name:'3b'}) " +
+        "CREATE (s)-[:RELATED_2]-> (:SomeInterface3:SomeInterface3a {name:'3a'}) " +
+        "RETURN id(s)")
+        .single().get(0).asLong();
+    transaction.commit();
+}
+
+Optional<Inheritance.ParentModel> optionalParentModel = transactionTemplate.execute(tx ->
+        template.findById(id, Inheritance.ParentModel.class));
+
+assertThat(optionalParentModel).hasValueSatisfying(v -> {
+    assertThat(v.getName()).isEqualTo("s");
+    assertThat(v).extracting(Inheritance.ParentModel::getRelated1)
+            .isInstanceOf(Inheritance.SomeInterfaceImpl3b.class)
+            .extracting(Inheritance.SomeInterface3::getName)
+            .isEqualTo("3b");
+    assertThat(v).extracting(Inheritance.ParentModel::getRelated2)
+            .isInstanceOf(Inheritance.SomeInterfaceImpl3a.class)
+            .extracting(Inheritance.SomeInterface3::getName)
+            .isEqualTo("3a");
+});
+```
+
+> [!NOTE]
+> Interfaces cannot define an identifier field.
+> As a consequence they are not a valid entity type for repositories.
+
+<a id="mapping.annotations.node.dynamic.labels"></a>
+
+### Dynamic or "runtime" managed labels
+
+All labels implicitly defined through the simple class name or explicitly via the `@Node` annotation are static.
+They cannot be changed during runtime.
+If you need additional labels that can be manipulated during runtime, you can use `@DynamicLabels`.
+`@DynamicLabels` is an annotation on field level and marks an attribute of type `java.util.Collection<String>` (a `List` or `Set`) for example) as source of dynamic labels.
+
+If this annotation is present, all labels present on a node and not statically mapped via `@Node` and the class names, will be collected into that collection during load.
+During writes, all labels of the node will be replaced with the statically defined labels plus the contents of the collection.
+
+> [!WARNING]
+> If you have other applications add additional labels to nodes, don’t use `@DynamicLabels`.
+> If `@DynamicLabels` is present on a managed entity, the resulting set of labels will be "the truth" written to the database.
+
+<a id="mapping.annotations.id"></a>
+
+## Identifying instances: `@Id`
+
+While `@Node` creates a mapping between a class and nodes having a specific label, we also need to make the connection between individual instances of that class (objects) and instances of the node.
+
+This is where `@Id` comes into play.
+`@Id` marks an attribute of the class to be the unique identifier of the object.
+That unique identifier is in an optimal world a unique business key or in other words, a natural key.
+`@Id` can be used on all attributes with a supported simple type.
+
+Natural keys are however pretty hard to find.
+Peoples names for example are seldom unique, change over time or worse, not everyone has a first and last name.
+
+We therefore support two different kind of *surrogate keys*.
+
+On an attribute of type `String`, `long` or `Long`, `@Id` can be used with `@GeneratedValue`.
+`Long` and `long` maps to the Neo4j internal id.
+`String` maps to the *elementId* that is available since Neo4j 5.
+Both are **not** a property on a node or relationship and usually not visible, to the attribute and allows SDN to retrieve individual instances of the class.
+
+`@GeneratedValue` provides the attribute `generatorClass`.
+`generatorClass` can be used to specify a class implementing `IdGenerator`.
+An `IdGenerator` is a functional interface and its `generateId` takes the primary label and the instance to generate an Id for.
+We support `UUIDStringGenerator` as one implementation out of the box.
+
+You can also specify a Spring Bean from the application context on `@GeneratedValue` via `generatorRef`.
+That bean also needs to implement `IdGenerator`, but can make use of everything in the context, including the Neo4j client or template to interact with the database.
+
+> [!NOTE]
+> Don’t skip the important notes about ID handling in [Handling and provisioning of unique IDs](mapping-ids.md#mapping.id-handling)
+
+<a id="mapping.annotations.version"></a>
+
+## Optimistic locking: `@Version`
+
+Spring Data Neo4j supports optimistic locking by using the `@Version` annotation on a `Long` typed field.
+This attribute will get incremented automatically during updates and must not be manually modified.
+
+If, e.g., two transactions in different threads want to modify the same object with version `x`, the first operation will get successfully persisted to the database.
+At this moment, the version field will get incremented, so it is `x+1`.
+The second operation will fail with a `OptimisticLockingFailureException` because it wants to modify the object with the version `x`
+that does not exist anymore in the database.
+In such cases the operation needs to get retried, beginning with a fresh fetch of the object with the current version from the database.
+
+The `@Version` attribute is also mandatory if [business ids](mapping-ids.md#mapping.id-handling.business-key) are used.
+Spring Data Neo4j will check this field to determine if the entity is new or has already been persisted before.
+
+<a id="mapping.annotations.property"></a>
+
+## Mapping properties: `@Property`
+
+All attributes of a `@Node`-annotated class will be persisted as properties of Neo4j nodes and relationships.
+Without further configuration, the name of the attribute in the Java or Kotlin class will be used as Neo4j property.
+
+If you are working with an existing Neo4j schema or just like to adapt the mapping to your needs, you will need to use `@Property`.
+The `name` is used to specify the name of the property inside the database.
+
+<a id="mapping.annotations.relationship"></a>
+
+## Connecting nodes: `@Relationship`
+
+The `@Relationship` annotation can be used on all attributes that are not a simple type.
+It is applicable on attributes of other types annotated with `@Node` or collections and maps thereof.
+
+The `type` or the `value` attribute allow configuration of the relationship’s type, `direction` allows specifying the direction.
+The default direction in SDN is `Relationship.Direction#OUTGOING`.
+
+We support dynamic relationships.
+Dynamic relationships are represented as a `Map<String, AnnotatedDomainClass>` or `Map<Enum, AnnotatedDomainClass>`.
+In such a case, the type of the relationship to the other domain class is given by the maps key and must not be configured through the `@Relationship`.
+
+<a id="mapping.annotations.relationship.properties"></a>
+
+### Map relationship properties
+
+Neo4j supports defining properties not only on nodes but also on relationships.
+To express those properties in the model SDN provides `@RelationshipProperties` to be applied on a simple Java class.
+Within the properties class there have to be exactly one field marked as `@TargetNode` to define the entity the relationship points towards.
+Or, in an `INCOMING` relationship context, is coming from.
+
+A relationship property class and its usage may look like this:
+
+#### Relationship properties `Roles`
+
+```java
+@RelationshipProperties
+public class Roles {
+
+	@RelationshipId
+	private Long id;
+
+	private final List<String> roles;
+
+	@TargetNode
+	private final PersonEntity person;
+
+	public Roles(PersonEntity person, List<String> roles) {
+		this.person = person;
+		this.roles = roles;
+	}
+
+	public List<String> getRoles() {
+		return roles;
+	}
+}
+```
+
+You must define a property for the generated, internal ID (`@RelationshipId`) so that SDN can determine during save which relationships
+can be safely overwritten without losing properties.
+If SDN does not find a field for storing the internal node id, it will fail during startup.
+
+#### Defining relationship properties for an entity
+
+```java
+@Relationship(type = "ACTED_IN", direction = Direction.INCOMING) // <.>
+private List<Roles> actorsAndRoles;
+```
+
+<a id="mapping.annotations.relationship.remarks"></a>
+
+### Relationship query remarks
+
+In general there is no limitation of relationships / hops for creating the queries.
+SDN parses the whole reachable graph from your modelled nodes.
+
+This said, when there is the idea of mapping a relationship bidirectional, meaning you define the relationship on both ends of your entity,
+you might get more than what you are expecting.
+
+Consider an example where a *movie* has *actors*, and you want to fetch a certain movie with all its actors.
+This won’t be problematical if the relationship from *movie* to *actor* were just unidirectional.
+In a bidirectional scenario SDN would fetch the particular *movie*, its *actors* but also the other movies defined for this *actor* per definition of the relationship.
+In the worst case, this will cascade to fetching the whole graph for a single entity.
+
+<a id="mapping.annotations.example"></a>
+
+## A complete example
+
+Putting all those together, we can create a simple domain.
+We use movies and people with different roles:
+
+```java
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.data.neo4j.core.schema.Id;
+import org.springframework.data.neo4j.core.schema.Node;
+import org.springframework.data.neo4j.core.schema.Property;
+import org.springframework.data.neo4j.core.schema.Relationship;
+import org.springframework.data.neo4j.core.schema.Relationship.Direction;
+
+@Node("Movie") // <.>
+public class MovieEntity {
+
+	@Id // <.>
+	private final String title;
+
+	@Property("tagline") // <.>
+	private final String description;
+
+	@Relationship(type = "ACTED_IN", direction = Direction.INCOMING) // <.>
+	private List<Roles> actorsAndRoles;
+
+	@Relationship(type = "DIRECTED", direction = Direction.INCOMING)
+	private List<PersonEntity> directors = new ArrayList<>();
+
+	public MovieEntity(String title, String description) { // <.>
+		this.title = title;
+		this.description = description;
+	}
+
+	// Getters omitted for brevity
+}
+```
+
+1. `@Node` is used to mark this class as a managed entity.
+It also is used to configure the Neo4j label.
+The label defaults to the name of the class, if you’re just using plain `@Node`.
+1. Each entity has to have an id.
+We use the movie’s name as unique identifier.
+1. This shows `@Property` as a way to use a different name for the field than for the graph property.
+1. This configures an incoming relationship to a person.
+1. This is the constructor to be used by your application code as well as by SDN.
+
+People are mapped in two roles here, `actors` and `directors`.
+The domain class is the same:
+
+<a id="mapping.complete-example.person"></a>
+
+```java
+import org.springframework.data.neo4j.core.schema.Id;
+import org.springframework.data.neo4j.core.schema.Node;
+
+@Node("Person")
+public class PersonEntity {
+
+	@Id private final String name;
+
+	private final Integer born;
+
+	public PersonEntity(Integer born, String name) {
+		this.born = born;
+		this.name = name;
+	}
+
+	public Integer getBorn() {
+		return born;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+}
+```
+
+> [!NOTE]
+> We haven’t modelled the relationship between movies and people in both direction.
+> Why is that?
+> We see the `MovieEntity` as the aggregate root, owning the relationships.
+> On the other hand, we want to be able to pull all people from the database without selecting all the movies associated with them.
+> Please consider your application’s use case before you try to map every relationship in your database in every direction.
+> While you can do this, you may end up rebuilding a graph database inside your object graph and this is not the intention of a mapping framework.
+> If you have to model your circular or bidirectional domain and don’t want to fetch the whole graph,
+> you can define a fine-grained description of the data that you want to fetch by using [projections](../repositories/projections.md).
+
+<a id="custom.conversions"></a>
+
+## Custom conversions
+
+<a id="custom.conversions.attribute.types"></a>
+
+### For attributes of a given type
+
+If you prefer to work with your own types in the entities or as parameters for `@Query` annotated methods, you can define and provide a custom converter implementation.
+First you have to implement a `GenericConverter` and register the types your converter should handle.
+For entity property type converters you need to take care of converting your type to **and** from a Neo4j Java Driver `Value`.
+If your converter is supposed to work only with custom query methods in the repositories, it is sufficient to provide the one-way conversion to the `Value` type.
+
+#### Example of a custom converter implementation
+
+```java
+public class MyCustomTypeConverter implements GenericConverter {
+
+	@Override
+	public Set<ConvertiblePair> getConvertibleTypes() {
+		Set<ConvertiblePair> convertiblePairs = new HashSet<>();
+		convertiblePairs.add(new ConvertiblePair(MyCustomType.class, Value.class));
+		convertiblePairs.add(new ConvertiblePair(Value.class, MyCustomType.class));
+		return convertiblePairs;
+	}
+
+	@Override
+	public Object convert(Object source, TypeDescriptor sourceType, TypeDescriptor targetType) {
+		if (MyCustomType.class.isAssignableFrom(sourceType.getType())) {
+			// convert to Neo4j Driver Value
+			return convertToNeo4jValue(source);
+		} else {
+			// convert to MyCustomType
+			return convertToMyCustomType(source);
+		}
+	}
+
+}
+```
+
+To make SDN aware of your converter, it has to be registered in the `Neo4jConversions`.
+To do this, you have to create a `@Bean` with the type `org.springframework.data.neo4j.core.convert.Neo4jConversions`.
+Otherwise, the `Neo4jConversions` will get created in the background with the internal default converters only.
+
+#### Example of a custom converter implementation
+
+```java
+@Bean
+public Neo4jConversions neo4jConversions() {
+	Set<GenericConverter> additionalConverters = Collections.singleton(new MyCustomTypeConverter());
+	return new Neo4jConversions(additionalConverters);
+}
+```
+
+If you need multiple converters in your application, you can add as many as you need in the `Neo4jConversions` constructor.
+
+<a id="custom.conversions.attribute.specific"></a>
+
+### For specific attributes only
+
+If you need conversions only for some specific attributes, we provide `@ConvertWith`.
+This is an annotation that can be put on attributes of both entities (`@Node`) and relationship properties (`@RelationshipProperties`)
+It defines a `Neo4jPersistentPropertyConverter` via the `converter` attribute
+and an optional `Neo4jPersistentPropertyConverterFactory` to construct the former.
+With an implementation of `Neo4jPersistentPropertyConverter` all specific conversions for a given type can be addressed.
+In addition, `@ConvertWith` also provides `converterRef` for referencing any Spring bean in the application context implementing
+`Neo4jPersistentPropertyConverter`. The referenced bean will be preferred over constructing a new converter.
+
+We provide `@DateLong` and `@DateString` as meta-annotated annotations for backward compatibility with Neo4j-OGM schemes not using native types.
+Those are meta annotated annotations building on the concept above.
+
+<a id="custom.conversions.composite-properties"></a>
+
+#### Composite properties
+
+With `@CompositeProperty`, attributes of type `Map<String, Object>` or `Map<? extends Enum, Object>` can be stored as composite properties.
+All entries inside the map will be added as properties to the node or relationship containing the property.
+Either with a configured prefix or prefixed with the name of the property.
+While we only offer that feature for maps out of the box, you can `Neo4jPersistentPropertyToMapConverter` and configure it
+as the converter to use on `@CompositeProperty`. A `Neo4jPersistentPropertyToMapConverter` needs to know how a given type can
+be decomposed to and composed back from a map.
