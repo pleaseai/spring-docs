@@ -1,0 +1,19 @@
+---
+title: "Logging"
+source: "ROOT:appendix/logging.adoc"
+---
+
+<a id="logging"></a>
+
+# Logging
+
+Spring Data Neo4j provides multiple loggers for [Cypher notifications](https://neo4j.com/docs/status-codes/current/notifications/all-notifications/), starting with version 7.1.5.
+The logger `org.springframework.data.neo4j.cypher` includes all statements that were invoked by Spring Data Neo4j and all notifications sent from the server.
+To exclude or elevate some categories, the following loggers are in place:
+
+- `org.springframework.data.neo4j.cypher.performance`
+- `org.springframework.data.neo4j.cypher.hint`
+- `org.springframework.data.neo4j.cypher.unrecognized`
+- `org.springframework.data.neo4j.cypher.unsupported`
+- `org.springframework.data.neo4j.cypher.deprecation`
+- `org.springframework.data.neo4j.cypher.generic`
