@@ -1,0 +1,57 @@
+tests/unit/fetch-upstream.test.ts
+  s_ec20819930c862::t_d8539ececcdb8a 84
+tests/integration/pipeline.test.ts
+  s_ec20819930c862::t_52a624d69b0e73 62-67,80,254-256,259,263,266-275,278-284,286-309
+  s_d0df3722cbb66a::t_26980e7d58486d 253,257-258,260-262,264-265,276-277,285,310-311
+scripts/lib/upstream-sources.ts
+  s_ec20819930c862::t_bc2b8d26bca6bc 134-140,152-167,205-215,432-460,819-827,858-861,1211-1213
+scripts/lib/antora.d.ts
+  s_ec20819930c862::t_68f0307b7dcc11 47,51-55
+  s_ec20819930c862::t_a4f04e69868e00 46,48,56-65
+  s_d0df3722cbb66a::t_9e09c4d07922c8 49-50
+scripts/convert.ts
+  s_ec20819930c862::t_68f0307b7dcc11 261,277-278,290-297,306-310,418
+  s_ec20819930c862::t_8c8ca05a4ebb42 17-19,30,151-153,157,169-253,267,269-270,275-276,286,312-314,337-340,344,401,415-417
+  s_ec20819930c862::t_cf5183d02ae03c 23
+  s_ec20819930c862::t_0539fd407167b6 254-260,262-266,268,271-274,279-285,287-289,298-305,311,341-343,386,400,402-414,419
+package.json
+  s_ec20819930c862::t_2af223225f1131 28
+bun.lock
+  s_ec20819930c862::t_7a381857dce865 11
+tests/unit/convert.test.ts
+  s_ba263697b82f26::t_2e3bc8cf02eb6b 2,61-99
+tests/unit/upstream-sources.test.ts
+  s_ba263697b82f26::t_c79a90e75afff2 275-305
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "670ad3c78617f057fb524b9e1be4c4c5d4e88f51",
+  "prompts": {},
+  "sessions": {
+    "s_ba263697b82f26": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4aaf4596-97f9-400b-aa80-9819ec8411f2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    },
+    "s_d0df3722cbb66a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "011f14c4-0791-4a1c-b3fe-99ecde4ad387",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    },
+    "s_ec20819930c862": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a99d6074-b2e4-47da-81a8-eae7fdd3f53c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Minsu Lee <minsu.lee@pleaseai.dev>"
+    }
+  }
+}
