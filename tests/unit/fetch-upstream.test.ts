@@ -81,6 +81,7 @@ describe('copyExamples', () => {
     gradlePropertiesPath: 'gradle.properties',
     managedVersionAttributes: [],
     metadataArtifacts: [],
+    acceptedMissing: { includes: [], xrefs: [] },
   }
 
   test('copies the examples tree in under modules/ROOT/examples', async () => {

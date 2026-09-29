@@ -43,6 +43,26 @@ declare module '@antora/asciidoc-loader' {
   export = loadAsciiDoc
 }
 
+declare module '@antora/logger' {
+  /** The root (pino) logger, reduced to what convert.ts counts failures with. */
+  interface RootLogger {
+    /** Numeric value of the configured `level`. */
+    readonly levelVal: number
+    /** Numeric value of the configured `failure_level`; `Infinity` when none. */
+    readonly failureLevelVal: number
+    /** Antora's hook, called by every message at or above the failure level. */
+    setFailOnExit: () => void
+    readonly levels: { readonly values: Readonly<Record<string, number>> }
+  }
+  const logger: {
+    configure: (options: unknown, baseDir?: string) => unknown
+    /** Resolves to whether a message reached the configured failure level. */
+    finalize: () => Promise<boolean | undefined>
+    get: (name: null) => RootLogger | undefined
+  }
+  export = logger
+}
+
 declare module '@asciidoctor/core' {
   /** Factory returning an Asciidoctor instance. Used by tests to build real AST nodes. */
   const Asciidoctor: () => {

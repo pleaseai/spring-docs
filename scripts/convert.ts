@@ -14,17 +14,20 @@
  *
  * Exit codes:
  *   0 — every page converted
- *   1 — conversion failed, a page produced an error, or `--strict` and a page
- *       reported a conversion warning
+ *   1 — conversion failed, a page produced an error, or `--strict` and either a
+ *       page reported a conversion warning or Antora logged a message at the
+ *       playbook's `failure_level`
  *   2 — bad arguments
  */
 
+import type { AcceptedMissing } from './lib/upstream-sources.ts'
 import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import loadAsciiDoc from '@antora/asciidoc-loader'
 import aggregateContent from '@antora/content-aggregator'
 import classifyContent from '@antora/content-classifier'
+import antoraLogger from '@antora/logger'
 import buildPlaybook from '@antora/playbook-builder'
 import { componentNameOf } from './lib/component-descriptor.ts'
 import { convertDocument } from './lib/markdown-converter.ts'
@@ -145,9 +148,13 @@ export function playbookFor(source: string, javadocLocation: string, hasCompanio
     // No `antora.extensions` block: those are loaded by the site generator, which
     // this pipeline never runs. Declaring them here would be silently ignored.
     'runtime:',
+    // Applied by {@link configureLogger}. `format` is pinned because Antora's
+    // `auto` picks JSON on stdout whenever stdout is not a TTY, which would
+    // change the log a local run prints depending on how it is piped.
     '  log:',
     '    level: warn',
     '    failure_level: error',
+    '    format: pretty',
     'urls:',
     '  latest_version_segment: \'\'',
     // Required by the playbook schema but never fetched: this pipeline runs the
@@ -157,6 +164,152 @@ export function playbookFor(source: string, javadocLocation: string, hasCompanio
     '    url: \'./unused-ui-bundle.zip\'',
   ]
   return `${lines.join('\n')}\n`
+}
+
+/** The part of a built playbook {@link configureLogger} reads. */
+interface LoggedPlaybook {
+  readonly dir?: string
+  readonly runtime: { readonly log: { readonly failureLevel: string } }
+}
+
+/** What Antora logged at or above the playbook's `failure_level`. */
+interface LoggedFailures {
+  /** Messages that fail a `--strict` build. */
+  readonly failures: number
+  /** Unresolved xrefs into an external component; see {@link externalXrefComponent}. */
+  readonly externalXrefs: number
+  /** Unresolved targets the era declares as accepted losses; see {@link isAcceptedLoss}. */
+  readonly acceptedLosses: number
+}
+
+const XREF_NOT_FOUND = 'target of xref not found: '
+const INCLUDE_NOT_FOUND = 'target of include not found: '
+
+/**
+ * The external component an unresolved-xref log message points into, if any.
+ *
+ * Antora logs every xref into a component absent from the content catalog as
+ * `target of xref not found: <resource id>`, where the id is the author's own
+ * spec, `[version@][component:][module:][family$]relative[#fragment]`. For a
+ * component this build deliberately does not aggregate — `externalComponents`
+ * in upstream-sources.ts — that dangling link is expected: the converter
+ * rewrites it to the component's published docs.spring.io URL (see
+ * `rewriteXrefTarget` in inline-html.ts), so the page loses nothing.
+ *
+ * The component is taken as the id's first colon-separated segment, which is
+ * the same segment the converter keys its rewrite on. An id with no colon
+ * (`attachment$api/java/index.html`) or whose first segment is not external
+ * (`appendix:…`) names no external component, and stays a failure. So does a
+ * versioned id (`4.1.1@maven-plugin:…`): the converter's rewrite does not
+ * recognize the `version@` form, so that link would publish dangling.
+ */
+export function externalXrefComponent(message: unknown, external: ReadonlySet<string>): string | undefined {
+  if (typeof message !== 'string' || !message.startsWith(XREF_NOT_FOUND))
+    return undefined
+  let id = message.slice(XREF_NOT_FOUND.length)
+  const hash = id.indexOf('#')
+  if (hash !== -1)
+    id = id.slice(0, hash)
+  if (id.includes('@'))
+    return undefined
+  const colon = id.indexOf(':')
+  if (colon === -1)
+    return undefined
+  const component = id.slice(0, colon).toLowerCase()
+  return external.has(component) ? component : undefined
+}
+
+/**
+ * Whether a log message is an unresolved target the era accepts as lost.
+ *
+ * A synthesized Boot era cannot rebuild the generated appendix, and ADR-0004
+ * and ADR-0006 accept shipping without it; the era declares exactly which
+ * targets that leaves unresolved (`acceptedMissing` in upstream-sources.ts).
+ * Only `target of include not found: <id>` and `target of xref not found: <id>`
+ * qualify, and only when `<id>` equals a declared entry or starts with a
+ * declared entry ending in `/` — so a new missing target, even one beside a
+ * declared file, still fails the build.
+ */
+export function isAcceptedLoss(message: unknown, accepted: AcceptedMissing): boolean {
+  if (typeof message !== 'string')
+    return false
+  const [id, entries] = message.startsWith(INCLUDE_NOT_FOUND)
+    ? [message.slice(INCLUDE_NOT_FOUND.length), accepted.includes]
+    : message.startsWith(XREF_NOT_FOUND)
+      ? [message.slice(XREF_NOT_FOUND.length), accepted.xrefs]
+      : [undefined, []]
+  if (id === undefined)
+    return false
+  return entries.some(entry => entry.endsWith('/') ? id.startsWith(entry) : id === entry)
+}
+
+/**
+ * Apply the playbook's `runtime.log` to Antora's logger.
+ *
+ * The site generator normally does this, and this pipeline never runs it
+ * (ADR-0002). Without this call the first message Antora logs creates a default
+ * logger whose failure level is `silent`, so the playbook's `failure_level`
+ * would be declared and never enforced.
+ *
+ * The verdict is this function's own count rather than `finalize()`'s
+ * `failOnExit`, for two reasons. Antora sets `failOnExit` for every message at
+ * the failure level, including the external-component xrefs
+ * {@link externalXrefComponent} exempts, so its boolean cannot tell them apart.
+ * And it only says *whether*, never *how many*. So `setFailOnExit` is disabled
+ * and the root logger's own methods at or above the failure level are wrapped
+ * instead: every Antora component logs through a child of the root, and each
+ * child's method delegates to its parent's exactly once, so the root's method
+ * sees each message once however deep the child. (Antora's hook is no
+ * substitute for a counter anyway: every child re-decorates the inherited
+ * method, so it fires once per nesting level.) Exempt messages — external
+ * xrefs and the era's {@link isAcceptedLoss accepted losses} — are still
+ * logged, only not counted as failures.
+ *
+ * Returns the finalizer, which flushes the log and resolves to the counts.
+ */
+function configureLogger(
+  playbook: LoggedPlaybook,
+  externalComponents: Readonly<Record<string, string>>,
+  acceptedMissing: AcceptedMissing,
+): () => Promise<LoggedFailures> {
+  antoraLogger.configure(playbook.runtime.log, playbook.dir)
+  const root = antoraLogger.get(null)
+  if (!root)
+    throw new Error('@antora/logger returned no root logger after configure()')
+  // A message below the log level never reaches the wrappers — Asciidoctor's
+  // adapter calls `setFailOnExit` for it directly — so such a playbook would
+  // fail nothing.
+  if (root.levelVal > root.failureLevelVal)
+    throw new Error('runtime.log.level must not be above runtime.log.failure_level')
+
+  const external = new Set(Object.keys(externalComponents).map(name => name.toLowerCase()))
+  let failures = 0
+  let externalXrefs = 0
+  let acceptedLosses = 0
+  root.setFailOnExit = () => {}
+  const methods = root as unknown as Record<string, (...args: unknown[]) => void>
+  for (const [level, value] of Object.entries(root.levels.values)) {
+    if (value < root.failureLevelVal)
+      continue
+    const log = methods[level]
+    if (typeof log !== 'function')
+      continue
+    methods[level] = function (this: unknown, ...args: unknown[]) {
+      // pino's call shape: `(message)` or `(mergingObject, message)`.
+      const message = typeof args[0] === 'string' ? args[0] : args[1]
+      if (externalXrefComponent(message, external) !== undefined)
+        externalXrefs++
+      else if (isAcceptedLoss(message, acceptedMissing))
+        acceptedLosses++
+      else
+        failures++
+      log.apply(this, args)
+    }
+  }
+  return async () => {
+    await antoraLogger.finalize()
+    return { failures, externalXrefs, acceptedLosses }
+  }
 }
 
 async function main(): Promise<void> {
@@ -181,6 +334,14 @@ async function main(): Promise<void> {
     )
 
     const playbook = buildPlaybook(['--playbook', playbookPath], {})
+    const loggedPlaybook = playbook as unknown as LoggedPlaybook
+    // Before aggregation: Antora's component loggers bind to whatever root
+    // logger exists when they first log.
+    const finalizeLogger = configureLogger(
+      loggedPlaybook,
+      upstream.externalComponents,
+      upstream.acceptedMissing,
+    )
     const asciidocConfig = loadAsciiDoc.resolveConfig(playbook)
     const catalog = classifyContent(playbook, await aggregateContent(playbook), asciidocConfig)
     // Only the component at the source root is published. A companion's pages
@@ -222,6 +383,7 @@ async function main(): Promise<void> {
 
     await writeFile(join(outDir, INDEX_FILENAME), buildIndex(args.project, args.version, written))
     await rm(playbookPath, { force: true })
+    const logged = await finalizeLogger()
 
     if (warnings.length > 0) {
       console.error(`${warnings.length} conversion warning(s):`)
@@ -233,6 +395,26 @@ async function main(): Promise<void> {
           `${warnings.length} conversion warning(s) with --strict; add a conversion rule for each construct above`,
         )
       }
+    }
+
+    // The messages themselves are already in the log above; these only name
+    // how many there were, so a long log is not the sole record of them.
+    const level = loggedPlaybook.runtime.log.failureLevel.toUpperCase()
+    if (logged.externalXrefs > 0) {
+      console.error(
+        `${logged.externalXrefs} ${level} xref(s) to external components, rewritten by the converter; not counted as failures`,
+      )
+    }
+    if (logged.acceptedLosses > 0) {
+      console.error(
+        `${logged.acceptedLosses} ${level}(s) the era declares as accepted losses (ADR-0004); not counted as failures`,
+      )
+    }
+    if (logged.failures > 0) {
+      const summary = `${logged.failures} Antora log message(s) at ${level} or above`
+      if (args.strict)
+        throw new Error(`${summary} with --strict; see the ${level} lines above`)
+      console.error(summary)
     }
 
     console.log(`Converted ${written.length} files to ${outDir}/`)
