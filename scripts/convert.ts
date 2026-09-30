@@ -176,8 +176,13 @@ interface LoggedPlaybook {
 interface LoggedFailures {
   /** Messages that fail a `--strict` build. */
   readonly failures: number
-  /** Unresolved xrefs into an external component; see {@link externalXrefComponent}. */
-  readonly externalXrefs: number
+  /**
+   * Ids of unresolved xrefs into an external component, one per message; see
+   * {@link externalXrefComponent}. Only candidates: whether each is exempt
+   * depends on whether the converter rewrote it, known once every page is
+   * converted.
+   */
+  readonly externalXrefIds: readonly string[]
   /** Unresolved targets the era declares as accepted losses; see {@link isAcceptedLoss}. */
   readonly acceptedLosses: number
 }
@@ -200,8 +205,15 @@ const INCLUDE_NOT_FOUND = 'target of include not found: '
  * the same segment the converter keys its rewrite on. An id with no colon
  * (`attachment$api/java/index.html`) or whose first segment is not external
  * (`appendix:…`) names no external component, and stays a failure. So does a
- * versioned id (`4.1.1@maven-plugin:…`): the converter's rewrite does not
- * recognize the `version@` form, so that link would publish dangling.
+ * versioned id (`4.1.1@maven-plugin:…`, an `@` before the first colon): the
+ * converter's rewrite does not recognize the `version@` form, so that link
+ * would publish dangling. An `@` after the colon is part of the page path
+ * (`maven-plugin:page@2x.adoc`), which the converter does rewrite.
+ *
+ * Naming an external component makes a message a candidate only: `convert.ts`
+ * exempts it once the converter has actually rewritten that reference, since a
+ * reference emitted verbatim (a `[literal]` block with `subs=+macros`) is
+ * logged the same way but never reaches the rewrite.
  */
 export function externalXrefComponent(message: unknown, external: ReadonlySet<string>): string | undefined {
   if (typeof message !== 'string' || !message.startsWith(XREF_NOT_FOUND))
@@ -210,10 +222,10 @@ export function externalXrefComponent(message: unknown, external: ReadonlySet<st
   const hash = id.indexOf('#')
   if (hash !== -1)
     id = id.slice(0, hash)
-  if (id.includes('@'))
-    return undefined
   const colon = id.indexOf(':')
   if (colon === -1)
+    return undefined
+  if (id.slice(0, colon).includes('@'))
     return undefined
   const component = id.slice(0, colon).toLowerCase()
   return external.has(component) ? component : undefined
@@ -289,7 +301,7 @@ function configureLogger(
 
   const external = new Set(Object.keys(externalComponents).map(name => name.toLowerCase()))
   let failures = 0
-  let externalXrefs = 0
+  const externalXrefIds: string[] = []
   let acceptedLosses = 0
   root.setFailOnExit = () => {}
   const methods = root as unknown as Record<string, (...args: unknown[]) => void>
@@ -303,7 +315,7 @@ function configureLogger(
       // pino's call shape: `(message)` or `(mergingObject, message)`.
       const message = typeof args[0] === 'string' ? args[0] : args[1]
       if (externalXrefComponent(message, external) !== undefined)
-        externalXrefs++
+        externalXrefIds.push((message as string).slice(XREF_NOT_FOUND.length))
       else if (isAcceptedLoss(message, acceptedMissing))
         acceptedLosses++
       else
@@ -313,7 +325,7 @@ function configureLogger(
   }
   let finalized: Promise<LoggedFailures> | undefined
   return () => (finalized ??= antoraLogger.finalize()
-    .then(() => ({ failures, externalXrefs, acceptedLosses })))
+    .then(() => ({ failures, externalXrefIds, acceptedLosses })))
 }
 
 async function main(): Promise<void> {
@@ -369,6 +381,12 @@ async function main(): Promise<void> {
 
     const warnings: string[] = []
     const written: string[] = []
+    // Across the run, not per page: a deliberate simplification. A reference
+    // rewritten on one page and emitted verbatim on another is exempt on both,
+    // since its target is reachable from the page that rewrote it. Matching per
+    // page would mean mapping each log record's `file` — the included partial,
+    // with the page somewhere up its `stack` — back to the page converted.
+    const rewrittenXrefs = new Set<string>()
 
     for (const page of pages) {
       const componentVersion = catalog.getComponentVersion(page.src.component, page.src.version)
@@ -381,6 +399,7 @@ async function main(): Promise<void> {
       })
 
       for (const warning of result.warnings) warnings.push(`${sourcePath}: ${warning}`)
+      for (const id of result.externalXrefs) rewrittenXrefs.add(id)
 
       const relativeOut = outputPathFor(page)
       const target = join(outDir, relativeOut)
@@ -411,9 +430,18 @@ async function main(): Promise<void> {
     // The messages themselves are already in the log above; these only name
     // how many there were, so a long log is not the sole record of them.
     const level = loggedPlaybook.runtime.log.failureLevel.toUpperCase()
-    if (logged.externalXrefs > 0) {
+    const rewritten = logged.externalXrefIds.filter(id => rewrittenXrefs.has(id))
+    const unrewritten = logged.externalXrefIds.filter(id => !rewrittenXrefs.has(id))
+    if (rewritten.length > 0) {
       console.error(
-        `${logged.externalXrefs} ${level} xref(s) to external components, rewritten by the converter; not counted as failures`,
+        `${rewritten.length} ${level} xref(s) to external components, rewritten by the converter; not counted as failures`,
+      )
+    }
+    if (unrewritten.length > 0) {
+      const named = [...new Set(unrewritten)]
+      console.error(
+        `${unrewritten.length} ${level} xref(s) to external components the converter never rewrote, so they `
+        + `publish dangling: ${named.slice(0, 5).join(', ')}${named.length > 5 ? `, … and ${named.length - 5} more` : ''}`,
       )
     }
     if (logged.acceptedLosses > 0) {
@@ -421,8 +449,9 @@ async function main(): Promise<void> {
         `${logged.acceptedLosses} ${level}(s) the era declares as accepted losses (ADR-0004); not counted as failures`,
       )
     }
-    if (logged.failures > 0) {
-      const summary = `${logged.failures} Antora log message(s) at ${level} or above`
+    const failures = logged.failures + unrewritten.length
+    if (failures > 0) {
+      const summary = `${failures} Antora log message(s) at ${level} or above`
       if (args.strict)
         strictFailures.push(`${summary} with --strict; see the ${level} lines above`)
       else

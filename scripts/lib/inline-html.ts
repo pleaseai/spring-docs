@@ -406,14 +406,23 @@ function escapeText(
  * Rewrite a resolved Antora xref target for the Markdown tree.
  *
  * Antora resolves `xref:` to a `.html` URL that is already relative to the
- * current page, so only the extension changes — never the path.
+ * current page, so only the extension changes — never the path. A dangling
+ * reference into an external component is rewritten to its published URL, and
+ * `onExternalXref` is told which one.
  */
-function rewriteXrefTarget(href: string, externalComponents: Readonly<Record<string, string>>): string {
+function rewriteXrefTarget(
+  href: string,
+  externalComponents: Readonly<Record<string, string>>,
+  onExternalXref?: (id: string) => void,
+): string {
   const dangling = DANGLING_COMPONENT.exec(href)
   if (dangling !== null) {
     const base = externalComponents[(dangling[1] ?? '').toLowerCase()]
     if (base === undefined)
       return href
+    // Antora renders an unresolved xref as `'#' + refSpec`, and logs that same
+    // refSpec, so this is the id exactly as the log line names it.
+    onExternalXref?.(href.slice(1))
     const path = (dangling[2] ?? '').replace(ADOC_EXTENSION, '.html')
     return `${base}/${path}${dangling[3] ?? ''}`
   }
@@ -454,6 +463,14 @@ export interface InlineOptions {
    * guessing a pairing instead would ship a silently wrong one.
    */
   readonly onUnpairedStem?: (run: string) => void
+  /**
+   * Called with the Antora resource id of each dangling reference rewritten to
+   * an {@link externalComponents external component}'s published URL.
+   *
+   * `convert.ts` exempts an external xref's `target of xref not found` ERROR
+   * only when the converter really rewrote that reference; this is its record.
+   */
+  readonly onExternalXref?: (id: string) => void
 }
 
 /**
@@ -489,6 +506,7 @@ export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}):
     imageBase,
     onImageWithoutBase,
     onUnpairedStem,
+    onExternalXref,
   } = options
   let out = ''
   const emit = (text: string): void => {
@@ -525,7 +543,7 @@ export function inlineHtmlToMarkdown(html: string, options: InlineOptions = {}):
           }
           const classes = (node.attrs.get('class') ?? '').split(CLASS_SEPARATOR)
           const target = classes.includes('xref')
-            ? rewriteXrefTarget(href, externalComponents)
+            ? rewriteXrefTarget(href, externalComponents, onExternalXref)
             : href
           emit('[')
           walk(node.children)

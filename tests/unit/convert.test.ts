@@ -75,6 +75,11 @@ describe('externalXrefComponent', () => {
 
   test('does not exempt a versioned id, which the converter leaves dangling', () => {
     expect(externalXrefComponent('target of xref not found: 4.1.1@maven-plugin:index.adoc', external)).toBeUndefined()
+    expect(externalXrefComponent('target of xref not found: 4.1.1@maven-plugin:x.adoc', external)).toBeUndefined()
+  })
+
+  test('reads an @ after the first colon as part of the page path, not a version', () => {
+    expect(externalXrefComponent('target of xref not found: maven-plugin:page@2x.adoc', external)).toBe('maven-plugin')
   })
 })
 

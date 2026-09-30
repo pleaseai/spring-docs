@@ -300,6 +300,21 @@ describe('convert.ts --strict over Asciidoctor ERRORs', () => {
     )
   }, TIMEOUT)
 
+  test('--strict exits 1 on an external xref the converter emits verbatim rather than rewrites', async () => {
+    // `subs=+macros` makes Asciidoctor resolve the xref, so Antora logs it like
+    // any other, but a literal block is fenced as-is and never rewritten.
+    const source = await fixture(
+      'literal-xref',
+      '[literal,subs="+macros"]\n....\nxref:maven-plugin:index.adoc[x]\n....',
+    )
+    const result = await convert(join(work, 'literal-xref-out'), source, PROJECT, ['--strict'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('1 ERROR xref(s) to external components the converter never rewrote')
+    expect(result.stderr).toContain('maven-plugin:index.adoc')
+    expect(result.stderr).toContain('1 Antora log message(s) at ERROR or above with --strict')
+    expect(result.stderr).not.toContain('rewritten by the converter; not counted')
+  }, TIMEOUT)
+
   test('--strict exits 1 on an xref into a component that is not external', async () => {
     const source = await fixture('missing-xref', 'See xref:appendix:absent.adoc[a missing page].')
     const result = await convert(join(work, 'missing-xref-out'), source, PROJECT, ['--strict'])
