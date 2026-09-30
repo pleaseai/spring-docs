@@ -70,6 +70,12 @@ export interface ConvertResult {
   readonly markdown: string
   /** Unhandled constructs, deduplicated. Never empty when something was dropped. */
   readonly warnings: readonly string[]
+  /**
+   * Antora resource ids of the dangling references rewritten to an external
+   * component's published URL, deduplicated. A reference the converter emits
+   * verbatim — inside a literal block, say — is not among them.
+   */
+  readonly externalXrefs: readonly string[]
 }
 
 /** AsciiDoc admonition styles mapped to their GFM alert keyword. */
@@ -176,6 +182,7 @@ function flattenForCell(text: string): string {
  */
 export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): ConvertResult {
   const warnings = new Set<string>()
+  const externalXrefs = new Set<string>()
 
   /**
    * A one-line, bounded excerpt of a text run, for naming it in a warning.
@@ -210,6 +217,7 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
       onImageWithoutBase: src =>
         warnings.add(`inline image "${src}" dropped: no published image base for this project`),
       onUnknownTag: tag => warnings.add(`unknown inline tag <${tag}>`),
+      onExternalXref: id => externalXrefs.add(id),
       onUnpairedStem: run =>
         warnings.add(
           `stem:[…] delimiters do not pair up, so the run was left escaped: "${excerpt(run)}"`,
@@ -572,5 +580,9 @@ export function convertDocument(doc: AsciidoctorNode, options: ConvertOptions): 
     ...renderBlocks(doc.getBlocks()),
   ]
 
-  return { markdown: `${chunks.join('\n\n')}\n`, warnings: [...warnings] }
+  return {
+    markdown: `${chunks.join('\n\n')}\n`,
+    warnings: [...warnings],
+    externalXrefs: [...externalXrefs],
+  }
 }

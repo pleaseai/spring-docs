@@ -272,6 +272,37 @@ describe('resolveUpstream layout eras', () => {
     // An archive era needs nothing beyond the component root.
     expect(upstream.checkoutPaths).toEqual(['documentation/spring-boot-docs/src/docs/antora'])
   })
+  test('both synthesized eras declare the generated appendix as an accepted loss', () => {
+    // ADR-0004 and ADR-0006: the reconstruction cannot rebuild the appendix, so
+    // its unresolved includes and xrefs are declared rather than tolerated blind.
+    for (const version of ['3.3.0', '3.5.16', '4.0.0', '4.0.7']) {
+      const { acceptedMissing } = resolveUpstream('boot', version)
+      expect(acceptedMissing.includes).toContain('partial$configuration-properties/')
+      expect(acceptedMissing.includes).toContain('ROOT:partial$starters/')
+      expect(acceptedMissing.xrefs).toContain(
+        'appendix:auto-configuration-classes/spring-boot-autoconfigure.adoc#appendix.auto-configuration-classes.spring-boot-autoconfigure',
+      )
+    }
+    // Only 3.x logs this include; 4.0.x must not inherit the exemption.
+    expect(resolveUpstream('boot', '3.5.16').acceptedMissing.includes)
+      .toContain('partial$/auto-configuration-classes/')
+    expect(resolveUpstream('boot', '4.0.7').acceptedMissing.includes)
+      .not
+      .toContain('partial$/auto-configuration-classes/')
+  })
+
+  test('every non-synthesized era declares no accepted loss', () => {
+    const complete = [
+      ['boot', '4.0.8'],
+      ['boot', '4.1.1'],
+      ['framework', '6.2.0'],
+      ['security', '7.1.1'],
+      ['ai', '1.0.0'],
+      ['data-relational', '3.2.9'],
+    ] as const
+    for (const [project, version] of complete)
+      expect(resolveUpstream(project, version).acceptedMissing).toEqual({ includes: [], xrefs: [] })
+  })
 })
 
 describe('metadataJars', () => {

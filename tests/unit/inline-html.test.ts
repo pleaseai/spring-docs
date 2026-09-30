@@ -66,6 +66,20 @@ describe('inlineHtmlToMarkdown', () => {
     expect(result).toBe('[build](https://docs.example/maven-plugin/build-image.html#build-image)')
   })
 
+  test('reports each external reference it rewrites by its Antora resource id', () => {
+    const seen: string[] = []
+    inlineHtmlToMarkdown(
+      '<a href="#maven-plugin:build-image.adoc#build-image" class="xref page">build</a> '
+      + '<a href="#other:x.adoc" class="xref page">x</a>',
+      {
+        externalComponents: { 'maven-plugin': 'https://docs.example/maven-plugin' },
+        onExternalXref: id => seen.push(id),
+      },
+    )
+
+    expect(seen).toEqual(['maven-plugin:build-image.adoc#build-image'])
+  })
+
   test('leaves a dangling component reference alone when it has no mapping', () => {
     expect(
       inlineHtmlToMarkdown('<a href="#other:x.adoc" class="xref page">x</a>'),

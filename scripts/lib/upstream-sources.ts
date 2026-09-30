@@ -132,6 +132,13 @@ export interface UpstreamCoordinates {
    */
   readonly externalComponents: Readonly<Record<string, string>>
   /**
+   * Unresolved references this version's era accepts as known losses.
+   *
+   * The synthesized era's {@link SynthesisSources.acceptedMissing}; empty for
+   * every other era, whose content is complete.
+   */
+  readonly acceptedMissing: AcceptedMissing
+  /**
    * Base URL of this version's published `_images/` directory.
    *
    * Image assets ship inside the component but not inside a release archive,
@@ -141,6 +148,22 @@ export interface UpstreamCoordinates {
    */
   readonly imageBase: string
 }
+
+/**
+ * Include and xref targets an era knows it cannot supply, and ships without.
+ *
+ * Each entry is an Antora resource id exactly as Asciidoctor logs it in
+ * `target of include not found: <id>` / `target of xref not found: <id>`:
+ * either one exact id, or a prefix ending in `/` that covers a directory of
+ * generated partials.
+ */
+export interface AcceptedMissing {
+  readonly includes: readonly string[]
+  readonly xrefs: readonly string[]
+}
+
+/** The declaration of an era that loses nothing. */
+const NOTHING_MISSING: AcceptedMissing = { includes: [], xrefs: [] }
 
 /** Where an era's component descriptor and generated content come from. */
 export type DescriptorSource = 'archive' | 'synthesized' | 'overlay' | 'template'
@@ -179,6 +202,17 @@ export interface SynthesisSources {
    * dropped under `modules/ROOT/partials/<artifact>/`.
    */
   readonly metadataArtifacts: readonly string[]
+  /**
+   * The generated content this reconstruction does not rebuild.
+   *
+   * ADR-0004 (3.x) and ADR-0006 (4.0.0-4.0.7) accept that the generated
+   * appendix — auto-configuration listings, configuration-property tables and
+   * the other Gradle task outputs — is lost in a synthesized era. Declaring it
+   * here makes that decision data: `convert.ts --strict` tolerates exactly
+   * these unresolved targets and still fails on any other, so a loss the ADRs
+   * did not accept cannot slip in beside them.
+   */
+  readonly acceptedMissing: AcceptedMissing
 }
 
 /**
@@ -394,6 +428,35 @@ interface ProjectDefinition {
   /** Maps a catalog version to its published aggregated javadoc base URL. */
   readonly javadocLocationFor: (version: string) => string
 }
+
+/**
+ * Generated partials neither synthesized era rebuilds (ADR-0004, ADR-0006).
+ *
+ * Measured, not guessed: the exact ids every 3.3.0-4.0.7 release run logged as
+ * unresolved (2026-09-28 scan of the release logs). A directory prefix stands
+ * for a family of more than one generated file; a single generated file is
+ * named exactly.
+ */
+const BOOT_SYNTHESIS_MISSING_INCLUDES = [
+  'partial$configuration-properties/',
+  'partial$deprecated-configuration-properties/',
+  'partial$dependency-versions/',
+  'partial$slices/documented-slices.adoc',
+  'ROOT:example$remote-spring-application.txt',
+  'ROOT:partial$application/spring-application.txt',
+  'ROOT:partial$logging/logging-format.txt',
+  'ROOT:partial$propertydefaults/devtools-property-defaults.adoc',
+  'ROOT:partial$starters/',
+] as const
+
+/**
+ * The generated auto-configuration pages `redirect.adoc` links to, which no
+ * synthesized era produces (ADR-0004's "4 dangling `xref:appendix:` targets").
+ */
+const BOOT_SYNTHESIS_MISSING_XREFS = [
+  'appendix:auto-configuration-classes/spring-boot-actuator-autoconfigure.adoc#appendix.auto-configuration-classes.spring-boot-actuator-autoconfigure',
+  'appendix:auto-configuration-classes/spring-boot-autoconfigure.adoc#appendix.auto-configuration-classes.spring-boot-autoconfigure',
+] as const
 
 /**
  * Modules whose jar carries configuration-property metadata in the 3.3-3.5 line.
@@ -753,6 +816,15 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
             gradlePropertiesPath: 'gradle.properties',
             managedVersionAttributes: BOOT_3_MANAGED_VERSIONS,
             metadataArtifacts: BOOT_3_METADATA_ARTIFACTS,
+            acceptedMissing: {
+              includes: [
+                ...BOOT_SYNTHESIS_MISSING_INCLUDES,
+                // 3.x only: its auto-configuration index includes the generated
+                // listings through this odd `partial$/` spelling; 4.0.x does not.
+                'partial$/auto-configuration-classes/',
+              ],
+              xrefs: BOOT_SYNTHESIS_MISSING_XREFS,
+            },
           },
         },
       },
@@ -783,6 +855,10 @@ const PROJECTS: Readonly<Record<string, ProjectDefinition>> = {
             gradlePropertiesPath: 'gradle.properties',
             managedVersionAttributes: BOOT_4_MANAGED_VERSIONS,
             metadataArtifacts: BOOT_4_METADATA_ARTIFACTS,
+            acceptedMissing: {
+              includes: BOOT_SYNTHESIS_MISSING_INCLUDES,
+              xrefs: BOOT_SYNTHESIS_MISSING_XREFS,
+            },
           },
         },
       },
@@ -1132,6 +1208,9 @@ export function resolveUpstream(project: string, version: string): UpstreamCoord
     checkoutPaths: checkoutPathsFor(era),
     javadocLocation: definition.javadocLocationFor(version),
     externalComponents: definition.externalComponentsFor(version),
+    acceptedMissing: era.assembly.descriptor === 'synthesized'
+      ? era.assembly.synthesis.acceptedMissing
+      : NOTHING_MISSING,
     imageBase: definition.imageBaseFor(version),
   }
 }

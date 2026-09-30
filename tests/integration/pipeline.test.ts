@@ -59,7 +59,12 @@ async function initRepo(dir: string) {
   )
 }
 
-async function convert(outDir: string, source = join(work, 'src'), project = PROJECT) {
+async function convert(
+  outDir: string,
+  source = join(work, 'src'),
+  project = PROJECT,
+  flags: readonly string[] = [],
+) {
   return run(
     [
       'bun',
@@ -72,6 +77,7 @@ async function convert(outDir: string, source = join(work, 'src'), project = PRO
       VERSION,
       '--out',
       outDir,
+      ...flags,
     ],
     REPO_ROOT,
   )
@@ -242,6 +248,80 @@ describe('convert.ts over a store with a companion component', () => {
     expect((await readdir(storeOut)).sort()).toEqual([INDEX_FILENAME, 'index.md'].sort())
     expect(await readFile(join(storeOut, INDEX_FILENAME), 'utf8')).not.toContain('shared')
   })
+})
+
+describe('convert.ts --strict over Asciidoctor ERRORs', () => {
+  // Asciidoctor logs a missing include at ERROR and renders an "Unresolved
+  // include directive" line in its place, so the page still converts. Only the
+  // playbook's `failure_level`, once applied, turns that lost content into a
+  // failed build (#1044). The one ERROR it tolerates is an xref into a
+  // component `boot` declares external, which the converter rewrites.
+
+  /** A single-page `boot` component whose page body is `body`. */
+  async function fixture(name: string, body: string): Promise<string> {
+    const source = join(work, `${name}-src`)
+    await mkdir(join(source, 'modules', 'ROOT', 'pages'), { recursive: true })
+    await writeFile(join(source, 'antora.yml'), `name: ${PROJECT}\nversion: ${VERSION}\ntitle: Fixture\n`)
+    await writeFile(join(source, 'modules', 'ROOT', 'pages', 'index.adoc'), `= Fixture\n\n${body}\n`)
+    await initRepo(source)
+    return source
+  }
+
+  let missingInclude: string
+
+  beforeAll(async () => {
+    missingInclude = await fixture('missing-include', 'include::partial$absent.adoc[]')
+  }, TIMEOUT)
+
+  test('--strict exits 1 on a missing include and names the ERROR', async () => {
+    const result = await convert(join(work, 'missing-include-strict'), missingInclude, PROJECT, ['--strict'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('target of include not found')
+    expect(result.stderr).toContain('1 Antora log message(s) at ERROR or above with --strict')
+    expect(result.stderr).not.toContain('logger not configured')
+  }, TIMEOUT)
+
+  test('without --strict the page converts and the ERROR is still reported', async () => {
+    const result = await convert(join(work, 'missing-include-lenient'), missingInclude)
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).toContain('target of include not found')
+    expect(result.stderr).toContain('1 Antora log message(s) at ERROR or above')
+  }, TIMEOUT)
+
+  test('--strict tolerates an xref into an external component, which the converter rewrites', async () => {
+    const source = await fixture('external-xref', 'See xref:maven-plugin:index.adoc[the Maven plugin].')
+    const out = join(work, 'external-xref-out')
+    const result = await convert(out, source, PROJECT, ['--strict'])
+    expect(result.exitCode).toBe(0)
+    expect(result.stderr).toContain('target of xref not found: maven-plugin:index.adoc')
+    expect(result.stderr).toContain('1 ERROR xref(s) to external components, rewritten by the converter')
+    expect(await readFile(join(out, NAME, 'index.md'), 'utf8')).toContain(
+      `[the Maven plugin](https://docs.spring.io/spring-boot/${VERSION}/maven-plugin/index.html)`,
+    )
+  }, TIMEOUT)
+
+  test('--strict exits 1 on an external xref the converter emits verbatim rather than rewrites', async () => {
+    // `subs=+macros` makes Asciidoctor resolve the xref, so Antora logs it like
+    // any other, but a literal block is fenced as-is and never rewritten.
+    const source = await fixture(
+      'literal-xref',
+      '[literal,subs="+macros"]\n....\nxref:maven-plugin:index.adoc[x]\n....',
+    )
+    const result = await convert(join(work, 'literal-xref-out'), source, PROJECT, ['--strict'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('1 ERROR xref(s) to external components the converter never rewrote')
+    expect(result.stderr).toContain('maven-plugin:index.adoc')
+    expect(result.stderr).toContain('1 Antora log message(s) at ERROR or above with --strict')
+    expect(result.stderr).not.toContain('rewritten by the converter; not counted')
+  }, TIMEOUT)
+
+  test('--strict exits 1 on an xref into a component that is not external', async () => {
+    const source = await fixture('missing-xref', 'See xref:appendix:absent.adoc[a missing page].')
+    const result = await convert(join(work, 'missing-xref-out'), source, PROJECT, ['--strict'])
+    expect(result.exitCode).toBe(1)
+    expect(result.stderr).toContain('target of xref not found: appendix:absent.adoc')
+    expect(result.stderr).toContain('1 Antora log message(s) at ERROR or above with --strict')
+  }, TIMEOUT)
 })
 
 describe('package-release.ts over a converted tree', () => {
