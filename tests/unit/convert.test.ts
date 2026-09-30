@@ -96,4 +96,9 @@ describe('isAcceptedLoss', () => {
     expect(isAcceptedLoss('target of xref not found: partial$configuration-properties/web.adoc', accepted)).toBe(false)
     expect(isAcceptedLoss('target of include not found: appendix:auto.adoc#auto', accepted)).toBe(false)
   })
+
+  test('rejects a prefix match that climbs out of the declared directory', () => {
+    expect(isAcceptedLoss('target of include not found: partial$configuration-properties/../other.adoc', accepted)).toBe(false)
+    expect(isAcceptedLoss('target of include not found: partial$configuration-properties/a/../../b.adoc', accepted)).toBe(false)
+  })
 })

@@ -228,7 +228,8 @@ export function externalXrefComponent(message: unknown, external: ReadonlySet<st
  * Only `target of include not found: <id>` and `target of xref not found: <id>`
  * qualify, and only when `<id>` equals a declared entry or starts with a
  * declared entry ending in `/` — so a new missing target, even one beside a
- * declared file, still fails the build.
+ * declared file, still fails the build. A prefix match must also stay inside
+ * the declared directory: a remainder with a `..` segment could name any file.
  */
 export function isAcceptedLoss(message: unknown, accepted: AcceptedMissing): boolean {
   if (typeof message !== 'string')
@@ -240,7 +241,9 @@ export function isAcceptedLoss(message: unknown, accepted: AcceptedMissing): boo
       : [undefined, []]
   if (id === undefined)
     return false
-  return entries.some(entry => entry.endsWith('/') ? id.startsWith(entry) : id === entry)
+  return entries.some(entry => entry.endsWith('/')
+    ? id.startsWith(entry) && !id.slice(entry.length).split('/').includes('..')
+    : id === entry)
 }
 
 /**
@@ -265,7 +268,9 @@ export function isAcceptedLoss(message: unknown, accepted: AcceptedMissing): boo
  * xrefs and the era's {@link isAcceptedLoss accepted losses} — are still
  * logged, only not counted as failures.
  *
- * Returns the finalizer, which flushes the log and resolves to the counts.
+ * Returns the finalizer, which flushes the log and resolves to the counts. It
+ * is safe to call from both the success and the failure path: every call after
+ * the first returns the first call's promise, so the logger is finalized once.
  */
 function configureLogger(
   playbook: LoggedPlaybook,
@@ -306,10 +311,9 @@ function configureLogger(
       log.apply(this, args)
     }
   }
-  return async () => {
-    await antoraLogger.finalize()
-    return { failures, externalXrefs, acceptedLosses }
-  }
+  let finalized: Promise<LoggedFailures> | undefined
+  return () => (finalized ??= antoraLogger.finalize()
+    .then(() => ({ failures, externalXrefs, acceptedLosses })))
 }
 
 async function main(): Promise<void> {
@@ -324,6 +328,10 @@ async function main(): Promise<void> {
 
   const source = resolve(process.cwd(), args.source)
   const outDir = resolve(process.cwd(), args.out, `${args.project}-${args.version}`)
+  // Outside the `try` so the failure path can flush it too: the pretty log
+  // format writes through an async stream, and exiting without `finalize()`
+  // can drop the very ERROR lines that explain the failure.
+  let finalizeLogger: (() => Promise<LoggedFailures>) | undefined
 
   try {
     const upstream = resolveUpstream(args.project, args.version)
@@ -337,7 +345,7 @@ async function main(): Promise<void> {
     const loggedPlaybook = playbook as unknown as LoggedPlaybook
     // Before aggregation: Antora's component loggers bind to whatever root
     // logger exists when they first log.
-    const finalizeLogger = configureLogger(
+    finalizeLogger = configureLogger(
       loggedPlaybook,
       upstream.externalComponents,
       upstream.acceptedMissing,
@@ -385,13 +393,16 @@ async function main(): Promise<void> {
     await rm(playbookPath, { force: true })
     const logged = await finalizeLogger()
 
+    // Every summary is printed before either `--strict` condition throws, so a
+    // run that fails on one still reports the counts of the other.
+    const strictFailures: string[] = []
     if (warnings.length > 0) {
       console.error(`${warnings.length} conversion warning(s):`)
       for (const warning of warnings.slice(0, 20)) console.error(`  - ${warning}`)
       if (warnings.length > 20)
         console.error(`  … and ${warnings.length - 20} more`)
       if (args.strict) {
-        throw new Error(
+        strictFailures.push(
           `${warnings.length} conversion warning(s) with --strict; add a conversion rule for each construct above`,
         )
       }
@@ -413,13 +424,19 @@ async function main(): Promise<void> {
     if (logged.failures > 0) {
       const summary = `${logged.failures} Antora log message(s) at ${level} or above`
       if (args.strict)
-        throw new Error(`${summary} with --strict; see the ${level} lines above`)
-      console.error(summary)
+        strictFailures.push(`${summary} with --strict; see the ${level} lines above`)
+      else
+        console.error(summary)
     }
+    if (strictFailures.length > 0)
+      throw new Error(strictFailures.join('; and '))
 
     console.log(`Converted ${written.length} files to ${outDir}/`)
   }
   catch (error) {
+    // A no-op when the success path already finalized; a flush failure must
+    // not mask the error being reported.
+    await finalizeLogger?.().catch(() => undefined)
     console.error(`✗ convert failed: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
   }
